@@ -1,0 +1,162 @@
+[
+  {
+    "id": "m1",
+    "name": "TLB (Backhoe Loader)",
+    "category": "Earthmoving",
+    "hourlyRate": 500,
+    "minHireHours": 4,
+    "image": "https://loadafrica.app/assets/tlb-eXNV9dFs.jpg"
+  },
+  {
+    "id": "m2",
+    "name": "Excavator 8-Ton",
+    "category": "Earthmoving",
+    "hourlyRate": 350,
+    "minHireHours": 4,
+    "image": "https://loadafrica.app/assets/excavator-8t-DUENp7N5.jpg"
+  },
+  {
+    "id": "m3",
+    "name": "Excavator 20-Ton",
+    "category": "Earthmoving",
+    "hourlyRate": 600,
+    "minHireHours": 4,
+    "image": "https://loadafrica.app/assets/excavator-20t-DL9M2_S6.jpg"
+  },
+  {
+    "id": "m4",
+    "name": "Excavator 30-Ton",
+    "category": "Earthmoving",
+    "hourlyRate": 1450,
+    "minHireHours": 4,
+    "image": "https://loadafrica.app/assets/excavator-30t-CIaZ9pzj.jpg"
+  },
+  {
+    "id": "m5",
+    "name": "Front End Loader",
+    "category": "Earthmoving",
+    "hourlyRate": 1100,
+    "minHireHours": 4,
+    "image": "https://loadafrica.app/assets/front-end-loader-DbGXZ9BB.jpg"
+  },
+  {
+    "id": "m6",
+    "name": "Skid Steer Loader (Bobcat)",
+    "category": "Earthmoving",
+    "hourlyRate": 350,
+    "minHireHours": 4,
+    "image": "https://loadafrica.app/assets/skid-steer-CIQliLBq.jpg"
+  },
+  {
+    "id": "m7",
+    "name": "Grader",
+    "category": "Grading & Compaction",
+    "hourlyRate": 1600,
+    "minHireHours": 4,
+    "image": "https://loadafrica.app/assets/grader-B-L1o32B.jpg"
+  },
+  {
+    "id": "m8",
+    "name": "Roller (Smooth Drum)",
+    "category": "Grading & Compaction",
+    "hourlyRate": 900,
+    "minHireHours": 4,
+    "image": "https://loadafrica.app/assets/roller-smooth-D3EDI3Cv.jpg"
+  },
+  {
+    "id": "m9",
+    "name": "Roller (Padfoot)",
+    "category": "Grading & Compaction",
+    "hourlyRate": 950,
+    "minHireHours": 4,
+    "image": "https://loadafrica.app/assets/roller-padfoot-ePfFCp9I.jpg"
+  },
+  {
+    "id": "m10",
+    "name": "Plate Compactor",
+    "category": "Grading & Compaction",
+    "hourlyRate": 350,
+    "minHireHours": 4,
+    "image": "https://loadafrica.app/assets/plate-compactor-qvENBQJ5.jpg"
+  },
+  {
+    "id": "m11",
+    "name": "Mobile Crane 25-Ton",
+    "category": "Lifting",
+    "hourlyRate": 2200,
+    "minHireHours": 4,
+    "image": "https://loadafrica.app/assets/crane-25t-BkjBc-fv.jpg"
+  },
+  {
+    "id": "m12",
+    "name": "Mobile Crane 50-Ton",
+    "category": "Lifting",
+    "hourlyRate": 3500,
+    "minHireHours": 4,
+    "image": "https://loadafrica.app/assets/crane-50t-CjX6nVlq.jpg"
+  },
+  {
+    "id": "m13",
+    "name": "Forklift 3-Ton",
+    "category": "Lifting",
+    "hourlyRate": 650,
+    "minHireHours": 4,
+    "image": "https://loadafrica.app/assets/forklift-Blkb1agK.jpg"
+  },
+  {
+    "id": "m14",
+    "name": "Telehandler",
+    "category": "Lifting",
+    "hourlyRate": 1000,
+    "minHireHours": 4,
+    "image": "https://loadafrica.app/assets/telehandler-VPG47UzK.jpg"
+  },
+  {
+    "id": "m15",
+    "name": "Rock Breaker (Hammer)",
+    "category": "Drilling & Breaking",
+    "hourlyRate": 1400,
+    "minHireHours": 4,
+    "image": "https://loadafrica.app/assets/rock-breaker-BZt997FN.jpg"
+  },
+  {
+    "id": "m16",
+    "name": "Drill Rig",
+    "category": "Drilling & Breaking",
+    "hourlyRate": 2000,
+    "minHireHours": 4,
+    "image": "https://loadafrica.app/assets/drill-rig-CeGMYcfk.jpg"
+  },
+  {
+    "id": "m17",
+    "name": "Concrete Pump",
+    "category": "Concrete",
+    "hourlyRate": 1800,
+    "minHireHours": 4,
+    "image": "https://loadafrica.app/assets/concrete-pump-BSipO5Vm.jpg"
+  },
+  {
+    "id": "m18",
+    "name": "Concrete Mixer Truck",
+    "category": "Concrete",
+    "hourlyRate": 1200,
+    "minHireHours": 4,
+    "image": "https://loadafrica.app/assets/concrete-mixer-Dojr4Dse.jpg"
+  },
+  {
+    "id": "m19",
+    "name": "Bulldozer D6",
+    "category": "Earthmoving",
+    "hourlyRate": 1800,
+    "minHireHours": 4,
+    "image": "https://loadafrica.app/assets/bulldozer-d6-BtfDYsJK.jpg"
+  },
+  {
+    "id": "m20",
+    "name": "Bulldozer D8",
+    "category": "Earthmoving",
+    "hourlyRate": 2800,
+    "minHireHours": 4,
+    "image": "https://loadafrica.app/assets/bulldozer-d8-CYpjXiE6.jpg"
+  }
+]
