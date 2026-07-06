@@ -33,30 +33,30 @@ export default function QuickLoginSelector({ setEmail, setPassword, setSecretKey
       subtitle: 'Transporter'
     },
     {
-      role: 'Broker',
-      path: '/broker/login',
-      dashboard: '/broker/dashboard',
-      email: 'lwazi.dlamini@loadafrica-broker.co.za',
+      role: 'Fleet',
+      path: '/fleet/login',
+      dashboard: '/fleet-portal/dashboard',
+      email: 'fleet@loadafrica.co.za',
       password: 'password123',
-      activeClass: 'bg-slate-900 border-2 border-indigo-500 shadow-lg shadow-indigo-500/5 text-indigo-400',
-      hoverBg: 'hover:bg-indigo-500/10',
-      hoverBorder: 'hover:border-indigo-500/30',
-      hoverText: 'group-hover:text-indigo-400',
+      activeClass: 'bg-slate-900 border-2 border-blue-500 shadow-lg shadow-blue-500/5 text-blue-400',
+      hoverBg: 'hover:bg-blue-500/10',
+      hoverBorder: 'hover:border-blue-500/30',
+      hoverText: 'group-hover:text-blue-400',
       normalText: 'text-slate-300',
-      subtitle: 'Associate'
+      subtitle: 'Fleet Owner'
     },
     {
-      role: 'Admin',
-      path: '/admin/login',
-      dashboard: '/admin/dashboard',
-      email: 'admin@loadafrica.com',
+      role: 'Yellow Plant',
+      path: '/plant/login',
+      dashboard: '/plant-portal/dashboard',
+      email: 'plant@loadafrica.co.za',
       password: 'password123',
-      activeClass: 'bg-slate-900 border-2 border-rose-500 shadow-lg shadow-rose-500/5 text-rose-400',
-      hoverBg: 'hover:bg-rose-500/10',
-      hoverBorder: 'hover:border-rose-500/30',
-      hoverText: 'group-hover:text-rose-400',
+      activeClass: 'bg-slate-900 border-2 border-yellow-500 shadow-lg shadow-yellow-500/5 text-yellow-400',
+      hoverBg: 'hover:bg-yellow-500/10',
+      hoverBorder: 'hover:border-yellow-500/30',
+      hoverText: 'group-hover:text-yellow-400',
       normalText: 'text-slate-300',
-      subtitle: 'Control'
+      subtitle: 'Plant Owner'
     }
   ];
 

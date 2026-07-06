@@ -15,8 +15,9 @@ import ListPlant from './pages/ListPlant';
 import YellowPlantBooking from './pages/YellowPlantBooking';
 import DriverRegister from './pages/DriverRegister';
 import CustomerRegister from './pages/CustomerRegister';
+import TermsConditions from './pages/TermsConditions';
 
-// Customer Auth + Dashboard
+// ── Customer Auth + Dashboard ──
 import CustomerAuth from './pages/customer/CustomerAuth';
 import CustomerLayout from './layouts/CustomerLayout';
 import CustomerDashboard from './pages/customer/CustomerDashboard';
@@ -26,7 +27,7 @@ import Tracking from './pages/customer/Tracking';
 import BookingHistory from './pages/customer/BookingHistory';
 import CustomerProfile from './pages/customer/CustomerProfile';
 
-// Driver Auth + Dashboard
+// ── Driver Auth + Dashboard ──
 import DriverAuth from './pages/driver/DriverAuth';
 import DriverLayout from './layouts/DriverLayout';
 import DriverDashboard from './pages/driver/DriverDashboard';
@@ -36,30 +37,22 @@ import VehicleManagement from './pages/driver/VehicleManagement';
 import KYCVerification from './pages/driver/KYCVerification';
 import DriverProfile from './pages/driver/DriverProfile';
 
-// Broker Auth + Dashboard
-import BrokerAuth from './pages/broker/BrokerAuth';
-import BrokerLayout from './layouts/BrokerLayout';
-import BrokerDashboard from './pages/broker/BrokerDashboard';
-import Leads from './pages/broker/Leads';
-import AssignedLoads from './pages/broker/AssignedLoads';
-import CustomersList from './pages/broker/CustomersList';
-import Reports from './pages/broker/Reports';
+// ── Fleet Auth + Dashboard ──
+import FleetAuth from './pages/fleet/FleetAuth';
+import FleetLayout from './layouts/FleetLayout';
+import FleetDashboard from './pages/fleet/FleetDashboard';
 
-// Admin Auth + Dashboard
-import AdminAuth from './pages/admin/AdminAuth';
-import AdminLayout from './layouts/AdminLayout';
-import AdminDashboard from './pages/admin/AdminDashboard';
-import ManageUsers from './pages/admin/ManageUsers';
-import ManageBookings from './pages/admin/ManageBookings';
-import PaymentsReports from './pages/admin/PaymentsReports';
-import AdminSettings from './pages/admin/AdminSettings';
+// ── Yellow Plant Auth + Dashboard ──
+import PlantAuth from './pages/plant/PlantAuth';
+import PlantLayout from './layouts/PlantLayout';
+import PlantDashboard from './pages/plant/PlantDashboard';
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        
-        {/* Public Website */}
+
+        {/* ── Public Website ── */}
         <Route path="/" element={<Home />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/customers" element={<Customers />} />
@@ -72,14 +65,13 @@ export default function App() {
         <Route path="/plant/register" element={<ListPlant />} />
         <Route path="/yellow-plant" element={<YellowPlantBooking />} />
         <Route path="/login" element={<Login />} />
-        <Route path="/broker/login" element={<BrokerAuth />} />
-        <Route path="/admin/login" element={<AdminAuth />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/terms-conditions" element={<TermsConditions />} />
 
-        {/* ─── Customer Auth ─── */}
+        {/* ── Customer Auth ── */}
         <Route path="/customer/login" element={<CustomerAuth />} />
 
-        {/* ─── Customer Portal (Protected Layout) ─── */}
+        {/* ── Customer Portal (Protected Layout) ── */}
         <Route path="/customer" element={<CustomerLayout />}>
           <Route path="dashboard" element={<CustomerDashboard />} />
           <Route path="create-booking" element={<CreateBooking />} />
@@ -87,55 +79,54 @@ export default function App() {
           <Route path="tracking" element={<Tracking />} />
           <Route path="booking-history" element={<BookingHistory />} />
           <Route path="profile" element={<CustomerProfile />} />
-          {/* Default redirect for /customer → dashboard */}
           <Route index element={<Navigate to="dashboard" replace />} />
         </Route>
 
-        {/* ─── Driver Auth ─── */}
+        {/* ── Driver Auth ── */}
         <Route path="/driver/login" element={<DriverAuth />} />
 
-        {/* ─── Driver Portal (Protected Layout) ─── */}
+        {/* ── Driver Portal (Protected Layout) ── */}
         <Route path="/driver" element={<DriverLayout />}>
           <Route path="dashboard" element={<DriverDashboard />} />
-          <Route path="available-loads" element={<DriverDashboard view="loads" />} />
+          <Route path="available-loads" element={<DriverDashboard />} />
           <Route path="active-trip" element={<ActiveTrip />} />
           <Route path="earnings" element={<EarningsWallet />} />
           <Route path="vehicle-management" element={<VehicleManagement />} />
           <Route path="kyc" element={<KYCVerification />} />
           <Route path="profile" element={<DriverProfile />} />
-          {/* Default redirect for /driver → dashboard */}
           <Route index element={<Navigate to="dashboard" replace />} />
         </Route>
 
-        {/* ─── Broker Auth ─── */}
-        {/* /broker/login already handled above */}
+        {/* ── Fleet Auth ── */}
+        <Route path="/fleet/login" element={<FleetAuth />} />
 
-        {/* ─── Broker Portal (Protected Layout) ─── */}
-        <Route path="/broker" element={<BrokerLayout />}>
-          <Route path="dashboard" element={<BrokerDashboard />} />
-          <Route path="leads" element={<Leads />} />
-          <Route path="assigned-loads" element={<AssignedLoads />} />
-          <Route path="customers" element={<CustomersList />} />
-          <Route path="reports" element={<Reports />} />
-          {/* Default redirect for /broker → dashboard */}
+        {/* ── Fleet Portal (Protected Layout) — /fleet-portal/* ── */}
+        <Route path="/fleet-portal" element={<FleetLayout />}>
+          <Route path="dashboard" element={<FleetDashboard />} />
+          <Route path="vehicles" element={<FleetDashboard />} />
+          <Route path="requests" element={<FleetDashboard />} />
+          <Route path="revenue" element={<FleetDashboard />} />
+          <Route path="add-vehicle" element={<FleetDashboard />} />
+          <Route path="profile" element={<FleetDashboard />} />
           <Route index element={<Navigate to="dashboard" replace />} />
         </Route>
 
-        {/* ─── Admin Auth ─── */}
-        {/* /admin/login already handled above */}
+        {/* ── Yellow Plant Auth ── */}
+        <Route path="/plant/login" element={<PlantAuth />} />
 
-        {/* ─── Admin Portal (Protected Layout) ─── */}
-        <Route path="/admin" element={<AdminLayout />}>
-          <Route path="dashboard" element={<AdminDashboard />} />
-          <Route path="users" element={<ManageUsers />} />
-          <Route path="bookings" element={<ManageBookings />} />
-          <Route path="payments" element={<PaymentsReports />} />
-          <Route path="settings" element={<AdminSettings />} />
-          {/* Default redirect for /admin → dashboard */}
+        {/* ── Yellow Plant Portal (Protected Layout) — /plant-portal/* ── */}
+        <Route path="/plant-portal" element={<PlantLayout />}>
+          <Route path="dashboard" element={<PlantDashboard />} />
+          <Route path="equipment" element={<PlantDashboard />} />
+          <Route path="requests" element={<PlantDashboard />} />
+          <Route path="revenue" element={<PlantDashboard />} />
+          <Route path="add-machine" element={<PlantDashboard />} />
+          <Route path="maintenance" element={<PlantDashboard />} />
+          <Route path="profile" element={<PlantDashboard />} />
           <Route index element={<Navigate to="dashboard" replace />} />
         </Route>
 
-        {/* Catch-all global redirect */}
+        {/* Catch-all */}
         <Route path="*" element={<Navigate to="/" replace />} />
 
       </Routes>

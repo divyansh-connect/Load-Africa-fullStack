@@ -1,368 +1,361 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { 
-  Package, MapPin, Scale, Star, ChevronRight, 
-  CheckCircle2, Compass, RefreshCw, X, ShieldAlert, Award, Truck
+import React, { useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import {
+  Truck, MapPin, DollarSign, CheckCircle2, Clock,
+  ArrowRight, Star, ToggleLeft, ToggleRight, ChevronRight,
+  ShieldCheck, TrendingUp, Package, AlertCircle, FileText, Upload, User, Settings
 } from 'lucide-react';
-import { getMockData, acceptLoad } from '../../data/mockData';
 
-export default function DriverDashboard({ view = 'overview' }) {
+const stats = [
+  { label: 'Total Trips', value: '142', icon: Truck, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
+  { label: 'Active Trip', value: '1', icon: MapPin, color: 'text-blue-500', bg: 'bg-blue-500/10' },
+  { label: 'This Month', value: 'R 8,200', icon: DollarSign, color: 'text-amber-500', bg: 'bg-amber-500/10' },
+  { label: 'Rating', value: '4.8★', icon: Star, color: 'text-yellow-500', bg: 'bg-yellow-500/10' },
+];
+
+const availableLoads = [
+  {
+    id: 'LA-2024-091',
+    from: 'Johannesburg, Gauteng',
+    to: 'Polokwane, Limpopo',
+    cargo: 'Building Materials',
+    weight: '8 tons',
+    vehicle: '8-Ton Truck',
+    payout: 'R 2,800',
+    distance: '320 km',
+    urgency: 'Same Day',
+    urgencyColor: 'bg-red-100 text-red-700',
+  },
+  {
+    id: 'LA-2024-090',
+    from: 'Rustenburg, North West',
+    to: 'Pretoria, Gauteng',
+    cargo: 'Furniture & Goods',
+    weight: '3 tons',
+    vehicle: 'Furniture Truck',
+    payout: 'R 950',
+    distance: '110 km',
+    urgency: 'Flexible',
+    urgencyColor: 'bg-green-100 text-green-700',
+  },
+  {
+    id: 'LA-2024-089',
+    from: 'Kimberley, Northern Cape',
+    to: 'Johannesburg, Gauteng',
+    cargo: 'Mining Aggregate',
+    weight: '15 tons',
+    vehicle: 'Tipper Truck',
+    payout: 'R 4,500',
+    distance: '480 km',
+    urgency: 'Tomorrow',
+    urgencyColor: 'bg-amber-100 text-amber-700',
+  },
+];
+
+const recentTrips = [
+  { id: 'LA-2024-085', from: 'Joburg', to: 'Cape Town', cargo: 'Retail Pallets', date: '10 Jun', earned: 'R 5,200', rating: 5 },
+  { id: 'LA-2024-078', from: 'Pretoria', to: 'Durban', cargo: 'Electronics', date: '4 Jun', earned: 'R 3,800', rating: 5 },
+  { id: 'LA-2024-071', from: 'Rustenburg', to: 'Joburg', cargo: 'Sand Delivery', date: '28 May', earned: 'R 1,100', rating: 4 },
+];
+
+export default function DriverDashboard() {
+  const [isOnline, setIsOnline] = useState(true);
   const navigate = useNavigate();
-  const [loads, setLoads] = useState([]);
-  const [driver, setDriver] = useState(null);
-  const [selectedLoad, setSelectedLoad] = useState(null);
-  const [accepting, setAccepting] = useState(false);
-  const [acceptedSuccess, setAcceptedSuccess] = useState(false);
-  const [activeTrip, setActiveTrip] = useState(null);
+  const location = useLocation();
+  const path = location.pathname;
 
-  const fetchDashboardData = () => {
-    const allLoads = getMockData('loads') || [];
-    // Only show loads that are 'available'
-    const available = allLoads.filter(l => l.status === 'available');
-    setLoads(available);
-
-    const drivers = getMockData('drivers') || [];
-    setDriver(drivers[0]); // Sipho Zuma
-
-    // Find active booking for Sipho Zuma (id: 'drv-1')
-    const allBookings = getMockData('bookings') || [];
-    const active = allBookings.find(b => b.driverId === 'drv-1' && (b.bookingStatus === 'in_transit' || b.bookingStatus === 'assigned'));
-    if (active) {
-      const matchLoad = allLoads.find(l => l.id === active.loadId);
-      setActiveTrip({
-        ...active,
-        cargoTitle: matchLoad ? matchLoad.title : 'General Cargo',
-        pickup: matchLoad ? matchLoad.pickup : 'Transit Origin',
-        dropoff: matchLoad ? matchLoad.dropoff : 'Destination',
-        weight: matchLoad ? matchLoad.weight : 'N/A'
-      });
-    } else {
-      setActiveTrip(null);
-    }
+  const handleAcceptLoad = (id) => {
+    alert(`Load ${id} Accepted! Added to Active Trip.`);
+    navigate('/driver/active-trip');
   };
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, [view]);
+  // 1. Available Loads Page View
+  if (path.endsWith('/available-loads')) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-xl font-black text-slate-900">Available Loads near you</h1>
+          <p className="text-xs text-slate-500 font-medium">Accept freight requests matching your vehicle.</p>
+        </div>
 
-  const handleAcceptLoad = (loadId) => {
-    setAccepting(true);
-    setTimeout(() => {
-      // Driver Sipho accepts the load
-      const booking = acceptLoad(loadId, 'drv-1', 'vh-1');
-      setAccepting(false);
-      
-      if (booking) {
-        setAcceptedSuccess(true);
-        setSelectedLoad(null);
-        fetchDashboardData();
-      }
-    }, 1200);
-  };
-
-  if (!driver) return null;
-
-  return (
-    <div className="space-y-8 animate-fadeIn">
-      
-      {/* Welcome & Stats Row */}
-      <div className="bg-gradient-to-r from-slate-900 to-emerald-950 rounded-3xl p-6 sm:p-8 text-white relative overflow-hidden border border-slate-800 shadow-xl">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-emerald-500/10 via-transparent to-transparent pointer-events-none" />
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
-              <span className="text-xs text-emerald-400 font-bold uppercase tracking-wider">Driver Console Connected</span>
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-black tracking-tight">Sipho Zuma</h2>
-            <p className="text-xs text-slate-300 font-light max-w-md">
-              Verify available cargo loads on major highway transport corridors and accept bids instantly.
-            </p>
-          </div>
-
-          <div className="flex gap-4 sm:gap-6 bg-slate-900/50 p-4 rounded-2xl border border-slate-800">
-            <div className="text-center">
-              <span className="block text-[10px] text-slate-400 font-semibold uppercase">Wallet Bal</span>
-              <span className="font-extrabold text-lg text-emerald-400">R{driver.walletBalance}</span>
-            </div>
-            <div className="w-px bg-slate-800" />
-            <div className="text-center">
-              <span className="block text-[10px] text-slate-400 font-semibold uppercase">Completed</span>
-              <span className="font-extrabold text-lg text-white">{driver.trips} trips</span>
-            </div>
-            <div className="w-px bg-slate-800" />
-            <div className="text-center">
-              <span className="block text-[10px] text-slate-400 font-semibold uppercase">Rating</span>
-              <div className="flex items-center gap-1 mt-0.5 justify-center">
-                <Star className="h-4 w-4 text-amber-400 fill-amber-400 shrink-0" />
-                <span className="font-bold text-sm text-white">{driver.rating}</span>
+        <div className="space-y-3">
+          {availableLoads.map((load) => (
+            <div key={load.id} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4 hover:border-amber-300 transition-colors">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+                <div>
+                  <div className="flex items-center gap-1.5 text-sm font-extrabold text-slate-800">
+                    <MapPin className="h-4 w-4 text-amber-500" />
+                    {load.from}
+                    <ArrowRight className="h-3 w-3 text-slate-400" />
+                    {load.to}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">{load.cargo} · {load.weight} · {load.vehicle} · {load.distance}</p>
+                </div>
+                <span className={`text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider self-start ${load.urgencyColor}`}>
+                  {load.urgency}
+                </span>
               </div>
+              <div className="flex items-center justify-between pt-2 border-t border-slate-50">
+                <span className="text-base font-extrabold text-amber-600">{load.payout}</span>
+                <button onClick={() => handleAcceptLoad(load.id)} className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black uppercase rounded-lg transition-colors">
+                  Accept Load
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // 2. KYC Verification View
+  if (path.endsWith('/kyc')) {
+    return (
+      <div className="max-w-xl mx-auto space-y-6">
+        <div>
+          <h1 className="text-xl font-black text-slate-900">KYC Verification</h1>
+          <p className="text-xs text-slate-500 font-medium">Verify your driver license and permits to unlock full payouts.</p>
+        </div>
+
+        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl px-4 py-3 flex items-center gap-3">
+          <ShieldCheck className="h-5 w-5 text-emerald-600 shrink-0" />
+          <div>
+            <p className="text-xs font-extrabold text-emerald-800">Verified Transporter</p>
+            <p className="text-[10px] text-emerald-600">All documents approved. Load matching enabled.</p>
+          </div>
+          <span className="ml-auto text-[9px] font-bold bg-emerald-600 text-white px-2 py-0.5 rounded-full uppercase">APPROVED</span>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-5">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div>
+                <p className="text-xs font-bold text-slate-800">PrDP Code 14 Heavy License</p>
+                <p className="text-[10px] text-slate-400">Expires Oct 2028</p>
+              </div>
+              <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">Verified</span>
+            </div>
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div>
+                <p className="text-xs font-bold text-slate-800">Vehicle Inspection Certificate</p>
+                <p className="text-[10px] text-slate-400">Expires Dec 2026</p>
+              </div>
+              <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">Verified</span>
             </div>
           </div>
         </div>
       </div>
+    );
+  }
 
-      {/* Success notification overlay */}
-      {acceptedSuccess && (
-        <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center justify-between gap-4 animate-scaleIn">
-          <div className="flex items-center gap-3 text-xs">
-            <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />
-            <span className="text-emerald-800 font-bold text-left font-sans">Load accepted successfully! Your truck is now assigned.</span>
+  // 3. Driver Profile View
+  if (path.endsWith('/profile')) {
+    return (
+      <div className="max-w-xl mx-auto space-y-6">
+        <div>
+          <h1 className="text-xl font-black text-slate-900">Profile & Account</h1>
+          <p className="text-xs text-slate-500 font-medium">Manage driver contact info and payout preferences.</p>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-5 shadow-sm">
+          <div className="flex items-center gap-4 pb-4 border-b border-slate-100">
+            <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&auto=format&fit=crop&q=80" alt="Sipho Zuma" className="h-16 w-16 rounded-full object-cover" />
+            <div>
+              <h3 className="text-base font-extrabold text-slate-900">Sipho Zuma</h3>
+              <p className="text-xs text-slate-400">Driver ID: DR-9921-ZA | Rating: 4.8 ★</p>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <button 
-              onClick={() => navigate('/driver/active-trip')}
-              className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold rounded-xl shadow-sm whitespace-nowrap"
-            >
-              Start Trip Escort
-            </button>
-            <button 
-              onClick={() => setAcceptedSuccess(false)}
-              className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-semibold rounded-xl"
-            >
-              Dismiss
-            </button>
+
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase">Mobile Number</label>
+              <input type="text" defaultValue="+27 82 123 4567" className="block w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-bold bg-slate-50" disabled />
+            </div>
+            <div className="space-y-1">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase">Assigned Truck Plate</label>
+              <input type="text" defaultValue="GP 12 ABC (8-Ton Dropside)" className="block w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-bold bg-slate-50" disabled />
+            </div>
+            <div className="space-y-1">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase">Payout Bank Account</label>
+              <input type="text" defaultValue="FNB Account •••• 9812" className="block w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-bold bg-slate-50" disabled />
+            </div>
           </div>
         </div>
-      )}
+      </div>
+    );
+  }
 
-      {/* Conditional View Rendering */}
-      {view === 'overview' ? (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 text-left">
-          
-          {/* Active Trip card (Left 2 cols) */}
-          <div className="lg:col-span-2 space-y-6">
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 space-y-6">
-              <h3 className="text-lg font-bold text-slate-900 border-b border-slate-100 pb-3">Active Cargo Allocations</h3>
-              
-              {activeTrip ? (
-                <div className="space-y-4">
-                  <div className="p-5 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 transition-all">
-                    <div className="space-y-1.5 text-left">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded border border-emerald-100 uppercase">{activeTrip.bookingStatus}</span>
-                        <span className="text-xs font-mono text-slate-400">ID: {activeTrip.id}</span>
-                      </div>
-                      <h4 className="font-extrabold text-slate-800 text-base">{activeTrip.cargoTitle}</h4>
-                      <p className="text-xs text-slate-500 font-medium">Route: {activeTrip.pickup.split(',')[0]} → {activeTrip.dropoff.split(',')[0]}</p>
+  // 4. Default Overview
+  return (
+    <div className="space-y-6">
+
+      {/* Welcome + Online toggle */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-black text-slate-900">Welcome, Sipho 👋</h1>
+          <p className="text-xs text-slate-500 font-medium mt-0.5">
+            {isOnline ? 'You are online — loads are visible to you.' : 'You are offline — go online to see available loads.'}
+          </p>
+        </div>
+        <button
+          onClick={() => setIsOnline(!isOnline)}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all border ${
+            isOnline
+              ? 'bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-500/20'
+              : 'bg-slate-200 text-slate-600 border-slate-300'
+          }`}
+        >
+          {isOnline ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}
+          {isOnline ? 'Online' : 'Offline'}
+        </button>
+      </div>
+
+      {/* KYC Status */}
+      <div className="bg-emerald-50 border border-emerald-200 rounded-2xl px-4 py-3 flex items-center gap-3">
+        <ShieldCheck className="h-5 w-5 text-emerald-600 shrink-0" />
+        <div>
+          <p className="text-xs font-extrabold text-emerald-800">KYC Verified</p>
+          <p className="text-[10px] text-emerald-600">Your documents are approved. You can accept all load types.</p>
+        </div>
+        <span className="ml-auto text-[9px] font-bold bg-emerald-600 text-white px-2 py-0.5 rounded-full uppercase">VERIFIED</span>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {stats.map((stat) => {
+          const Icon = stat.icon;
+          return (
+            <div key={stat.label} className="bg-white rounded-2xl border border-slate-200 p-4 flex items-center gap-3 shadow-sm">
+              <div className={`h-10 w-10 rounded-xl ${stat.bg} flex items-center justify-center shrink-0`}>
+                <Icon className={`h-5 w-5 ${stat.color}`} />
+              </div>
+              <div>
+                <p className="text-lg font-extrabold text-slate-900 leading-none">{stat.value}</p>
+                <p className="text-[10px] text-slate-500 font-semibold mt-0.5">{stat.label}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        {/* Available Loads */}
+        <div className="lg:col-span-2 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-extrabold text-slate-800">Available Loads Near You</h2>
+            <button onClick={() => navigate('/driver/available-loads')} className="text-[10px] font-bold text-amber-500 flex items-center gap-1">
+              View all <ChevronRight className="h-3 w-3" />
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            {availableLoads.slice(0, 2).map((load) => (
+              <div key={load.id} className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3 hover:border-amber-300 transition-colors group">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="flex items-center gap-1.5 text-xs text-slate-700 font-semibold">
+                      <MapPin className="h-3 w-3 text-amber-500" />
+                      {load.from}
+                      <ArrowRight className="h-3 w-3 text-slate-400" />
+                      {load.to}
                     </div>
-                    <div className="flex sm:flex-col items-start sm:items-end justify-between sm:justify-start w-full sm:w-auto shrink-0 border-t sm:border-t-0 border-slate-100 pt-3 sm:pt-0">
-                      <div className="text-left sm:text-right">
-                        <span className="block text-[9px] text-slate-400 font-bold uppercase tracking-wider">Payout</span>
-                        <span className="text-lg font-extrabold text-slate-900">R{activeTrip.price}</span>
-                      </div>
-                      <button 
-                        onClick={() => navigate('/driver/active-trip')}
-                        className="mt-2.5 px-4.5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-sm transition-all"
-                      >
-                        Track Trip Map
-                      </button>
-                    </div>
+                    <p className="text-[10px] text-slate-400 mt-0.5">{load.cargo} · {load.weight} · {load.vehicle} · {load.distance}</p>
                   </div>
+                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase shrink-0 ${load.urgencyColor}`}>
+                    {load.urgency}
+                  </span>
                 </div>
-              ) : (
-                <div className="text-center py-12 border border-dashed border-slate-200 rounded-2xl space-y-3">
-                  <Truck className="h-10 w-10 text-slate-350 mx-auto" />
-                  <p className="text-sm font-semibold text-slate-600">No Active Trips Assigned</p>
-                  <p className="text-xs text-slate-400 max-w-xs mx-auto font-light">You are currently offline or idle. Browse available cargo leads to accept cargo assignments.</p>
-                  <button 
-                    onClick={() => navigate('/driver/available-loads')}
-                    className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition-all shadow-md mt-2"
-                  >
-                    View Available Leads
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-extrabold text-amber-600">{load.payout}</p>
+                  <button onClick={() => handleAcceptLoad(load.id)} className="px-4 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 text-[10px] font-black uppercase rounded-lg transition-all">
+                    Accept Load
                   </button>
                 </div>
-              )}
-            </div>
-          </div>
-
-          {/* Quick Stats Panel (Right 1 col) */}
-          <div className="space-y-6">
-            
-            {/* KYC Compliance Badge */}
-            <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="bg-emerald-500/10 p-2.5 rounded-xl border border-emerald-500/20 text-emerald-600">
-                  <Award className="h-6 w-6" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-slate-800 text-sm">Transporter Status</h4>
-                  <span className="text-[10px] text-emerald-600 bg-emerald-50 border border-emerald-100 font-bold px-2 py-0.5 rounded uppercase">VERIFIED</span>
-                </div>
               </div>
-              <p className="text-xs text-slate-400 leading-relaxed font-light">
-                Your driver CDL and flatbed truck registration tags are verified. Maintain active telemetry locks during routing.
-              </p>
-            </div>
-
-            {/* Platform Shortcuts */}
-            <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
-              <h4 className="font-bold text-slate-850 text-sm border-b border-slate-100 pb-2">Quick Navigation</h4>
-              <div className="space-y-2 text-xs">
-                <button onClick={() => navigate('/driver/earnings')} className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-slate-100 font-semibold text-slate-700">
-                  <span>View Wallet Earnings</span>
-                  <ChevronRight className="h-4 w-4 text-slate-400" />
-                </button>
-                <button onClick={() => navigate('/driver/vehicle-management')} className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-slate-100 font-semibold text-slate-700">
-                  <span>Manage Truck Details</span>
-                  <ChevronRight className="h-4 w-4 text-slate-400" />
-                </button>
-              </div>
-            </div>
-
+            ))}
           </div>
-
         </div>
-      ) : (
-        /* Available Cargo list */
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 space-y-6 text-left">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-            <div>
-              <h3 className="text-lg font-bold text-slate-900">Available Cargo Leads</h3>
-              <p className="text-xs text-slate-400">Loads broadcasting within 50km coordinates. Ready for instant routing dispatch.</p>
+
+        {/* Right: Active trip + Earnings */}
+        <div className="space-y-4">
+
+          {/* Active Trip */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
+            <h3 className="text-xs font-extrabold text-slate-800">Active Trip</h3>
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-blue-800">
+                <MapPin className="h-3 w-3" />
+                Joburg → Cape Town
+              </div>
+              <p className="text-[10px] text-blue-600">Retail Pallets · 8-Ton Truck</p>
+              <div>
+                <div className="flex justify-between text-[9px] text-blue-500 mb-1">
+                  <span>Progress</span><span>65%</span>
+                </div>
+                <div className="h-1.5 bg-blue-100 rounded-full">
+                  <div className="h-full bg-blue-500 rounded-full w-[65%]" />
+                </div>
+              </div>
+              <div className="flex items-center justify-between text-[10px]">
+                <span className="text-blue-600 font-bold flex items-center gap-1"><Clock className="h-2.5 w-2.5" /> ETA 2h 30min</span>
+                <span className="font-extrabold text-blue-800">R 5,200</span>
+              </div>
             </div>
-            <button 
-              onClick={fetchDashboardData}
-              className="p-2 hover:bg-slate-50 text-slate-400 hover:text-slate-700 rounded-xl transition-all border border-slate-200"
-              title="Refresh Leads"
-            >
-              <RefreshCw className="h-4.5 w-4.5" />
+          </div>
+
+          {/* Earnings Summary */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-extrabold text-slate-800">Earnings</h3>
+              <button onClick={() => navigate('/driver/earnings')} className="text-[10px] text-amber-500 font-bold">Details</button>
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] text-slate-500 font-medium">This Week</span>
+                <span className="text-sm font-extrabold text-slate-900">R 3,450</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] text-slate-500 font-medium">This Month</span>
+                <span className="text-sm font-extrabold text-slate-900">R 8,200</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] text-slate-500 font-medium">Wallet Balance</span>
+                <span className="text-sm font-extrabold text-emerald-600">R 2,100</span>
+              </div>
+            </div>
+            <button onClick={() => navigate('/driver/earnings')}
+              className="w-full py-2 bg-slate-55 hover:bg-slate-100 text-slate-700 font-black text-[10px] uppercase tracking-wider rounded-xl transition-all">
+              Withdraw Earnings
             </button>
           </div>
 
-          {loads.length === 0 ? (
-            <div className="text-center py-16 space-y-3">
-              <Package className="h-12 w-12 text-slate-350 mx-auto" />
-              <p className="text-sm font-semibold text-slate-600">No available loads in your area</p>
-              <p className="text-xs text-slate-400 font-light max-w-xs mx-auto">Please check back later or modify your truck filters in Settings.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {loads.map((load) => (
-                <div 
-                  key={load.id} 
-                  className="border border-slate-200 hover:border-emerald-500/40 rounded-2xl p-5 hover:bg-slate-50/20 transition-all flex flex-col justify-between"
-                >
-                  <div className="space-y-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="space-y-1">
-                        <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 uppercase">{load.category}</span>
-                        <h4 className="font-bold text-slate-800 text-base mt-1.5">{load.title}</h4>
-                        <span className="text-[10px] text-slate-400 font-mono font-medium">{load.id}</span>
-                      </div>
-                      <div className="text-right">
-                        <span className="block text-[10px] text-slate-400 font-semibold uppercase">Payout Bid</span>
-                        <span className="text-lg font-extrabold text-slate-800">R{load.budget}</span>
-                      </div>
-                    </div>
-
-                    <div className="border-t border-slate-100 pt-4 space-y-2.5">
-                      <div className="flex items-start gap-2.5 text-xs text-slate-600">
-                        <MapPin className="h-4.5 w-4.5 text-amber-500 shrink-0 mt-0.5" />
-                        <p className="font-semibold leading-tight line-clamp-1">{load.pickup.split(',')[0]}</p>
-                      </div>
-                      <div className="flex items-start gap-2.5 text-xs text-slate-600">
-                        <MapPin className="h-4.5 w-4.5 text-indigo-500 shrink-0 mt-0.5" />
-                        <p className="font-semibold leading-tight line-clamp-1">{load.dropoff.split(',')[0]}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-6 border-t border-slate-100 pt-4 flex items-center justify-between gap-4">
-                    <span className="text-xs text-slate-400 font-semibold">Weight: {load.weight}</span>
-                    <button 
-                      onClick={() => setSelectedLoad(load)}
-                      className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all shadow-sm"
-                    >
-                      View Details
-                      <ChevronRight className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
-      )}
+      </div>
 
-      {/* Load details modal */}
-      {selectedLoad && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fadeIn">
-          <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={() => setSelectedLoad(null)} />
-          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl border border-slate-100 overflow-hidden relative z-10 animate-scaleIn">
-            <div className="p-6 bg-slate-900 text-white flex items-center justify-between">
-              <span className="font-bold text-sm">Accept Load Bidding - {selectedLoad.id}</span>
-              <button onClick={() => setSelectedLoad(null)} className="text-slate-400 hover:text-white font-bold text-sm">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            
-            <div className="p-6 space-y-6">
-              <div className="flex justify-between items-start text-left">
-                <div className="space-y-1">
-                  <h4 className="text-lg font-bold text-slate-900">{selectedLoad.title}</h4>
-                  <span className="text-xs text-slate-400">Owner: {selectedLoad.customerName}</span>
-                </div>
-                <div className="text-right">
-                  <span className="block text-[10px] text-slate-400 font-semibold uppercase">COMMITTED PAYOUT</span>
-                  <span className="text-2xl font-extrabold text-slate-800">R{selectedLoad.budget}</span>
-                </div>
-              </div>
-
-              <div className="border border-slate-150 rounded-2xl p-4 divide-y divide-slate-100 space-y-3.5 text-xs bg-slate-50/50 text-left">
-                <div className="flex justify-between pt-0">
-                  <span className="text-slate-400 font-medium">Cargo Category:</span>
-                  <span className="text-slate-800 font-bold">{selectedLoad.category}</span>
-                </div>
-                <div className="flex justify-between pt-3">
-                  <span className="text-slate-400 font-medium">Weight:</span>
-                  <span className="text-slate-800 font-bold">{selectedLoad.weight}</span>
-                </div>
-                <div className="flex justify-between pt-3">
-                  <span className="text-slate-400 font-medium">Distance Estimate:</span>
-                  <span className="text-slate-800 font-bold">{selectedLoad.distance || 'Calculating...'}</span>
-                </div>
-                <div className="space-y-1 pt-3 border-t border-slate-150">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">PICKUP ADDRESS</span>
-                  <p className="text-slate-700 font-medium leading-relaxed">{selectedLoad.pickup}</p>
-                </div>
-                <div className="space-y-1 pt-3">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">DROPOFF ADDRESS</span>
-                  <p className="text-slate-700 font-medium leading-relaxed">{selectedLoad.dropoff}</p>
-                </div>
-              </div>
-
-              <div className="p-3 bg-amber-500/5 border border-amber-500/10 rounded-xl flex items-start gap-2.5 text-left text-xs">
-                <ShieldAlert className="h-4.5 w-4.5 text-amber-500 shrink-0 mt-0.5" />
-                <p className="text-slate-500 font-light leading-relaxed">
-                  Acceptance holds your GPS telemetry active for regulatory logs. Escrow pays out within 2 hours of digital sign-off.
-                </p>
-              </div>
-
-              <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
-                <button 
-                  onClick={() => setSelectedLoad(null)}
-                  disabled={accepting}
-                  className="px-5 py-3 border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-semibold rounded-xl"
-                >
-                  Cancel
-                </button>
-                <button 
-                  onClick={() => handleAcceptLoad(selectedLoad.id)}
-                  disabled={accepting}
-                  className="flex-1 flex items-center justify-center gap-2 py-3 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition-all shadow-md"
-                >
-                  {accepting ? (
-                    <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <>Accept Cargo & Start Trip</>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
+      {/* Recent Trips */}
+      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between p-4 border-b border-slate-100">
+          <h2 className="text-sm font-extrabold text-slate-800">Recent Trips</h2>
+          <button onClick={() => navigate('/driver/trips')} className="text-[10px] font-bold text-amber-500 flex items-center gap-1">
+            View all <ChevronRight className="h-3 w-3" />
+          </button>
         </div>
-      )}
+        <div className="divide-y divide-slate-50">
+          {recentTrips.map((t) => (
+            <div key={t.id} className="flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors">
+              <div className="space-y-0.5">
+                <p className="text-xs font-bold text-slate-800">{t.from} → {t.to}</p>
+                <p className="text-[10px] text-slate-400">{t.cargo} · {t.date}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs font-extrabold text-slate-800">{t.earned}</p>
+                <p className="text-[10px] text-yellow-500">{'★'.repeat(t.rating)}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
 
     </div>
   );

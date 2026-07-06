@@ -34,7 +34,7 @@ export default function Footer() {
               <button onClick={() => navigate('/drivers')} className="hover:text-[#f99c00] text-left bg-transparent border-none p-0 cursor-pointer text-[11px] transition-colors">For Drivers</button>
               <button onClick={() => navigate('/fleet')} className="hover:text-[#f99c00] text-left bg-transparent border-none p-0 cursor-pointer text-[11px] transition-colors">Our Fleet</button>
               <button onClick={() => navigate('/contact')} className="hover:text-[#f99c00] text-left bg-transparent border-none p-0 cursor-pointer text-[11px] transition-colors">Contact</button>
-              <button className="hover:text-[#f99c00] text-left bg-transparent border-none p-0 cursor-pointer text-[11px] transition-colors">Terms & Conditions</button>
+              <button onClick={() => navigate('/terms-conditions')} className="hover:text-[#f99c00] text-left bg-transparent border-none p-0 cursor-pointer text-[11px] transition-colors">Terms & Conditions</button>
             </div>
           </div>
 
