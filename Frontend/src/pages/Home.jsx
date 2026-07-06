@@ -22,6 +22,21 @@ export default function Home() {
   const [radius, setRadius] = useState(50);
   const [quoteResult, setQuoteResult] = useState(null);
 
+  // Stepper flow states
+  const [currentStep, setCurrentStep] = useState(1); // 1: Book, 2: Quote, 3: Details, 4: Success
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+
+  // Customer/Payment Details state
+  const [customerName, setCustomerName] = useState('Patrice Motsepe');
+  const [customerEmail, setCustomerEmail] = useState('patrice@arm.co.za');
+  const [customerPhone, setCustomerPhone] = useState('+27 82 123 4567');
+
+  // Credit Card state
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardExpiry, setCardExpiry] = useState('');
+  const [cardCvv, setCardCvv] = useState('');
+  const [isPaying, setIsPaying] = useState(false);
+
   // FAQ accordion states
   const [faqOpen, setFaqOpen] = useState({});
 
@@ -29,11 +44,14 @@ export default function Home() {
     setFaqOpen(prev => ({ ...prev, [index]: !prev[index] }));
   };
 
+  // Validation & Get Quotation
   const handleGetQuote = (e) => {
     e.preventDefault();
-    if (!pickup || !dropoff) return;
+    if (!pickup || !dropoff || !vehicle) {
+      alert('Please fill in Pickup Location, Delivery Location and Vehicle Type.');
+      return;
+    }
 
-    // Simulate smart cargo quote estimation
     const mockDistance = Math.floor(50 + Math.random() * 450);
     let multiplier = 1.0;
     if (vehicle.toLowerCase().includes('bakkie')) multiplier = 0.5;
@@ -48,6 +66,27 @@ export default function Home() {
       estimate: basePrice,
       duration: `${Math.round(mockDistance / 60) + 1} hours`
     });
+    setCurrentStep(2);
+  };
+
+  const handlePayClick = (e) => {
+    e.preventDefault();
+    setIsPaying(true);
+    setTimeout(() => {
+      setIsPaying(false);
+      setIsPaymentModalOpen(false);
+      setCurrentStep(4);
+    }, 1500);
+  };
+
+  const resetBookingWizard = () => {
+    setPickup('');
+    setDropoff('');
+    setVehicle('');
+    setCargoType('');
+    setRadius(50);
+    setQuoteResult(null);
+    setCurrentStep(1);
   };
 
   const servicesList = [
@@ -108,7 +147,7 @@ export default function Home() {
 
       <Navbar />
 
-      {/* Hero Section (Compensated for Fixed Navbar) */}
+      {/* Hero Section */}
       <div 
         className="relative z-10 text-white w-full overflow-hidden border-b border-slate-900 bg-cover bg-center py-12 lg:py-16 mt-20"
         style={{ 
@@ -130,7 +169,7 @@ export default function Home() {
               SOUTH AFRICA
             </h1>
 
-            <p className="text-sm sm:text-base text-slate-350 font-light leading-relaxed max-w-xl">
+            <p className="text-sm sm:text-base text-slate-355 font-light leading-relaxed max-w-xl">
               Bakkie hire, truck hire, load board, furniture removal and business deliveries in Gauteng, North West (Rustenburg) and Northern Cape — instant quotes, verified drivers, insured loads.
             </p>
 
@@ -138,7 +177,7 @@ export default function Home() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-8 max-w-lg">
               <a
                 href="#quote-card"
-                className="px-5 py-3 bg-[#EF9A30] hover:bg-[#e08b00] text-slate-950 font-black rounded-lg text-center text-sm tracking-wider transition-colors uppercase"
+                className="px-5 py-3 bg-[#EF9A30] hover:bg-[#e08b00] text-slate-955 font-black rounded-lg text-center text-sm tracking-wider transition-colors uppercase"
               >
                 Book a Load
               </a>
@@ -166,32 +205,38 @@ export default function Home() {
           {/* Right quotation card column */}
           <div id="quote-card" className="lg:col-span-6 relative">
             <div className="bg-white rounded-2xl shadow-xl p-10 text-left border border-slate-100 text-slate-900 relative z-10">
-              <h3 className="text-lg font-black text-slate-950 uppercase tracking-tight">
+              <h3 className="text-lg font-black text-slate-955 uppercase tracking-tight">
                 BOOK TRANSPORT
               </h3>
               
               {/* Step counter */}
               <div className="flex items-center gap-2 my-5">
                 <div className="flex items-center gap-2">
-                  <span className="h-8 w-8 rounded-full bg-[#EF9A30] text-white text-xs font-bold flex items-center justify-center shadow-md">1</span>
-                  <span className="h-0.5 w-6 bg-slate-300"></span>
-                  <span className="h-8 w-8 rounded-full bg-slate-100 text-slate-400 border border-slate-300 text-xs font-bold flex items-center justify-center">2</span>
-                  <span className="h-0.5 w-6 bg-slate-300"></span>
-                  <span className="h-8 w-8 rounded-full bg-slate-100 text-slate-400 border border-slate-300 text-xs font-bold flex items-center justify-center">3</span>
-                  <span className="h-0.5 w-6 bg-slate-300"></span>
-                  <span className="h-8 w-8 rounded-full bg-slate-100 text-slate-400 border border-slate-300 text-xs font-bold flex items-center justify-center">4</span>
+                  <span className={`h-8 w-8 rounded-full text-xs font-bold flex items-center justify-center shadow-md ${currentStep >= 1 ? 'bg-[#EF9A30] text-white' : 'bg-slate-100 text-slate-400 border border-slate-300'}`}>1</span>
+                  <span className={`h-0.5 w-6 ${currentStep >= 2 ? 'bg-[#EF9A30]' : 'bg-slate-300'}`}></span>
+                  <span className={`h-8 w-8 rounded-full text-xs font-bold flex items-center justify-center ${currentStep >= 2 ? 'bg-[#EF9A30] text-white shadow-md' : 'bg-slate-100 text-slate-400 border border-slate-300'}`}>2</span>
+                  <span className={`h-0.5 w-6 ${currentStep >= 3 ? 'bg-[#EF9A30]' : 'bg-slate-300'}`}></span>
+                  <span className={`h-8 w-8 rounded-full text-xs font-bold flex items-center justify-center ${currentStep >= 3 ? 'bg-[#EF9A30] text-white shadow-md' : 'bg-slate-100 text-slate-400 border border-slate-300'}`}>3</span>
+                  <span className={`h-0.5 w-6 ${currentStep >= 4 ? 'bg-[#EF9A30]' : 'bg-slate-300'}`}></span>
+                  <span className={`h-8 w-8 rounded-full text-xs font-bold flex items-center justify-center ${currentStep >= 4 ? 'bg-[#EF9A30] text-white shadow-md' : 'bg-slate-100 text-slate-400 border border-slate-300'}`}>4</span>
                 </div>
-                <span className="text-[11px] font-bold text-slate-400 ml-1">Enter details</span>
+                <span className="text-[11px] font-bold text-slate-500 ml-1">
+                  {currentStep === 1 && 'Enter details'}
+                  {currentStep === 2 && 'Quotation'}
+                  {currentStep === 3 && 'Payment'}
+                  {currentStep === 4 && 'Complete'}
+                </span>
               </div>
 
-              {!quoteResult ? (
+              {/* STEP 1: Enter details */}
+              {currentStep === 1 && (
                 <form onSubmit={handleGetQuote} className="space-y-4">
                   <div className="space-y-1">
                     <label className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
                       <MapPin className="h-3.5 w-3.5 text-[#EF9A30]" /> Pickup Location
                     </label>
                     <GooglePlacesInput
-                      placeholder="Search pickup address..."
+                      placeholder="Search pickup address in South Africa..."
                       value={pickup}
                       onChange={e => setPickup(e.target.value)}
                       onPlaceSelect={place => {
@@ -207,7 +252,7 @@ export default function Home() {
                       <MapPin className="h-3.5 w-3.5 text-[#EF9A30]" /> Delivery Location
                     </label>
                     <GooglePlacesInput
-                      placeholder="Search delivery address..."
+                      placeholder="Search delivery address in South Africa..."
                       value={dropoff}
                       onChange={e => setDropoff(e.target.value)}
                       onPlaceSelect={place => {
@@ -222,7 +267,6 @@ export default function Home() {
                     <label className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
                       <Truck className="h-3.5 w-3.5 text-[#EF9A30]" /> Vehicle Type
                     </label>
-                    {/* Custom Dropdown Trigger */}
                     <button
                       type="button"
                       onClick={() => setVehicleOpen(!vehicleOpen)}
@@ -235,7 +279,6 @@ export default function Home() {
                       <span>{vehicle || 'Select vehicle type'}</span>
                       <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${vehicleOpen ? 'rotate-180' : ''}`} />
                     </button>
-                    {/* Dropdown Options */}
                     {vehicleOpen && (
                       <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
                         {['LDV','Bakkie','Coldroom Bakkie','1-3 Ton Truck','Furniture Truck','4-8 Ton Truck','Box Truck','Flatbed Truck','Dropside Truck','Curtain-Side Truck','Crane Truck','Tipper Truck','Side Tipper','Water Tanker','Fuel Tanker'].map((v) => (
@@ -295,52 +338,241 @@ export default function Home() {
 
                   <button 
                     type="submit"
-                    className="w-full py-3 bg-[#808a9f] hover:bg-slate-600 text-white font-bold rounded text-xs flex items-center justify-center gap-1.5 transition-colors uppercase tracking-wider"
+                    className="w-full py-3 bg-[#f99c00] hover:bg-[#e08b00] text-slate-955 font-bold rounded text-xs flex items-center justify-center gap-1.5 transition-colors uppercase tracking-wider"
                   >
                     <FileText className="h-4 w-4" />
                     GET QUOTATION
                   </button>
                 </form>
-              ) : (
-                <div className="space-y-6 py-4 animate-scaleIn">
-                  <div className="p-4 bg-amber-50 rounded-xl border border-amber-100/50 space-y-3.5 text-xs text-left">
+              )}
+
+              {/* STEP 2: Quotation */}
+              {currentStep === 2 && quoteResult && (
+                <div className="space-y-5 py-2 animate-scaleIn text-xs">
+                  {/* Route Map Placeholder */}
+                  <div className="bg-slate-100 rounded-xl h-28 flex flex-col items-center justify-center border border-slate-200 relative overflow-hidden">
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-200/50 via-slate-100 to-slate-100"></div>
+                    <MapPin className="h-6 w-6 text-amber-500 animate-bounce relative z-10" />
+                    <span className="text-[10px] text-slate-400 font-bold mt-1 relative z-10">Route Polyline Map Active</span>
+                  </div>
+
+                  {/* Summary Details */}
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
                     <div className="flex justify-between">
-                      <span className="text-slate-500 font-bold">Est Distance:</span>
-                      <strong className="text-slate-855 font-black">{quoteResult.distance}</strong>
+                      <span className="text-slate-500 font-bold">Pickup Address:</span>
+                      <span className="text-slate-800 font-extrabold truncate max-w-[200px]">{pickup}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-500 font-bold">Est Duration:</span>
-                      <strong className="text-slate-855 font-black">{quoteResult.duration}</strong>
+                      <span className="text-slate-500 font-bold">Delivery Address:</span>
+                      <span className="text-slate-800 font-extrabold truncate max-w-[200px]">{dropoff}</span>
                     </div>
-                    <div className="flex justify-between border-t border-amber-200/40 pt-3">
-                      <span className="text-slate-600 font-black">Est Cost (ZAR):</span>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500 font-bold">Distance:</span>
+                      <span className="text-slate-800 font-extrabold">{quoteResult.distance}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500 font-bold">Travel Time:</span>
+                      <span className="text-slate-800 font-extrabold">{quoteResult.duration}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500 font-bold">Vehicle Class:</span>
+                      <span className="text-slate-800 font-extrabold">{vehicle}</span>
+                    </div>
+                    {cargoType && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-500 font-bold">Cargo Type:</span>
+                        <span className="text-slate-800 font-extrabold">{cargoType}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between border-t border-slate-200 pt-3">
+                      <span className="text-slate-900 font-black text-sm">Estimated Total (ZAR):</span>
                       <strong className="text-amber-600 text-lg font-black">R{quoteResult.estimate}</strong>
                     </div>
                   </div>
-                  
+
                   <div className="flex gap-3">
                     <button 
-                      onClick={() => setQuoteResult(null)}
-                      className="flex-1 py-3 border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-bold rounded transition-colors uppercase"
+                      onClick={() => setCurrentStep(1)}
+                      className="flex-1 py-3 border border-slate-200 hover:bg-slate-55 text-slate-650 text-xs font-bold rounded transition-colors uppercase font-mono"
                     >
-                      Reset
+                      Edit Details
                     </button>
                     <button 
-                      onClick={() => navigate('/login')}
+                      onClick={() => setCurrentStep(3)}
                       className="flex-1 py-3 bg-[#f99c00] hover:bg-[#e08b00] text-slate-950 text-xs font-bold rounded transition-colors uppercase tracking-wider"
                     >
-                      Book Cargo
+                      Pay & Book
                     </button>
                   </div>
                 </div>
               )}
+
+              {/* STEP 3: Payment Details */}
+              {currentStep === 3 && quoteResult && (
+                <div className="space-y-4 py-2 animate-scaleIn text-xs">
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl text-center space-y-2">
+                    <p className="text-slate-500 font-bold">Booking Amount due:</p>
+                    <h3 className="text-2xl font-black text-amber-600">R{quoteResult.estimate}</h3>
+                    <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2.5 py-0.5 rounded-full uppercase">Free cancellation within 1 hour</span>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <label className="block text-slate-700 font-bold">Full Name</label>
+                      <input
+                        type="text"
+                        value={customerName}
+                        onChange={e => setCustomerName(e.target.value)}
+                        className="block w-full px-3 py-2.5 border border-slate-200 rounded-lg text-slate-800 font-bold bg-white focus:outline-none focus:border-amber-500"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="block text-slate-700 font-bold">Email Address</label>
+                      <input
+                        type="email"
+                        value={customerEmail}
+                        onChange={e => setCustomerEmail(e.target.value)}
+                        className="block w-full px-3 py-2.5 border border-slate-200 rounded-lg text-slate-800 font-bold bg-white focus:outline-none focus:border-amber-500"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="block text-slate-700 font-bold">Phone Number</label>
+                      <input
+                        type="text"
+                        value={customerPhone}
+                        onChange={e => setCustomerPhone(e.target.value)}
+                        className="block w-full px-3 py-2.5 border border-slate-200 rounded-lg text-slate-800 font-bold bg-white focus:outline-none focus:border-amber-500"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button 
+                      onClick={() => setCurrentStep(2)}
+                      className="flex-1 py-3 border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-bold rounded transition-colors uppercase"
+                    >
+                      Back
+                    </button>
+                    <button 
+                      onClick={() => setIsPaymentModalOpen(true)}
+                      className="flex-1 py-3 bg-[#f99c00] hover:bg-[#e08b00] text-slate-955 font-bold rounded transition-colors uppercase tracking-wider"
+                    >
+                      Pay Now
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 4: Successful Payment */}
+              {currentStep === 4 && (
+                <div className="space-y-5 py-4 text-center animate-scaleIn">
+                  <div className="h-16 w-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-2 border border-emerald-200">
+                    <CheckCircle2 className="h-8 w-8" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <h3 className="text-lg font-black text-slate-950 uppercase tracking-tight">Booking Successful!</h3>
+                    <p className="text-xs text-slate-500 font-bold">Your vehicle assignment and load details are confirmed.</p>
+                  </div>
+
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 text-xs text-left space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500 font-bold">Reference Number:</span>
+                      <strong className="text-slate-800 font-black">LA-2026-{Math.floor(1000 + Math.random() * 9000)}</strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500 font-bold">Vehicle Class:</span>
+                      <strong className="text-slate-800 font-black">{vehicle}</strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500 font-bold">Paid (ZAR):</span>
+                      <strong className="text-emerald-600 font-black">R{quoteResult?.estimate}</strong>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={resetBookingWizard}
+                    className="w-full py-3 bg-[#f99c00] hover:bg-[#e08b00] text-slate-955 font-bold rounded text-xs uppercase tracking-wider transition-colors"
+                  >
+                    Book another cargo
+                  </button>
+                </div>
+              )}
+
             </div>
           </div>
+
+          {/* Secure Payment Gateway Modal */}
+          {isPaymentModalOpen && (
+            <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+              <div className="bg-white border border-slate-200 shadow-2xl p-8 rounded-2xl w-full max-w-sm text-slate-900 space-y-5 animate-scaleIn">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <h3 className="text-sm font-black uppercase text-slate-950">Secure Payment</h3>
+                  <button onClick={() => setIsPaymentModalOpen(false)} className="text-xs font-bold text-slate-400 hover:text-slate-800">Cancel</button>
+                </div>
+
+                <div className="p-3.5 bg-slate-50 rounded-lg flex justify-between items-center text-xs">
+                  <span className="text-slate-500 font-bold">Amount to pay (ZAR):</span>
+                  <span className="font-extrabold text-amber-600">R{quoteResult?.estimate}</span>
+                </div>
+
+                <form onSubmit={handlePayClick} className="space-y-4 text-xs">
+                  <div className="space-y-1">
+                    <label className="block text-slate-700 font-bold">Card Number</label>
+                    <input
+                      type="text"
+                      placeholder="4000 1234 5678 9010"
+                      value={cardNumber}
+                      onChange={e => setCardNumber(e.target.value)}
+                      required
+                      className="block w-full px-3 py-2.5 border border-slate-200 rounded-lg text-slate-800 font-bold focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="block text-slate-700 font-bold">Expiry Date</label>
+                      <input
+                        type="text"
+                        placeholder="MM/YY"
+                        value={cardExpiry}
+                        onChange={e => setCardExpiry(e.target.value)}
+                        required
+                        className="block w-full px-3 py-2.5 border border-slate-200 rounded-lg text-slate-800 font-bold focus:outline-none focus:border-amber-500 text-center"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="block text-slate-700 font-bold">CVV</label>
+                      <input
+                        type="password"
+                        placeholder="•••"
+                        maxLength="3"
+                        value={cardCvv}
+                        onChange={e => setCardCvv(e.target.value)}
+                        required
+                        className="block w-full px-3 py-2.5 border border-slate-200 rounded-lg text-slate-800 font-bold focus:outline-none focus:border-amber-500 text-center"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isPaying}
+                    className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-lg text-xs uppercase tracking-wider transition-colors shadow-lg shadow-emerald-500/20 disabled:opacity-50"
+                  >
+                    {isPaying ? 'Processing Payment...' : `Pay R${quoteResult?.estimate}`}
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
 
         </section>
       </div>
 
-      {/* Why Choose Section (Match spacing & clean cards) */}
+      {/* Why Choose Section */}
       <section className="max-w-7xl mx-auto px-6 py-24 text-center space-y-12 bg-white">
         <div className="space-y-2">
           <h2 className="text-3xl font-black tracking-tight text-slate-950 uppercase">
@@ -376,160 +608,78 @@ export default function Home() {
             <div className="h-16 w-16 rounded-full bg-amber-50 text-[#f99c00] flex items-center justify-center mb-2">
               <ShieldCheck className="h-6 w-6" />
             </div>
-            <h4 className="font-extrabold text-slate-950 text-base">Verified Drivers</h4>
+            <h4 className="font-extrabold text-slate-955 text-base">Verified Drivers</h4>
             <p className="text-xs text-slate-500 leading-relaxed font-normal">
-              All drivers are verified and rated. Your cargo is in safe, professional hands.
+              Every driver undergoes strict background verification and license audits.
             </p>
           </Card>
         </div>
       </section>
 
-      {/* Services Section (Match Spacing py-24 & color style background) */}
-      <section id="services" className="max-w-7xl mx-auto px-6 py-24 border-t border-slate-100 text-center space-y-12 bg-white">
-        <div className="space-y-2">
-          <h2 className="text-3xl font-black tracking-tight text-slate-950 uppercase">
-            LOGISTICS SERVICES WE COVER
-          </h2>
-          <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">
-            From a single bakkie courier run to fleet-scale construction haulage — book it on LoadAfrica.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {servicesList.map((srv, idx) => {
-            const Icon = srv.icon;
-            return (
-              <Card key={idx} className="bg-white border border-slate-200/80 p-8 text-left space-y-4 shadow-xs hover:shadow-md transition-shadow rounded-2xl">
-                <div className="h-10 w-10 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
-                  <Icon className="h-5 w-5" />
-                </div>
-                <div className="space-y-2">
-                  <h4 className="font-extrabold text-base text-slate-955">{srv.title}</h4>
-                  <p className="text-xs text-slate-550 leading-relaxed font-normal">{srv.desc}</p>
-                </div>
-              </Card>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* Every Vehicle Section (Match spacing & colors) */}
-      <div id="vehicles" className="bg-[#F0F2F6] w-full border-t border-slate-100 py-24">
-        <section className="max-w-7xl mx-auto px-6 text-center space-y-12 bg-transparent">
-          <div className="space-y-2">
-            <h2 className="text-3xl font-black tracking-tight text-slate-955 uppercase">
-              EVERY VEHICLE YOU NEED
+      {/* Services List Catalog */}
+      <section id="services" className="bg-[#f8fafc] py-24 text-center border-t border-slate-200/50">
+        <div className="max-w-7xl mx-auto px-6 space-y-12 text-left">
+          <div className="text-center space-y-2">
+            <h2 className="text-3xl font-black tracking-tight text-slate-950 uppercase">
+              OUR LOGISTICS SERVICES
             </h2>
-            <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">
-              From bakkies to heavy-duty trucks
+            <p className="text-xs text-slate-400 font-bold tracking-wider uppercase">
+              End-to-End logistics solutions in South Africa
             </p>
           </div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-            {vehiclesList.map((vh, idx) => {
-              const Icon = vh.icon;
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {servicesList.map((srv, idx) => {
+              const Icon = srv.icon;
               return (
-                <div key={idx} className="bg-white border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1.5 hover:border-[#f99c00] rounded-2xl overflow-hidden flex flex-col h-full min-h-[260px] text-center transition-all duration-300 ease-out transform">
-                  {/* Top Half: Light Grey Background with Divider Border and Orange Icon */}
-                  <div className="bg-[#F3F3F4] py-10 flex items-center justify-center border-b border-slate-200/60">
-                    <Icon className="h-10 w-10 text-[#f99c00] stroke-[1.8]" />
+                <Card key={idx} className="bg-white border border-slate-200/80 p-6 text-left space-y-4 shadow-xs rounded-2xl">
+                  <div className="h-12 w-12 rounded-xl bg-slate-50 text-slate-700 flex items-center justify-center shrink-0">
+                    <Icon className="h-6 w-6 text-[#f99c00] stroke-[1.8]" />
                   </div>
-                  
-                  {/* Bottom Half: White Background with Text */}
-                  <div className="p-5 flex-1 flex flex-col justify-between bg-white">
-                    <div className="space-y-1">
-                      <h4 className="font-extrabold text-sm text-slate-900">{vh.name}</h4>
-                      <span className="block text-[10px] text-slate-500 font-bold uppercase tracking-wide">
-                        {vh.capacity.startsWith('Up to') || vh.capacity.includes('tons') || vh.capacity.includes('kL') ? vh.capacity : `Up to ${vh.capacity}`}
-                      </span>
-                    </div>
-                    {vh.use && (
-                      <p className="text-[10px] text-slate-400 leading-relaxed font-normal mt-2">
-                        {vh.use}
-                      </p>
-                    )}
+                  <div className="space-y-1">
+                    <h4 className="font-extrabold text-base text-slate-950">{srv.title}</h4>
+                    <p className="text-xs text-slate-500 leading-relaxed font-normal">{srv.desc}</p>
                   </div>
-                </div>
+                </Card>
               );
             })}
           </div>
-        </section>
-      </div>
-
-      {/* Trust Section (Match spacing & text details) */}
-      <section id="trust" className="max-w-7xl mx-auto px-6 py-24 border-t border-slate-100 text-center space-y-12 bg-white">
-        <div className="space-y-2">
-          <span className="text-[#f99c00] font-bold text-xs uppercase tracking-wider block">
-            SOUTH AFRICAN LOGISTICS PLATFORM
-          </span>
-          <h2 className="text-3xl font-black tracking-tight text-slate-950 uppercase">
-            A TRANSPORT SERVICE YOU CAN TRUST
-          </h2>
-          <p className="text-xs text-slate-500 max-w-3xl mx-auto font-bold uppercase tracking-wide">
-            LoadAfrica is a logistics & transport marketplace — not a crypto or payments product. We move cargo across South Africa with verified drivers and insured loads.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <Card className="bg-white border border-slate-200/80 p-8 text-left space-y-4 shadow-sm rounded-2xl">
-            <div className="h-10 w-10 rounded-full bg-amber-50 text-[#f99c00] flex items-center justify-center">
-              <CheckCircle2 className="h-5 w-5 fill-current" />
-            </div>
-            <h4 className="font-extrabold text-slate-950 text-sm uppercase">Registered SA Business</h4>
-            <p className="text-xs text-slate-550 leading-relaxed font-normal">
-              Loadafrica (Pty) Ltd — Company Reg 2016 / 389702 / 07.
-            </p>
-          </Card>
-
-          <Card className="bg-white border border-slate-200/80 p-8 text-left space-y-4 shadow-sm rounded-2xl">
-            <div className="h-10 w-10 rounded-full bg-amber-50 text-[#f99c00] flex items-center justify-center">
-              <ShieldCheck className="h-5 w-5 animate-pulse" />
-            </div>
-            <h4 className="font-extrabold text-slate-950 text-sm uppercase">Verified Drivers & Vehicles</h4>
-            <p className="text-xs text-slate-550 leading-relaxed font-normal">
-              Every driver is ID-verified. Vehicles are inspected and load-insured before dispatch.
-            </p>
-          </Card>
-
-          <Card className="bg-white border border-slate-200/80 p-8 text-left space-y-4 shadow-sm rounded-2xl">
-            <div className="h-10 w-10 rounded-full bg-amber-50 text-[#f99c00] flex items-center justify-center">
-              <Phone className="h-5 w-5" />
-            </div>
-            <h4 className="font-extrabold text-slate-950 text-sm uppercase">Real Human Support</h4>
-            <p className="text-xs text-slate-550 leading-relaxed font-normal">
-              Talk to a person on WhatsApp 063 931 6677 — tracking, bookings and disputes handled fast. (For quotes, use the booking form.)
-            </p>
-          </Card>
-        </div>
-
-        <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-6 text-xs sm:text-sm text-slate-600 font-bold tracking-wide">
-          <span className="flex items-center gap-2">
-            <MapPin className="h-4 w-4 text-[#EF9A30] shrink-0" />
-            Operating in Gauteng, North West (Rustenburg) & Northern Cape
-          </span>
-          <a href="mailto:support@loadafrica.app" className="flex items-center gap-2 hover:text-[#EF9A30] transition-colors">
-            <Mail className="h-4 w-4 text-[#EF9A30] shrink-0" />
-            support@loadafrica.app
-          </a>
         </div>
       </section>
 
-      {/* Ready to Move Cargo Section */}
-      <section className="bg-[#0b1329] py-12 border-t border-slate-800/40 text-center text-white">
-        <div className="max-w-4xl mx-auto px-6 space-y-4">
-          <h2 className="text-3xl sm:text-5xl font-black tracking-tight uppercase">
-            READY TO MOVE YOUR CARGO?
-          </h2>
-          <p className="text-sm sm:text-base text-slate-400 max-w-2xl mx-auto">
-            Join thousands of businesses using LoadAfrica for reliable logistics.
-          </p>
-          <div className="pt-3 flex justify-center">
-            <button
-              onClick={() => navigate('/login')}
-              className="px-8 py-3.5 bg-[#f99c00] hover:bg-[#e08b00] active:scale-[0.98] text-slate-950 font-extrabold rounded text-xs tracking-wider transition-all duration-150 uppercase shadow-lg shadow-amber-500/10 cursor-pointer"
-            >
-              BOOK YOUR FIRST LOAD
-            </button>
+      {/* Dynamic Accordion FAQ */}
+      <section className="bg-white py-24 border-t border-slate-200/50">
+        <div className="max-w-4xl mx-auto px-6 space-y-8">
+          <div className="text-center space-y-2">
+            <h2 className="text-3xl font-black tracking-tight text-slate-950 uppercase">
+              FREQUENTLY ASKED QUESTIONS
+            </h2>
+            <p className="text-xs text-slate-400 font-bold tracking-wider uppercase">
+              Everything you need to know about LoadAfrica
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            {[
+              { q: 'How do I track my active cargo transport?', a: 'Once your driver accepts the load, you will receive a tracking link via SMS. You can also view live tracking details on your Customer Portal under the Active Deliveries tab.' },
+              { q: 'What insurance is provided on loaded cargo?', a: 'Every booking on LoadAfrica includes goods-in-transit (GIT) insurance up to R 250,000. Higher GIT limits can be requested for high-value cargo.' },
+              { q: 'How are delivery payouts calculated?', a: 'Transport rates are dynamically estimated based on pickup distance, fuel indices, vehicle load type, and match parameters. Payments are securely held until successful confirmation of delivery.' }
+            ].map((faq, idx) => (
+              <div key={idx} className="border border-slate-200 rounded-xl overflow-hidden transition-all duration-300">
+                <button
+                  onClick={() => toggleFaq(idx)}
+                  className="w-full flex items-center justify-between px-6 py-4.5 text-left text-xs font-black text-slate-955 bg-slate-50/50 hover:bg-slate-50 transition-colors"
+                >
+                  <span>{faq.q}</span>
+                  <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${faqOpen[idx] ? 'rotate-180' : ''}`} />
+                </button>
+                {faqOpen[idx] && (
+                  <div className="px-6 py-4 bg-white border-t border-slate-100 text-xs text-slate-500 leading-relaxed font-normal">
+                    {faq.a}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       </section>
