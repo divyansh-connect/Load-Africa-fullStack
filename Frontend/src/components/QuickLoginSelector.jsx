@@ -57,6 +57,32 @@ export default function QuickLoginSelector({ setEmail, setPassword, setSecretKey
       hoverText: 'group-hover:text-yellow-400',
       normalText: 'text-slate-300',
       subtitle: 'Plant Owner'
+    },
+    {
+      role: 'Admin',
+      path: '/admin/login',
+      dashboard: '/admin-portal/dashboard',
+      email: 'admin@loadafrica.com',
+      password: 'admin123',
+      activeClass: 'bg-slate-900 border-2 border-indigo-500 shadow-lg shadow-indigo-500/5 text-indigo-400',
+      hoverBg: 'hover:bg-indigo-500/10',
+      hoverBorder: 'hover:border-indigo-500/30',
+      hoverText: 'group-hover:text-indigo-400',
+      normalText: 'text-slate-300',
+      subtitle: 'Administrator'
+    },
+    {
+      role: 'Broker',
+      path: '/broker/login',
+      dashboard: '/broker/dashboard',
+      email: 'lwazi.dlamini@loadafrica-broker.co.za',
+      password: 'password123',
+      activeClass: 'bg-slate-900 border-2 border-cyan-500 shadow-lg shadow-cyan-500/5 text-cyan-400',
+      hoverBg: 'hover:bg-cyan-500/10',
+      hoverBorder: 'hover:border-cyan-500/30',
+      hoverText: 'group-hover:text-cyan-400',
+      normalText: 'text-slate-300',
+      subtitle: 'Freight Broker'
     }
   ];
 

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Truck } from 'lucide-react';
 import QuickLoginSelector from '../components/QuickLoginSelector';
+import { authService } from '../services/authService';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -12,7 +13,7 @@ export default function Login() {
   const [targetDashboard, setTargetDashboard] = useState('/customer/dashboard');
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!email || !password) {
       setError('Please fill in all fields.');
@@ -21,10 +22,27 @@ export default function Login() {
     setError('');
     setLoading(true);
 
-    setTimeout(() => {
+    try {
+      const response = await authService.login(email, password);
       setLoading(false);
-      navigate(targetDashboard);
-    }, 1000);
+      
+      // Determine where to route based on user role
+      const userRole = response.data.user.role;
+      switch(userRole) {
+        case 'CUSTOMER': navigate('/customer/dashboard'); break;
+        case 'DRIVER': navigate('/driver/dashboard'); break;
+        case 'FLEET_OWNER': navigate('/fleet-portal/dashboard'); break;
+        case 'PLANT_OWNER': navigate('/plant-portal/dashboard'); break;
+        case 'BROKER': navigate('/broker/dashboard'); break;
+        case 'ADMIN': 
+        case 'SUPER_ADMIN': 
+          navigate('/admin-portal/dashboard'); break;
+        default: navigate('/');
+      }
+    } catch (err) {
+      setLoading(false);
+      setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
+    }
   };
 
   return (

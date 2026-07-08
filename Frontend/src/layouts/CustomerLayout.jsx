@@ -44,8 +44,6 @@ export default function CustomerLayout({ children }) {
     { name: 'Booking History', path: '/customer/booking-history', icon: History },
     { name: 'Profile & Settings', path: '/customer/profile', icon: User },
   ];
-
-
   return (
     <div className="h-screen overflow-hidden bg-slate-50 text-slate-800 flex font-sans">
       

@@ -1,156 +1,370 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Scale, DollarSign, Calendar, Truck, ArrowRight, ArrowLeft } from 'lucide-react';
-import { createLoad } from '../../data/mockData';
-import { Button, Input, Select, Card, VehicleCard, GooglePlacesInput } from '../../components/ui';
-
-const VEHICLES_LIST = [
-  { id: 'bakkie', name: 'Bakkie', capacity: '1 - 1.5 Tons', multiplier: 0.5, desc: 'Light city transits, express parcel deliveries, furniture removals', img: 'https://images.unsplash.com/photo-1592838064575-70ed626d3a0e?w=300&auto=format&fit=crop&q=80' },
-  { id: 'box', name: '4-Ton & 8-Ton closed trucks', capacity: '4 - 8 Tons', multiplier: 0.8, desc: 'Closed cargo transportation, office relocation, commercial logistics', img: 'https://images.unsplash.com/photo-1506015391300-4802dc74de2e?w=300&auto=format&fit=crop&q=80' },
-  { id: 'tipper', name: 'Side Tipper', capacity: '20 - 30 Tons', multiplier: 1.2, desc: 'Bulk sand supply, rubble clearing, aggregates, mining gravel', img: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=300&auto=format&fit=crop&q=80' },
-  { id: 'tanker', name: 'Tanker', capacity: '35,000 Liters', multiplier: 1.3, desc: 'Bulk liquid logistics, chemical carriage, industrial fuel', img: 'https://images.unsplash.com/photo-1519003722824-194d4455a60c?w=300&auto=format&fit=crop&q=80' },
-  { id: 'yellow_plant', name: 'Yellow Plant (TLB, Excavator)', capacity: 'Heavy Plant', multiplier: 1.5, desc: 'Construction site plant machinery placement, excavators, TLBs', img: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=300&auto=format&fit=crop&q=80' }
-];
+import { MapPin, Truck, Box, Navigation, Calculator, ArrowLeft, Send, Lock, Check, CheckCircle2 } from 'lucide-react';
+import { Input, Select } from '../../components/ui';
 
 export default function CreateBooking() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
-  const [title, setTitle] = useState('');
-  const [category, setCategory] = useState('Building Materials');
-  const [weight, setWeight] = useState('');
-  const [pickup, setPickup] = useState('');
-  const [dropoff, setDropoff] = useState('');
-  const [budget, setBudget] = useState('');
-  const [selectedVehicle, setSelectedVehicle] = useState('bakkie');
-  const [loading, setLoading] = useState(false);
+  
+  const [formData, setFormData] = useState({
+    pickup: '27 Watermelon St, Bendor, Polokwane, 0699, South Africa',
+    dropoff: 'X89, 16 Serengeti Blvd, Witfontein, Kempton Park, 1619, South Africa',
+    vehicleType: 'LDV',
+    cargoType: 'Furniture, Building materials',
+    radius: 50,
+    email: 'you@example.com',
+    fullName: 'Jane Doe',
+    phone: '+27 ...'
+  });
 
-  const calculateTotalRate = () => {
-    const v = VEHICLES_LIST.find(x => x.id === selectedVehicle);
-    const m = v ? v.multiplier : 1.0;
-    return Math.round(Number(budget || 500) * m);
+  const handleChange = (e) => {
+    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const handleNextStep = (e) => {
-    e.preventDefault();
-    if (!title || !weight || !pickup || !dropoff || !budget) return;
-    setStep(2);
+  const handleSliderChange = (e) => {
+    setFormData(prev => ({ ...prev, radius: e.target.value }));
   };
 
-  const handleCreate = () => {
-    setLoading(true);
-    const finalRate = calculateTotalRate();
-    const newLoad = {
-      title,
-      category,
-      weight: `${weight} Tons`,
-      pickup,
-      dropoff,
-      budget: finalRate,
-      customerName: 'Patrice Motsepe',
-      customerId: 'usr-1',
-      vehicleType: VEHICLES_LIST.find(v => v.id === selectedVehicle).name
-    };
+  // Step names based on screenshots
+  const steps = ['Enter details', 'Review price', 'Payment', 'Confirmation'];
 
-    setTimeout(() => {
-      const created = createLoad(newLoad);
-      setLoading(false);
-      navigate(`/customer/booking-details?id=${created.id}`);
-    }, 1500);
+  const renderStepIndicator = () => {
+    return (
+      <div className="flex items-center gap-3 mb-8 text-xs font-semibold">
+        {[1, 2, 3, 4].map((num, idx) => (
+          <React.Fragment key={num}>
+            <div className={`flex items-center justify-center h-6 w-6 rounded-full shrink-0 ${
+              step > num ? 'bg-amber-100 text-amber-500 border border-amber-200' :
+              step === num ? 'bg-[#f4a236] text-white' : 'bg-slate-100 text-slate-400'
+            }`}>
+              {step > num ? <Check className="h-3 w-3" /> : num}
+            </div>
+            {idx < 3 && <div className="h-[1px] w-4 bg-slate-200"></div>}
+          </React.Fragment>
+        ))}
+        <span className="ml-2 text-slate-500">{steps[step - 1]}</span>
+      </div>
+    );
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 text-left animate-fadeIn">
-      
-      <div>
-        <h2 className="text-2xl font-black text-slate-900 tracking-tight font-sans">Book A Load Cargo</h2>
-        <p className="text-xs text-slate-400">Post details of your freight cargo to match transiting drivers.</p>
-      </div>
-
-      {step === 1 && (
-        <Card className="p-6 sm:p-8 space-y-6">
-          <h3 className="text-lg font-bold text-slate-800">1. Cargo & Route Details</h3>
-          
-          <form onSubmit={handleNextStep} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Input label="Cargo Name" placeholder="e.g. 500 Bags of Cement" value={title} onChange={e => setTitle(e.target.value)} required />
-              <Select label="Category" value={category} onChange={e => setCategory(e.target.value)}>
-                <option>Building Materials</option>
-                <option>Heavy Equipment</option>
-                <option>Food & Beverage</option>
-                <option>Agriculture</option>
-                <option>Consumer Goods</option>
-              </Select>
-              <Input label="Cargo Weight (Tons)" type="number" placeholder="e.g. 25" value={weight} onChange={e => setWeight(e.target.value)} icon={Scale} required />
-              <Input label="Base Budget (R)" type="number" placeholder="e.g. 12000" value={budget} onChange={e => setBudget(e.target.value)} icon={DollarSign} required />
-              <div className="md:col-span-2">
-                <GooglePlacesInput 
-                  label="Pickup Location Address" 
-                  placeholder="Search pickup point" 
-                  value={pickup} 
-                  onChange={e => setPickup(e.target.value)} 
-                  onPlaceSelect={place => setPickup(place.address)} 
-                  icon={MapPin} 
-                  required 
-                />
-              </div>
-              <div className="md:col-span-2">
-                <GooglePlacesInput 
-                  label="Delivery Location Address" 
-                  placeholder="Search destination" 
-                  value={dropoff} 
-                  onChange={e => setDropoff(e.target.value)} 
-                  onPlaceSelect={place => setDropoff(place.address)} 
-                  icon={MapPin} 
-                  required 
-                />
-              </div>
-            </div>
-            
-            <div className="flex justify-end pt-4 border-t border-slate-100">
-              <Button type="submit">
-                Select Vehicle Category
-                <ArrowRight className="h-4.5 w-4.5 ml-2" />
-              </Button>
-            </div>
-          </form>
-        </Card>
-      )}
-
-      {step === 2 && (
-        <Card className="p-6 sm:p-8 space-y-6">
-          <h3 className="text-lg font-bold text-slate-800">2. Select Vehicle Category</h3>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {VEHICLES_LIST.map((vh) => (
-              <VehicleCard 
-                key={vh.id}
-                img={vh.img}
-                name={vh.name}
-                capacity={vh.capacity}
-                desc={vh.desc}
-                rate={Math.round(Number(budget) * vh.multiplier)}
-                selected={selectedVehicle === vh.id}
-                onClick={() => setSelectedVehicle(vh.id)}
-              />
-            ))}
-          </div>
-
-          <div className="pt-6 border-t border-slate-100 flex items-center justify-between">
-            <button type="button" onClick={() => setStep(1)} className="text-xs font-bold text-slate-500 hover:text-slate-700 flex items-center gap-1">
-              <ArrowLeft className="h-4 w-4" />
-              Cargo Details
+    <div className="min-h-[80vh] flex items-center justify-center p-4">
+      {/* Main Card mimicking the screenshot exactly */}
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-xl p-6 sm:p-8 text-left border border-slate-100">
+        
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-6">
+          {step > 1 && (
+            <button onClick={() => setStep(step - 1)} className="p-1 hover:bg-slate-100 rounded-lg transition-colors">
+              <ArrowLeft className="h-5 w-5 text-slate-600" />
             </button>
-            <Button onClick={handleCreate} disabled={loading}>
-              {loading ? (
-                <div className="h-4 w-4 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <>Confirm & Dispatch Booking</>
-              )}
-            </Button>
-          </div>
-        </Card>
-      )}
+          )}
+          <h2 className="text-xl font-extrabold text-slate-900 tracking-tight uppercase">
+            {step === 1 ? 'Book Transport' : step === 2 ? 'Your Quotation' : step === 3 ? 'Payment' : 'Booking Confirmed'}
+          </h2>
+        </div>
 
+        {renderStepIndicator()}
+
+        {/* STEP 1: Enter details */}
+        {step === 1 && (
+          <div className="space-y-5 animate-fadeIn">
+            <div>
+              <label className="flex items-center gap-2 text-sm font-semibold text-slate-800 mb-1.5">
+                <MapPin className="h-4 w-4 text-[#f4a236]" /> Pickup Location
+              </label>
+              <input 
+                name="pickup"
+                value={formData.pickup}
+                onChange={handleChange}
+                placeholder="Search pickup address..."
+                className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-[#f4a236]"
+              />
+            </div>
+
+            <div>
+              <label className="flex items-center gap-2 text-sm font-semibold text-slate-800 mb-1.5">
+                <MapPin className="h-4 w-4 text-[#f4a236]" /> Delivery Location
+              </label>
+              <input 
+                name="dropoff"
+                value={formData.dropoff}
+                onChange={handleChange}
+                placeholder="Search delivery address..."
+                className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-[#f4a236]"
+              />
+            </div>
+
+            <div>
+              <label className="flex items-center gap-2 text-sm font-semibold text-slate-800 mb-1.5">
+                <Truck className="h-4 w-4 text-[#f4a236]" /> Vehicle Type
+              </label>
+              <select 
+                name="vehicleType"
+                value={formData.vehicleType}
+                onChange={handleChange}
+                className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-[#f4a236] bg-white appearance-none"
+              >
+                <option value="">Select vehicle type</option>
+                <option value="Motorbike">Motorbike</option>
+                <option value="Small Car">Small Car</option>
+                <option value="LDV">LDV</option>
+                <option value="Bakkie">Bakkie</option>
+                <option value="Coldroom Bakkie">Coldroom Bakkie</option>
+                <option value="1-3 Ton Truck">1-3 Ton Truck</option>
+                <option value="Furniture Truck">Furniture Truck</option>
+                <option value="4-8 Ton Truck">4-8 Ton Truck</option>
+                <option value="Crane Truck">Crane Truck</option>
+                <option value="Tipper Truck">Tipper Truck</option>
+                <option value="Side Tipper">Side Tipper</option>
+                <option value="Tanker">Tanker</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="flex items-center gap-2 text-sm font-semibold text-slate-800 mb-1.5">
+                <Box className="h-4 w-4 text-[#f4a236]" /> Cargo Type (Optional)
+              </label>
+              <input 
+                name="cargoType"
+                value={formData.cargoType}
+                onChange={handleChange}
+                placeholder="e.g., Furniture, Building materials"
+                className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-[#f4a236]"
+              />
+            </div>
+
+            <div className="pt-2">
+              <div className="flex items-center justify-between mb-2">
+                <label className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                  <Navigation className="h-4 w-4 text-[#f4a236]" /> Match radius
+                </label>
+                <span className="text-sm font-semibold text-slate-600">{formData.radius} km</span>
+              </div>
+              <input 
+                type="range" 
+                min="10" 
+                max="200" 
+                value={formData.radius} 
+                onChange={handleSliderChange}
+                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#f4a236]"
+              />
+              <p className="text-[11px] text-slate-500 mt-2 font-medium">We'll notify drivers, fleets and plant owners within {formData.radius} km of your pickup.</p>
+            </div>
+
+            <button 
+              onClick={() => setStep(2)}
+              className="w-full mt-4 py-3 bg-[#8b919a] hover:bg-slate-500 text-white font-bold text-sm rounded-lg flex items-center justify-center gap-2 transition-colors uppercase tracking-wider"
+            >
+              <Calculator className="h-4 w-4" />
+              Get Quotation
+            </button>
+          </div>
+        )}
+
+        {/* STEP 2: Review price */}
+        {step === 2 && (
+          <div className="space-y-4 animate-fadeIn">
+            
+            {/* Map Placeholder */}
+            <div className="h-48 bg-slate-800 rounded-xl overflow-hidden relative flex items-center justify-center">
+              {/* Very rough mockup of a dark map background from screenshot */}
+              <div className="absolute inset-0 opacity-40 bg-[url('https://maps.googleapis.com/maps/api/staticmap?center=Pretoria,South+Africa&zoom=7&size=600x300&maptype=roadmap&style=feature:all|element:labels.text.fill|color:0xffffff&style=feature:all|element:labels.text.stroke|color:0x000000&style=feature:water|element:geometry|color:0x0e171d&style=feature:landscape|element:geometry|color:0x1e2730&style=feature:road|element:geometry|color:0x2c353f&style=feature:poi|element:geometry|color:0x28313a&sensor=false')] bg-cover bg-center"></div>
+              
+              <div className="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none">
+                <div className="relative h-24 w-1 bg-blue-500 rounded-full">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 h-6 w-5 bg-red-500 text-[10px] text-white flex items-center justify-center font-bold rounded-full border border-white">A</div>
+                  <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 h-6 w-5 bg-red-500 text-[10px] text-white flex items-center justify-center font-bold rounded-full border border-white">B</div>
+                </div>
+              </div>
+
+              {/* Map Controls placeholder */}
+              <div className="absolute right-3 top-3 bg-white rounded-md shadow-md flex flex-col border border-slate-200">
+                <button className="h-8 w-8 flex items-center justify-center border-b border-slate-200 text-slate-600 font-bold">+</button>
+                <button className="h-8 w-8 flex items-center justify-center text-slate-600 font-bold">-</button>
+              </div>
+            </div>
+
+            {/* Route Details Box */}
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-xs text-slate-600 space-y-2">
+              <div className="flex items-center gap-3 font-semibold text-slate-800 mb-1">
+                <div className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5 text-red-500" /> 301 km</div>
+                <div className="flex items-center gap-1">⏱ 3 hours 6 mins</div>
+              </div>
+              <p><span className="font-bold text-slate-700">From:</span> {formData.pickup}</p>
+              <p><span className="font-bold text-slate-700">To:</span> {formData.dropoff}</p>
+              <p><span className="font-bold text-slate-700">Vehicle:</span> {formData.vehicleType} • <span className="font-bold text-slate-700">Cargo:</span> {formData.cargoType}</p>
+            </div>
+
+            {/* Price Breakdown Box */}
+            <div className="border border-[#f4a236]/30 bg-amber-50/10 rounded-xl p-5">
+              <h3 className="flex items-center gap-2 text-xs font-extrabold text-slate-800 mb-4 uppercase tracking-wider">
+                <Calculator className="h-4 w-4 text-[#f4a236]" /> Price Breakdown
+              </h3>
+              
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between text-slate-600 font-medium">
+                  <span>Base fare ({formData.vehicleType})</span>
+                  <span>R 100</span>
+                </div>
+                <div className="flex justify-between text-slate-600 font-medium">
+                  <span>Distance (301.4 km)</span>
+                  <span>R 3,014</span>
+                </div>
+                <div className="flex justify-between text-slate-600 font-medium pb-4 border-b border-slate-200/60">
+                  <span>Service fee (17%)</span>
+                  <span>R 516</span>
+                </div>
+                
+                <div className="flex justify-between items-center pt-1">
+                  <span className="font-extrabold text-slate-900 text-base">Estimated Total</span>
+                  <span className="font-extrabold text-[#f4a236] text-xl">R 3,630</span>
+                </div>
+                <p className="text-[9px] text-slate-400 mt-1">* Final price may vary based on route conditions and loading time</p>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <button 
+                onClick={() => setStep(1)}
+                className="py-3 border-2 border-[#f4a236] text-[#f4a236] font-extrabold text-sm rounded-lg hover:bg-amber-50 uppercase tracking-wider transition-colors"
+              >
+                Edit Details
+              </button>
+              <button 
+                onClick={() => setStep(3)}
+                className="py-3 bg-[#f4a236] hover:bg-amber-500 text-white font-extrabold text-sm rounded-lg flex items-center justify-center gap-2 uppercase tracking-wider transition-colors shadow-lg shadow-amber-500/20"
+              >
+                <Send className="h-4 w-4" />
+                Pay & Book
+              </button>
+            </div>
+
+          </div>
+        )}
+
+        {/* STEP 3: Payment */}
+        {step === 3 && (
+          <div className="space-y-5 animate-fadeIn">
+            
+            {/* Amount Due Box */}
+            <div className="border border-[#f4a236]/30 bg-amber-50/30 rounded-xl p-5">
+              <div className="flex justify-between items-center mb-1">
+                <span className="font-extrabold text-slate-900 text-sm">Amount due now</span>
+                <span className="font-extrabold text-[#f4a236] text-xl">R 3,630</span>
+              </div>
+              <p className="text-xs text-slate-500 font-medium">Full payment required to confirm booking. Secured by Paystack.</p>
+            </div>
+
+            {/* Cancellation Policy Box */}
+            <div className="border border-orange-200 bg-orange-50/50 rounded-xl p-3.5 flex items-start gap-2.5">
+              <div className="mt-0.5 h-4 w-4 shrink-0 text-orange-500 flex items-center justify-center font-bold text-xs border border-orange-500 rounded-full">!</div>
+              <p className="text-xs text-slate-700 leading-snug">
+                <span className="font-bold">Cancellation policy:</span> 15% penalty (R 545) if cancelled. You'll be refunded R 3,085.
+              </p>
+            </div>
+
+            {/* Form Fields */}
+            <div className="space-y-4 pt-1">
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">Email</label>
+                <input 
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-[#f4a236]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 mb-1.5">Full name</label>
+                  <input 
+                    name="fullName"
+                    value={formData.fullName}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-[#f4a236]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 mb-1.5">Phone</label>
+                  <input 
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-[#f4a236]"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 text-[10px] text-slate-500 font-medium">
+              <Lock className="h-3 w-3 shrink-0" />
+              Secure checkout via Paystack. Test mode active — use test card 4084 0840 8408 4081.
+            </div>
+
+            {/* Actions */}
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <button 
+                onClick={() => setStep(2)}
+                className="py-3 border-2 border-[#f4a236] text-[#f4a236] font-extrabold text-sm rounded-lg hover:bg-amber-50 uppercase tracking-wider transition-colors"
+              >
+                Back
+              </button>
+              <button 
+                onClick={async () => {
+                  try {
+                    const { bookingService } = await import('../../services/bookingService');
+                    await bookingService.createBooking({
+                      pickup_address: formData.pickup,
+                      delivery_address: formData.dropoff,
+                      pickup_date: new Date().toISOString(),
+                      delivery_date: new Date(Date.now() + 86400000).toISOString(),
+                      cargo_name: formData.cargoType,
+                      cargo_category: formData.cargoType,
+                      weight: 5000, // mock weight
+                      requested_vehicle: formData.vehicleType,
+                      guest_email: formData.email,
+                      guest_phone: formData.phone
+                    });
+                    setStep(4);
+                  } catch (err) {
+                    console.error("Failed to create booking", err);
+                    alert("Failed to create booking. Make sure backend is running.");
+                  }
+                }}
+                className="py-3 bg-[#fdd086] text-amber-900 hover:bg-[#fcc871] font-extrabold text-sm rounded-lg flex items-center justify-center gap-2 uppercase tracking-wider transition-colors"
+              >
+                <Lock className="h-4 w-4" />
+                Pay R 3,630
+              </button>
+            </div>
+
+          </div>
+        )}
+
+        {/* STEP 4: Success / Confirmation */}
+        {step === 4 && (
+          <div className="py-10 text-center space-y-4 animate-fadeIn">
+            <div className="h-20 w-20 bg-emerald-100 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-white shadow-lg shadow-emerald-500/20">
+              <CheckCircle2 className="h-10 w-10" />
+            </div>
+            <h3 className="text-2xl font-black text-slate-900">Payment Successful!</h3>
+            <p className="text-sm text-slate-500 font-medium max-w-sm mx-auto">Your booking is confirmed. We will notify you once a driver is assigned to your load.</p>
+            <div className="pt-6">
+              <button 
+                onClick={() => navigate('/customer/dashboard')}
+                className="py-3 px-8 bg-[#f4a236] text-white hover:bg-amber-500 font-extrabold text-sm rounded-lg transition-colors uppercase tracking-wider"
+              >
+                Return to Dashboard
+              </button>
+            </div>
+          </div>
+        )}
+
+      </div>
     </div>
   );
 }

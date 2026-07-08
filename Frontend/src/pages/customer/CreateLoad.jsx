@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   MapPin, Scale, HelpCircle, Tag, DollarSign, Calendar, Truck, 
-  ArrowRight, ArrowLeft, CheckCircle2, ChevronRight, Info, ShieldCheck
+  ArrowRight, ArrowLeft, CheckCircle2, ChevronRight, Info, ShieldCheck,
+  Compass, Package
 } from 'lucide-react';
 import { createLoad } from '../../data/mockData';
 import { GooglePlacesInput } from '../../components/ui';
@@ -71,7 +72,11 @@ export default function CreateLoad() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 animate-fadeIn">
+    {/* Main Grid Layout */}
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start pb-0">
+        
+      {/* Left Form - Independently Scrollable */}
+      <div className="lg:col-span-8 space-y-6 lg:h-[calc(100vh-220px)] lg:overflow-y-auto lg:pr-2 custom-scrollbar">
       
       {/* Page Header */}
       <div>
@@ -105,95 +110,107 @@ export default function CreateLoad() {
 
       {/* Step Contents */}
       {step === 1 && (
-        <form onSubmit={handleNextStep1} className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-6">
-          <h3 className="text-lg font-bold text-slate-800">Cargo & Route Details</h3>
-          
+        <form onSubmit={handleNextStep1} className="space-y-6">
           {error && (
             <div className="p-3.5 bg-red-500/10 border border-red-500/20 text-red-400 text-xs rounded-xl font-medium">
               {error}
             </div>
           )}
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Cargo Title</label>
-              <input 
-                type="text" 
-                placeholder="e.g. 500 Bags of Lafarge Cement"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:bg-white rounded-xl text-slate-800 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-sm transition-all"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Category</label>
-              <select 
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:bg-white rounded-xl text-slate-800 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-sm transition-all"
-              >
-                <option>Building Materials</option>
-                <option>Heavy Equipment</option>
-                <option>Food & Beverage</option>
-                <option>Agriculture</option>
-                <option>Consumer Goods</option>
-                <option>Other / Mixed</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Weight (Tons)</label>
-              <div className="relative">
-                <Scale className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                <input 
-                  type="number" 
-                  placeholder="e.g. 25"
-                  value={weight}
-                  onChange={(e) => setWeight(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 focus:bg-white rounded-xl text-slate-800 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-sm transition-all"
-                />
+          
+          <>
+            {/* Section 1: Route Information */}
+            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm space-y-5">
+              <div className="flex items-center gap-2 border-b border-gray-100 pb-2">
+                <Compass className="h-5 w-5 text-amber-500" />
+                <h3 className="text-sm font-bold text-slate-900 tracking-wide font-sans">📍 Route Information</h3>
+              </div>
+              <div className="relative pl-6 space-y-6">
+                {/* Vertical Connector Line */}
+                <div className="absolute left-[11px] top-6 bottom-6 w-0.5 bg-gray-200" />
+                
+                <div className="relative">
+                  <div className="absolute -left-6 top-[38px] h-2.5 w-2.5 rounded-full bg-amber-500 ring-4 ring-white" />
+                  <GooglePlacesInput 
+                    label="Pickup Location Address" 
+                    placeholder="Search pickup facility or address" 
+                    value={pickup} 
+                    onChange={e => setPickup(e.target.value)} 
+                    onPlaceSelect={place => setPickup(place.address)} 
+                    icon={MapPin} 
+                    required 
+                    className="h-12 pl-10 text-[13px] font-semibold rounded-lg bg-gray-50 border border-gray-200 focus:bg-white transition-all text-slate-900 placeholder:text-gray-400 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  />
+                </div>
+                <div className="relative">
+                  <div className="absolute -left-6 top-[38px] h-2.5 w-2.5 rounded-full bg-slate-900 ring-4 ring-white" />
+                  <GooglePlacesInput 
+                    label="Delivery Location Address" 
+                    placeholder="Search dropoff facility or address" 
+                    value={dropoff} 
+                    onChange={e => setDropoff(e.target.value)} 
+                    onPlaceSelect={place => setDropoff(place.address)} 
+                    icon={MapPin} 
+                    required 
+                    className="h-12 pl-10 text-[13px] font-semibold rounded-lg bg-gray-50 border border-gray-200 focus:bg-white transition-all text-slate-900 placeholder:text-gray-400 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  />
+                </div>
               </div>
             </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Base Budget (R)</label>
-              <div className="relative">
-                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                <input 
-                  type="number" 
-                  placeholder="e.g. 12000"
-                  value={budget}
-                  onChange={(e) => setBudget(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 focus:bg-white rounded-xl text-slate-800 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-sm transition-all"
-                />
+            {/* Section 2: Cargo Information */}
+            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm space-y-5">
+              <div className="flex items-center gap-2 border-b border-gray-100 pb-2">
+                <Package className="h-5 w-5 text-amber-500" />
+                <h3 className="text-sm font-bold text-slate-900 tracking-wide font-sans">📦 Cargo Information</h3>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-800 tracking-wider">CARGO NAME</label>
+                  <div className="relative">
+                    <Package className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                    <input
+                      placeholder="e.g. 500 Bags of Cement" 
+                      value={title} 
+                      onChange={e => setTitle(e.target.value)} 
+                      required 
+                      className="w-full h-12 pl-10 pr-4 text-[13px] font-semibold rounded-lg bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all text-slate-900 placeholder:text-gray-400 focus:bg-white"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-800 tracking-wider">CARGO CATEGORY</label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                    <select 
+                      value={category} 
+                      onChange={e => setCategory(e.target.value)}
+                      className="w-full h-12 pl-10 pr-4 rounded-lg border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-[13px] font-semibold text-slate-900 transition-all appearance-none focus:bg-white"
+                    >
+                      <option>Building Materials</option>
+                      <option>Heavy Equipment</option>
+                      <option>Food & Beverage</option>
+                      <option>Agriculture</option>
+                      <option>Consumer Goods</option>
+                    </select>
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-[10px]">▼</div>
+                  </div>
+                </div>
+                <div className="md:col-span-2 space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-800 tracking-wider">CARGO WEIGHT (TONS)</label>
+                  <div className="relative">
+                    <Scale className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                    <input 
+                      type="number" 
+                      placeholder="e.g. 25" 
+                      value={weight} 
+                      onChange={e => setWeight(e.target.value)} 
+                      required 
+                      className="w-full h-12 pl-10 pr-4 text-[13px] font-semibold rounded-lg bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all text-slate-900 placeholder:text-gray-400 focus:bg-white"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
-
-            <div className="md:col-span-2">
-              <GooglePlacesInput
-                label="Pickup Location Address"
-                placeholder="Search pickup point"
-                value={pickup}
-                onChange={(e) => setPickup(e.target.value)}
-                onPlaceSelect={place => setPickup(place.address)}
-                icon={MapPin}
-                required
-              />
-            </div>
-
-            <div className="md:col-span-2">
-              <GooglePlacesInput
-                label="Dropoff Location Address"
-                placeholder="Search destination"
-                value={dropoff}
-                onChange={(e) => setDropoff(e.target.value)}
-                onPlaceSelect={place => setDropoff(place.address)}
-                icon={MapPin}
-                required
-              />
-            </div>
-          </div>
+          </>
 
           <div className="pt-4 flex justify-end">
             <button 
@@ -375,6 +392,7 @@ export default function CreateLoad() {
         </div>
       )}
 
+      </div>
     </div>
   );
 }

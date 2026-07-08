@@ -25,7 +25,7 @@ export default function ActiveDeliveries() {
       </div>
 
       {activeLoads.length === 0 ? (
-        <Card className="p-8 text-center space-y-4 max-w-md mx-auto">
+        <Card className="p-6 text-center space-y-3 max-w-md mx-auto">
           <div className="inline-flex p-4 bg-amber-500/10 text-amber-500 rounded-full">
             <Truck className="h-8 w-8" />
           </div>
@@ -37,10 +37,10 @@ export default function ActiveDeliveries() {
         </Card>
       ) : (
         <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden text-xs">
-          <Table headers={['Cargo shipment', 'Active Route Details', 'Committed budget', 'Dispatch State', '']}>
+          <Table headers={['Cargo Shipment', 'Route & Transporter', 'Budget & Weight', 'Status', 'Actions']}>
             {activeLoads.map((load) => (
               <tr key={load.id} className="hover:bg-slate-50/30">
-                <td className="py-4.5 px-6">
+                <td className="py-3 px-4">
                   <div className="flex items-center gap-3">
                     <div className="bg-slate-100 p-2.5 rounded-xl text-slate-500 shrink-0">
                       <Package className="h-5 w-5" />
@@ -51,27 +51,28 @@ export default function ActiveDeliveries() {
                     </div>
                   </div>
                 </td>
-                <td className="py-4.5 px-6 max-w-xs">
+                <td className="py-3 px-4 max-w-xs">
                   <div className="space-y-1 text-slate-650 font-semibold">
-                    <p className="truncate">Pickup: {load.pickup.split(',')[0]}</p>
-                    <p className="truncate">Delivery: {load.dropoff.split(',')[0]}</p>
+                    <p className="truncate text-slate-800">From: {load.pickup.split(',')[0]}</p>
+                    <p className="truncate text-slate-800">To: {load.dropoff.split(',')[0]}</p>
+                    <p className="text-[10px] text-slate-500 font-medium pt-1">Driver: Sipho Zuma • 8-Ton Truck</p>
                   </div>
                 </td>
-                <td className="py-4.5 px-6">
+                <td className="py-3 px-4">
                   <p className="font-bold text-slate-800">R{load.budget}</p>
                   <span className="text-slate-400">{load.weight}</span>
                 </td>
-                <td className="py-4.5 px-6">
+                <td className="py-3 px-4">
                   {load.status === 'in_transit' ? (
                     <Badge status="in_transit" />
                   ) : (
                     <Badge status="assigned" />
                   )}
                 </td>
-                <td className="py-4.5 px-6 text-right">
+                <td className="py-3 px-4 text-right">
                   <div className="flex justify-end gap-2">
                     <Button 
-                      onClick={() => navigate(`/customer/booking-details?id=${load.id}`)}
+                      onClick={() => navigate(`/customer/booking-details/${load.id}`)}
                       size="sm"
                       variant="outline"
                     >

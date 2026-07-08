@@ -1,316 +1,340 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { 
-  User, Settings, Bell, Lock, Shield, Eye, Save, 
-  Trash2, Mail, Phone, FileText, ToggleLeft, ToggleRight, Check, Star
+  User, Shield, Bell, CreditCard, Star, Lock
 } from 'lucide-react';
-import { getMockData, saveMockData } from '../../data/mockData';
+import { Button, Input } from '../../components/ui';
+import { driverService } from '../../services/driverService';
 
 export default function DriverProfile() {
-  const location = useLocation();
   const navigate = useNavigate();
+  const location = useLocation();
   const queryTab = new URLSearchParams(location.search).get('tab');
-  
   const [activeTab, setActiveTab] = useState(queryTab || 'profile');
-  const [driver, setDriver] = useState({
-    name: '',
+  
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  
+  // States for forms
+  const [profileData, setProfileData] = useState({
+    first_name: '',
+    last_name: '',
     email: '',
     phone: '',
-    rating: 0,
-    trips: 0,
     avatar: ''
   });
-  const [notifications, setNotifications] = useState([]);
-  const [saved, setSaved] = useState(false);
+  
+  const [bankData, setBankData] = useState({
+    bankName: '',
+    accountHolder: '',
+    accountNumber: '',
+    branchCode: ''
+  });
 
-  // Settings states
-  const [smsAlerts, setSmsAlerts] = useState(true);
-  const [loadNotifications, setLoadNotifications] = useState(true);
-  const [payoutInvoices, setPayoutInvoices] = useState(true);
+  const [notifications, setNotifications] = useState({
+    sms: true,
+    email: true,
+    push: true
+  });
 
   useEffect(() => {
-    const drivers = getMockData('drivers') || [];
-    const activeDriver = drivers[0];
-    if (activeDriver) {
-      setDriver({
-        name: activeDriver.name,
-        email: activeDriver.email,
-        phone: activeDriver.phone,
-        rating: activeDriver.rating,
-        trips: activeDriver.trips,
-        avatar: activeDriver.avatar
-      });
-    }
-
-    const notifs = getMockData('notifications') || {};
-    if (notifs.driver) {
-      setNotifications(notifs.driver);
-    }
+    fetchProfile();
   }, []);
 
-  useEffect(() => {
-    if (queryTab) {
-      setActiveTab(queryTab);
+  const fetchProfile = async () => {
+    try {
+      setLoading(true);
+      const res = await driverService.getProfile();
+      if (res.success && res.data) {
+        const p = res.data;
+        setProfileData({
+          first_name: p.first_name || '',
+          last_name: p.last_name || '',
+          email: p.email || '',
+          phone: p.phone || '',
+          avatar: p.avatar || ''
+        });
+        if (p.bank_details) {
+          setBankData({
+            bankName: p.bank_details.bankName || '',
+            accountHolder: p.bank_details.accountHolder || '',
+            accountNumber: p.bank_details.accountNumber || '',
+            branchCode: p.bank_details.branchCode || ''
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load profile", err);
+    } finally {
+      setLoading(false);
     }
-  }, [queryTab]);
+  };
 
-  const handleSaveProfile = (e) => {
+  const handleSaveProfile = async (e) => {
     e.preventDefault();
-    setSaved(true);
-    
-    // Save to localstorage mock
-    const allDrivers = getMockData('drivers') || [];
-    if (allDrivers.length > 0) {
-      allDrivers[0] = { ...allDrivers[0], ...driver };
-      saveMockData('drivers', allDrivers);
+    setSaving(true);
+    try {
+      const payload = {
+        first_name: profileData.first_name,
+        last_name: profileData.last_name,
+        phone: profileData.phone,
+        // Optional: email updates typically require a separate verification flow, not doing here
+      };
+      const res = await driverService.updateProfile(payload);
+      if (res.success) {
+        alert('Profile updated successfully!');
+      }
+    } catch (err) {
+      alert('Failed to update profile');
+    } finally {
+      setSaving(false);
     }
-
-    setTimeout(() => {
-      setSaved(false);
-    }, 2000);
   };
 
-  const deleteNotification = (id) => {
-    const allNotifs = getMockData('notifications');
-    allNotifs.driver = allNotifs.driver.filter(n => n.id !== id);
-    saveMockData('notifications', allNotifs);
-    setNotifications(allNotifs.driver);
+  const handleSaveBank = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const payload = {
+        bank_details: bankData
+      };
+      const res = await driverService.updateProfile(payload);
+      if (res.success) {
+        alert('Bank details updated successfully!');
+      }
+    } catch (err) {
+      alert('Failed to update bank details');
+    } finally {
+      setSaving(false);
+    }
   };
+
+  const toggleNotification = (key) => {
+    setNotifications(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const tabs = [
+    { id: 'profile', label: 'Personal Info', icon: User },
+    { id: 'bank', label: 'Bank Details', icon: CreditCard },
+    { id: 'notifications', label: 'Notifications', icon: Bell },
+    { id: 'security', label: 'Security', icon: Shield },
+  ];
+
+  if (loading) return <div className="p-10 text-center text-slate-500">Loading profile...</div>;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 animate-fadeIn">
+    <div className="space-y-8 animate-fadeIn">
       
       {/* Header */}
       <div>
-        <h2 className="text-2xl font-black text-slate-900 tracking-tight">Driver Settings & Alerts</h2>
-        <p className="text-xs text-slate-400">Configure your transporter profile, notifications, and telemetry routing alerts.</p>
+        <h2 className="text-2xl font-black text-slate-900 tracking-tight">Driver Profile</h2>
+        <p className="text-xs text-slate-500 font-medium mt-1">
+          Manage your personal information, bank payouts, and security settings.
+        </p>
       </div>
 
-      {/* Profile Navigation Tabs */}
-      <div className="flex border-b border-slate-200 bg-white p-2 rounded-xl shadow-sm border">
-        <button 
-          onClick={() => { setActiveTab('profile'); navigate('/driver/profile?tab=profile'); }}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 text-xs font-bold rounded-lg transition-all ${
-            activeTab === 'profile' 
-              ? 'bg-slate-900 text-white shadow-sm' 
-              : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
-          }`}
-        >
-          <User className="h-4 w-4" />
-          Transporter Info
-        </button>
-        <button 
-          onClick={() => { setActiveTab('notifications'); navigate('/driver/profile?tab=notifications'); }}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 text-xs font-bold rounded-lg transition-all ${
-            activeTab === 'notifications' 
-              ? 'bg-slate-900 text-white shadow-sm' 
-              : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
-          }`}
-        >
-          <Bell className="h-4 w-4" />
-          Alert Logs
-        </button>
-        <button 
-          onClick={() => { setActiveTab('settings'); navigate('/driver/profile?tab=settings'); }}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 text-xs font-bold rounded-lg transition-all ${
-            activeTab === 'settings' 
-              ? 'bg-slate-900 text-white shadow-sm' 
-              : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
-          }`}
-        >
-          <Settings className="h-4 w-4" />
-          Preferences
-        </button>
-      </div>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+        
+        {/* Sidebar Nav */}
+        <div className="md:col-span-1 space-y-2">
+          {tabs.map(tab => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all ${
+                  isActive 
+                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-500/20' 
+                    : 'text-slate-500 hover:bg-slate-100'
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
 
-      {/* Edit Profile Tab content */}
-      {activeTab === 'profile' && (
-        <form onSubmit={handleSaveProfile} className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-6">
-          <div className="flex flex-col sm:flex-row items-center gap-6 pb-4 border-b border-slate-100">
-            <img 
-              src={driver.avatar} 
-              alt={driver.name} 
-              className="h-20 w-20 rounded-full border border-slate-200 object-cover"
-            />
-            <div className="text-center sm:text-left space-y-1">
-              <h3 className="font-bold text-slate-800 text-lg">{driver.name}</h3>
-              <div className="flex items-center gap-1.5 mt-0.5 justify-center sm:justify-start">
-                <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
-                <span className="text-xs font-bold text-slate-700">{driver.rating}</span>
-                <span className="text-[10px] text-slate-400">({driver.trips} completed trips)</span>
-              </div>
-              <button type="button" className="text-xs text-emerald-605 text-emerald-600 hover:text-emerald-700 font-bold mt-2 block">Change Profile Photo</button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Transporter Name</label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                <input 
-                  type="text" 
-                  value={driver.name}
-                  onChange={(e) => setDriver({ ...driver, name: e.target.value })}
-                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 focus:bg-white rounded-xl text-slate-800 focus:outline-none focus:border-emerald-500 text-sm transition-all"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Commercial Driver License (CDL)</label>
-              <div className="relative">
-                <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                <input 
-                  type="text" 
-                  value="CDL-9028-KM"
-                  disabled
-                  className="w-full pl-10 pr-4 py-3 bg-slate-100 border border-slate-200 rounded-xl text-slate-400 text-sm cursor-not-allowed font-mono"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Email Address</label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                <input 
-                  type="email" 
-                  value={driver.email}
-                  disabled
-                  className="w-full pl-10 pr-4 py-3 bg-slate-100 border border-slate-200 rounded-xl text-slate-400 text-sm cursor-not-allowed"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Phone Number</label>
-              <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                <input 
-                  type="text" 
-                  value={driver.phone}
-                  onChange={(e) => setDriver({ ...driver, phone: e.target.value })}
-                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 focus:bg-white rounded-xl text-slate-800 focus:outline-none focus:border-emerald-500 text-sm transition-all"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
-            <span className="text-xs text-slate-400 font-light">Status: Verified Carrier</span>
-            <button 
-              type="submit"
-              className="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-slate-950 text-xs font-bold rounded-xl transition-all shadow-md"
-            >
-              {saved ? (
-                <>
-                  <Check className="h-4 w-4" />
-                  Saved Transporter info
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4" />
-                  Save Changes
-                </>
-              )}
-            </button>
-          </div>
-        </form>
-      )}
-
-      {/* Notifications Tab content */}
-      {activeTab === 'notifications' && (
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-6">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-            <h3 className="text-lg font-bold text-slate-800">Alert Center Logs</h3>
-            <span className="text-xs font-semibold text-slate-400">{notifications.length} alerts logged</span>
-          </div>
-
-          <div className="divide-y divide-slate-100">
-            {notifications.length === 0 ? (
-              <div className="p-8 text-center text-slate-400">No alert logs received.</div>
-            ) : (
-              notifications.map((notif) => (
-                <div key={notif.id} className="py-4.5 flex items-start justify-between gap-4 first:pt-0 hover:bg-slate-50/20 px-2 rounded-xl transition-colors">
-                  <div className="space-y-1 text-left">
-                    <p className={`text-sm font-semibold text-slate-800 ${!notif.read ? 'text-emerald-650 text-emerald-600 font-bold' : ''}`}>{notif.title}</p>
-                    <p className="text-xs text-slate-500 font-light leading-relaxed">{notif.message}</p>
-                    <span className="text-[10px] text-slate-400 block mt-1">{notif.time}</span>
+        {/* Content Area */}
+        <div className="md:col-span-3">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8">
+            
+            {/* Profile Tab */}
+            {activeTab === 'profile' && (
+              <form onSubmit={handleSaveProfile} className="space-y-6">
+                <div className="flex items-center gap-6 pb-6 border-b border-slate-100">
+                  <img 
+                    src={profileData.avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&auto=format&fit=crop&q=80'} 
+                    alt="Driver" 
+                    className="h-20 w-20 rounded-full object-cover border-4 border-slate-50"
+                  />
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-800">Profile Photo</h3>
+                    <div className="flex gap-2 mt-2">
+                      <Button variant="outline" className="text-[10px] py-1.5 px-3" type="button">Change Photo</Button>
+                    </div>
                   </div>
-                  <button 
-                    onClick={() => deleteNotification(notif.id)}
-                    className="p-1 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors shrink-0"
-                    title="Delete alert"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
                 </div>
-              ))
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <Input 
+                    label="First Name" 
+                    value={profileData.first_name} 
+                    onChange={e => setProfileData({...profileData, first_name: e.target.value})} 
+                    required 
+                  />
+                  <Input 
+                    label="Last Name" 
+                    value={profileData.last_name} 
+                    onChange={e => setProfileData({...profileData, last_name: e.target.value})} 
+                    required 
+                  />
+                  <Input 
+                    label="Email Address" 
+                    type="email"
+                    value={profileData.email} 
+                    onChange={e => setProfileData({...profileData, email: e.target.value})} 
+                    disabled // usually disabled since it's the login identifier
+                  />
+                  <Input 
+                    label="Mobile Number" 
+                    value={profileData.phone} 
+                    onChange={e => setProfileData({...profileData, phone: e.target.value})} 
+                  />
+                  <div className="space-y-1">
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Driver Rating</label>
+                    <div className="flex items-center gap-2 h-11 px-4 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-bold text-sm">
+                      <Star className="h-4 w-4 text-amber-500 fill-amber-500" />
+                      New Driver
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-slate-100 flex justify-end">
+                  <Button type="submit" disabled={saving} className="bg-emerald-600 hover:bg-emerald-500 text-white">
+                    {saving ? 'Saving...' : 'Save Profile Details'}
+                  </Button>
+                </div>
+              </form>
             )}
+
+            {/* Bank Details Tab */}
+            {activeTab === 'bank' && (
+              <form onSubmit={handleSaveBank} className="space-y-6">
+                <div className="pb-4 border-b border-slate-100">
+                  <h3 className="text-base font-bold text-slate-800">Payout Bank Details</h3>
+                  <p className="text-[10px] text-slate-500">Ensure these details exactly match your registered ID to prevent payout delays.</p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <Input 
+                    label="Bank Name" 
+                    value={bankData.bankName} 
+                    onChange={e => setBankData({...bankData, bankName: e.target.value})} 
+                    required 
+                  />
+                  <Input 
+                    label="Account Holder Name" 
+                    value={bankData.accountHolder} 
+                    onChange={e => setBankData({...bankData, accountHolder: e.target.value})} 
+                    required 
+                  />
+                  <Input 
+                    label="Account Number" 
+                    value={bankData.accountNumber} 
+                    onChange={e => setBankData({...bankData, accountNumber: e.target.value})} 
+                    required 
+                  />
+                  <Input 
+                    label="Branch Code" 
+                    value={bankData.branchCode} 
+                    onChange={e => setBankData({...bankData, branchCode: e.target.value})} 
+                    required 
+                  />
+                </div>
+
+                <div className="pt-4 border-t border-slate-100 flex justify-end">
+                  <Button type="submit" disabled={saving} className="bg-slate-900 hover:bg-slate-800 text-white">
+                    {saving ? 'Saving...' : 'Update Bank Details'}
+                  </Button>
+                </div>
+              </form>
+            )}
+
+            {/* Notifications Tab */}
+            {activeTab === 'notifications' && (
+              <div className="space-y-6">
+                <div className="pb-4 border-b border-slate-100">
+                  <h3 className="text-base font-bold text-slate-800">Notification Preferences</h3>
+                  <p className="text-[10px] text-slate-500">Choose how you want to be notified about load assignments and payouts.</p>
+                </div>
+
+                <div className="space-y-4">
+                  {[
+                    { id: 'sms', label: 'SMS Notifications', desc: 'Get critical alerts (OTP, Payouts) via text.' },
+                    { id: 'email', label: 'Email Notifications', desc: 'Receive statements and trip summaries via email.' },
+                    { id: 'push', label: 'Push Notifications', desc: 'Real-time alerts while the app is active.' }
+                  ].map(pref => (
+                    <div key={pref.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                      <div>
+                        <h4 className="text-sm font-bold text-slate-800">{pref.label}</h4>
+                        <p className="text-[10px] text-slate-500">{pref.desc}</p>
+                      </div>
+                      <button 
+                        onClick={() => toggleNotification(pref.id)}
+                        className={`w-12 h-6 rounded-full transition-colors relative flex items-center ${notifications[pref.id] ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                      >
+                        <span className={`h-4 w-4 bg-white rounded-full shadow-sm transition-all absolute ${notifications[pref.id] ? 'left-[26px]' : 'left-1'}`} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Security Tab */}
+            {activeTab === 'security' && (
+              <div className="space-y-8">
+                <div className="space-y-4">
+                  <div className="pb-4 border-b border-slate-100">
+                    <h3 className="text-base font-bold text-slate-800">Change Password</h3>
+                    <p className="text-[10px] text-slate-500">Update your account password regularly to stay secure.</p>
+                  </div>
+                  
+                  <div className="space-y-4 max-w-sm">
+                    <Input label="Current Password" type="password" placeholder="••••••••" />
+                    <Input label="New Password" type="password" placeholder="••••••••" />
+                    <Input label="Confirm New Password" type="password" placeholder="••••••••" />
+                    <Button className="bg-slate-900 hover:bg-slate-800 text-white mt-2">Update Password</Button>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="pb-4 border-b border-slate-100">
+                    <h3 className="text-base font-bold text-slate-800">Device Security</h3>
+                  </div>
+                  
+                  <div className="flex items-center justify-between p-4 bg-red-50 border border-red-100 rounded-2xl">
+                    <div className="flex items-center gap-3">
+                      <Lock className="h-5 w-5 text-red-500" />
+                      <div>
+                        <h4 className="text-xs font-bold text-red-800">Logout Everywhere</h4>
+                        <p className="text-[10px] text-red-600">Sign out of all active sessions across devices.</p>
+                      </div>
+                    </div>
+                    <Button variant="outline" className="border-red-200 text-red-600 hover:bg-red-100 text-xs px-4" onClick={() => navigate('/login')}>
+                      Log Out All
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
           </div>
         </div>
-      )}
-
-      {/* Settings Tab content */}
-      {activeTab === 'settings' && (
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-8">
-          <div>
-            <h3 className="text-lg font-bold text-slate-800">Operational Preferences</h3>
-            <p className="text-xs text-slate-400">Adjust active radar filters for regional loads.</p>
-          </div>
-
-          {/* Toggle Switches */}
-          <div className="space-y-6 border-b border-slate-100 pb-6">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5 text-left max-w-md">
-                <span className="font-bold text-sm text-slate-800">Broadcast Cargo Alerts</span>
-                <p className="text-xs text-slate-400 font-light">Receive push notifications immediately when a new load matches your flatbed truck type.</p>
-              </div>
-              <button onClick={() => setLoadNotifications(!loadNotifications)} className="text-slate-400 hover:text-emerald-500 transition-colors">
-                {loadNotifications ? <ToggleRight className="h-8 w-8 text-emerald-500" /> : <ToggleLeft className="h-8 w-8" />}
-              </button>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5 text-left max-w-md">
-                <span className="font-bold text-sm text-slate-800">SMS Checkpoint Verifications</span>
-                <p className="text-xs text-slate-400 font-light">Receive automated verification prompts when crossing custom corridor checkpoints.</p>
-              </div>
-              <button onClick={() => setSmsAlerts(!smsAlerts)} className="text-slate-400 hover:text-emerald-500 transition-colors">
-                {smsAlerts ? <ToggleRight className="h-8 w-8 text-emerald-500" /> : <ToggleLeft className="h-8 w-8" />}
-              </button>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5 text-left max-w-md">
-                <span className="font-bold text-sm text-slate-800">Email Payout Statements</span>
-                <p className="text-xs text-slate-400 font-light">Receive digital copies of invoices and release statements for accounting records.</p>
-              </div>
-              <button onClick={() => setPayoutInvoices(!payoutInvoices)} className="text-slate-400 hover:text-emerald-500 transition-colors">
-                {payoutInvoices ? <ToggleRight className="h-8 w-8 text-emerald-500" /> : <ToggleLeft className="h-8 w-8" />}
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <h3 className="text-lg font-bold text-slate-800">Security & CDL Node</h3>
-            <p className="text-xs text-slate-400">Lock down your wallet details and verification codes.</p>
-          </div>
-
-          <div className="space-y-6">
-            <div className="pt-2 flex flex-col sm:flex-row gap-4">
-              <button className="px-5 py-3 border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl transition-all shadow-sm">
-                Change Login Password
-              </button>
-              <button className="px-5 py-3 border border-red-205 border-red-200 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-xl transition-all">
-                Deregister Vehicle Specs
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
+      </div>
     </div>
   );
 }

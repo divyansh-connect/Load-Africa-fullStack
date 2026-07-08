@@ -1,261 +1,177 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  ShieldCheck, Upload, FileText, CheckCircle2, AlertTriangle, 
-  Truck, Info, Eye, Save, Trash2, ArrowUpRight, Compass
+  ShieldCheck, Upload, FileText, CheckCircle2, Clock, AlertCircle, XCircle 
 } from 'lucide-react';
-import { getMockData, saveMockData } from '../../data/mockData';
+import { Button } from '../../components/ui';
+import { driverService } from '../../services/driverService';
 
 export default function KYCVerification() {
-  const [driver, setDriver] = useState(null);
-  const [kycStatus, setKycStatus] = useState('pending');
-  const [licensePlate, setLicensePlate] = useState('');
-  const [truckModel, setTruckModel] = useState('');
-  const [capacity, setCapacity] = useState('20 Tons');
-  const [truckType, setTruckType] = useState('Flatbed Truck');
-  const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  const [status, setStatus] = useState('AVAILABLE'); // Maps to REGISTERED/AVAILABLE initially
+  const [loading, setLoading] = useState(false);
+
+  const [documents, setDocuments] = useState([
+    { id: 'doc-1', title: 'Driver License', type: 'Personal ID', status: 'not_uploaded', uploadDate: 'Not Uploaded', expiryDate: 'Never' },
+    { id: 'doc-2', title: 'National ID', type: 'Personal ID', status: 'not_uploaded', uploadDate: 'Not Uploaded', expiryDate: 'Never' }
+  ]);
 
   useEffect(() => {
-    const drivers = getMockData('drivers') || [];
-    const me = drivers[0]; // Kofi Mensah
-    if (me) {
-      setDriver(me);
-      setKycStatus(me.kycStatus || 'pending');
-      
-      const vehicles = getMockData('vehicles') || [];
-      const myVehicle = vehicles.find(v => v.id === me.vehicleId);
-      if (myVehicle) {
-        setLicensePlate(myVehicle.numberPlate);
-        setTruckModel(myVehicle.model);
-        setCapacity(myVehicle.capacity);
-        setTruckType(myVehicle.type);
+    driverService.getDriverDashboard().then(res => {
+      if(res.success) {
+        const currentStatus = res.data.status;
+        setStatus(currentStatus);
+        
+        // Sync document UI with backend status
+        if (currentStatus === 'UNDER_REVIEW') {
+          setDocuments(docs => docs.map(d => ({ ...d, status: 'pending', uploadDate: new Date().toISOString().split('T')[0] })));
+        } else if (currentStatus === 'ACTIVE') {
+          setDocuments(docs => docs.map(d => ({ ...d, status: 'approved', uploadDate: new Date().toISOString().split('T')[0] })));
+        }
       }
-    }
+    });
   }, []);
 
-  const handleKYCSubmit = (e) => {
-    e.preventDefault();
-    setSubmitting(true);
-    
-    setTimeout(() => {
-      setSubmitting(false);
-      setKycStatus('submitted');
-      setSubmitted(true);
-
-      // Save back to local storage
-      const drivers = getMockData('drivers') || [];
-      const meIdx = drivers.findIndex(d => d.id === 'drv-1');
-      if (meIdx > -1) {
-        drivers[meIdx].kycStatus = 'submitted';
-        saveMockData('drivers', drivers);
+  const handleUpload = (docId) => {
+    const newDocs = documents.map(d => {
+      if (d.id === docId) {
+        return { ...d, status: 'uploaded', uploadDate: new Date().toISOString().split('T')[0] };
       }
-
-      // Sync vehicle registry updates
-      const vehicles = getMockData('vehicles') || [];
-      const vehicleIdx = vehicles.findIndex(v => v.id === driver.vehicleId);
-      if (vehicleIdx > -1) {
-        vehicles[vehicleIdx] = {
-          ...vehicles[vehicleIdx],
-          numberPlate: licensePlate,
-          model: truckModel,
-          capacity: capacity,
-          type: truckType
-        };
-        saveMockData('vehicles', vehicles);
-      }
-      
-      setTimeout(() => setSubmitted(false), 2000);
-    }, 1500);
+      return d;
+    });
+    setDocuments(newDocs);
   };
 
-  if (!driver) return null;
+  const handleSubmitKYC = async () => {
+    try {
+      setLoading(true);
+      const res = await driverService.submitKYC({
+        license: 'LIC-12345',
+        id_document: 'ID-98765'
+      });
+      if(res.success) {
+        setStatus('UNDER_REVIEW');
+        setDocuments(docs => docs.map(d => ({ ...d, status: 'pending' })));
+        alert("KYC Submitted! An admin will review your profile shortly.");
+      }
+    } catch (err) {
+      alert("Failed to submit KYC");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case 'approved':
+        return <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full uppercase"><CheckCircle2 className="h-3 w-3" /> Approved</span>;
+      case 'pending':
+        return <span className="flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full uppercase"><Clock className="h-3 w-3" /> Pending Review</span>;
+      case 'rejected':
+        return <span className="flex items-center gap-1 text-[10px] font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded-full uppercase"><XCircle className="h-3 w-3" /> Rejected</span>;
+      default:
+        return null;
+    }
+  };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 animate-fadeIn">
+    <div className="space-y-8 animate-fadeIn">
       
-      {/* Page Header */}
+      {/* Header */}
       <div>
-        <h2 className="text-2xl font-black text-slate-900 tracking-tight">KYC Verification & Vehicle Registry</h2>
-        <p className="text-xs text-slate-400">Complete verification to unlock higher budget transportation contracts.</p>
+        <h2 className="text-2xl font-black text-slate-900 tracking-tight">KYC & Document Verification</h2>
+        <p className="text-xs text-slate-500 font-medium mt-1">
+          Upload and maintain your mandatory compliance documents to ensure uninterrupted load matching.
+        </p>
       </div>
 
-      {/* KYC Progress Box */}
-      <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-6">
-        <div className="flex items-center gap-4 text-left">
-          <div className={`p-4 rounded-2xl ${
-            kycStatus === 'verified' ? 'bg-emerald-100 text-emerald-600' :
-            kycStatus === 'submitted' ? 'bg-blue-100 text-blue-600 animate-pulse' :
-            'bg-amber-100 text-amber-600'
-          }`}>
-            {kycStatus === 'verified' ? <ShieldCheck className="h-8 w-8" /> : <FileText className="h-8 w-8" />}
-          </div>
+      {/* Global Status Banner */}
+      {documents.some(d => d.status === 'rejected') ? (
+        <div className="bg-red-50 border border-red-200 rounded-2xl px-5 py-4 flex items-start gap-4">
+          <XCircle className="h-6 w-6 text-red-600 shrink-0 mt-0.5" />
           <div>
-            <h3 className="font-bold text-slate-800 text-base">Verification Status</h3>
-            <p className="text-xs text-slate-400 mt-1">
-              {kycStatus === 'verified' && 'Verified Driver - full portal bidding access is unlocked.'}
-              {kycStatus === 'submitted' && 'KYC Documents submitted. Review takes up to 24 hours.'}
-              {kycStatus === 'pending' && 'KYC pending. Please upload national identification details.'}
-            </p>
+            <p className="text-sm font-extrabold text-red-800">Action Required: Documents Rejected</p>
+            <p className="text-xs text-red-600 mt-1">One or more of your uploaded documents were rejected. Please review the reasons below and re-upload clear copies.</p>
           </div>
         </div>
+      ) : documents.some(d => d.status === 'pending') ? (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 flex items-start gap-4">
+          <Clock className="h-6 w-6 text-amber-600 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-extrabold text-amber-800">Under Review</p>
+            <p className="text-xs text-amber-600 mt-1">Some of your documents are currently being reviewed by our compliance team. This typically takes 1-2 business days.</p>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl px-5 py-4 flex items-start gap-4">
+          <ShieldCheck className="h-6 w-6 text-emerald-600 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-extrabold text-emerald-800">Fully Verified</p>
+            <p className="text-xs text-emerald-600 mt-1">All your documents are approved and up to date. You have full access to all platform features and load assignments.</p>
+          </div>
+        </div>
+      )}
 
-        <div className="shrink-0">
-          {kycStatus === 'verified' && (
-            <span className="px-3.5 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 rounded-xl border border-emerald-200">KYC VERIFIED</span>
-          )}
-          {kycStatus === 'submitted' && (
-            <span className="px-3.5 py-1.5 text-xs font-bold text-blue-700 bg-blue-50 rounded-xl border border-blue-200">UNDER REVIEW</span>
-          )}
-          {kycStatus === 'pending' && (
-            <span className="px-3.5 py-1.5 text-xs font-bold text-amber-700 bg-amber-50 rounded-xl border border-amber-200 animate-pulse">ACTION REQUIRED</span>
-          )}
+      {/* Document Tracker */}
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="p-6 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+          <h3 className="text-sm font-bold text-slate-800">Required Documents</h3>
+          <span className="text-[10px] font-bold text-slate-500 uppercase">{documents.filter(d => d.status === 'approved').length} / {documents.length} Approved</span>
+        </div>
+        
+        <div className="divide-y divide-slate-100">
+          {documents.map(doc => (
+            <div key={doc.id} className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-6 hover:bg-slate-50 transition-colors">
+              
+              <div className="flex items-start gap-4 flex-1">
+                <div className={`p-3 rounded-xl shrink-0 ${
+                  doc.status === 'approved' ? 'bg-emerald-100 text-emerald-600' :
+                  doc.status === 'pending' ? 'bg-amber-100 text-amber-600' :
+                  'bg-red-100 text-red-600'
+                }`}>
+                  <FileText className="h-6 w-6" />
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-3">
+                    <h4 className="font-bold text-slate-800">{doc.title}</h4>
+                    {getStatusBadge(doc.status)}
+                  </div>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] font-semibold text-slate-500">
+                    <span className="uppercase text-slate-400">Type: {doc.type}</span>
+                    <span>Uploaded: {doc.uploadDate}</span>
+                    <span className={doc.expiryDate !== 'Never' ? 'text-amber-600' : ''}>Expires: {doc.expiryDate}</span>
+                  </div>
+                  
+                  {doc.status === 'rejected' && doc.reason && (
+                    <div className="mt-2 p-3 bg-red-50 rounded-xl text-xs font-semibold text-red-700 flex items-start gap-2 border border-red-100">
+                      <AlertCircle className="h-4 w-4 shrink-0" />
+                      <span>{doc.reason}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="shrink-0 flex items-center gap-3">
+                {doc.status === 'approved' ? (
+                  <Button variant="outline" className="text-xs px-4" onClick={() => handleUpload(doc.id)}>Update Document</Button>
+                ) : (
+                  <Button className="bg-slate-900 hover:bg-slate-800 text-white text-xs px-4 flex items-center gap-2" onClick={() => handleUpload(doc.id)}>
+                    <Upload className="h-3 w-3" /> {doc.status === 'rejected' ? 'Re-upload' : 'Upload New'}
+                  </Button>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
-      <form onSubmit={handleKYCSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* Left 2 Cols: Driver Upload fields & Vehicle details */}
-        <div className="lg:col-span-2 space-y-8">
-          
-          {/* File Upload card */}
-          <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 space-y-6">
-            <h3 className="text-lg font-bold text-slate-800">1. Verification Documents</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="border border-slate-200 rounded-2xl p-4 flex flex-col justify-between items-center text-center hover:bg-slate-50/50 cursor-pointer">
-                <Upload className="h-8 w-8 text-slate-400" />
-                <span className="font-bold text-xs text-slate-700 mt-2">Driver's License (Front & Back)</span>
-                <p className="text-[10px] text-slate-400 mt-1">PDF, PNG, JPG accepted (Max 5MB)</p>
-                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 mt-3 flex items-center gap-1">
-                  <CheckCircle2 className="h-3 w-3" /> cdl-front.jpg uploaded
-                </span>
-              </div>
-
-              <div className="border border-slate-200 rounded-2xl p-4 flex flex-col justify-between items-center text-center hover:bg-slate-50/50 cursor-pointer">
-                <Upload className="h-8 w-8 text-slate-400" />
-                <span className="font-bold text-xs text-slate-700 mt-2">National ID or Passport</span>
-                <p className="text-[10px] text-slate-400 mt-1">Verification photo check node</p>
-                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 mt-3 flex items-center gap-1">
-                  <CheckCircle2 className="h-3 w-3" /> passport.pdf uploaded
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Vehicle specs registry form */}
-          <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 space-y-6">
-            <h3 className="text-lg font-bold text-slate-800">2. Truck Registry Details</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Truck Model</label>
-                <input 
-                  type="text" 
-                  value={truckModel}
-                  onChange={(e) => setTruckModel(e.target.value)}
-                  placeholder="e.g. Volvo FH16 Flatbed"
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:border-emerald-500 text-sm transition-all"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">License Plate Number</label>
-                <input 
-                  type="text" 
-                  value={licensePlate}
-                  onChange={(e) => setLicensePlate(e.target.value)}
-                  placeholder="e.g. GAR-492-KM"
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-850 focus:outline-none focus:border-emerald-500 text-sm transition-all font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Truck Capacity (Tons)</label>
-                <input 
-                  type="text" 
-                  value={capacity}
-                  onChange={(e) => setCapacity(e.target.value)}
-                  placeholder="e.g. 25 Tons"
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-850 focus:outline-none focus:border-emerald-500 text-sm transition-all"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Truck Body Category</label>
-                <select 
-                  value={truckType}
-                  onChange={(e) => setTruckType(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:outline-none text-sm transition-all"
-                >
-                  <option>Flatbed Truck</option>
-                  <option>Tipper Truck</option>
-                  <option>Box Truck</option>
-                  <option>Refrigerated Van</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="pt-4 border-t border-slate-100 flex justify-end">
-              <button 
-                type="submit"
-                disabled={submitting}
-                className="flex items-center gap-2 px-6 py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition-all shadow-md"
-              >
-                {submitting ? (
-                  <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                ) : submitted ? (
-                  <>
-                    <CheckCircle2 className="h-4 w-4" />
-                    Registry Updated
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-4 w-4" />
-                    Save & Submit KYC
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-
-        </div>
-
-        {/* Right 1 Col: Guidelines info */}
-        <div className="bg-white rounded-3xl border border-slate-200 p-6 flex flex-col justify-between shadow-sm">
-          <div className="space-y-6 text-left">
-            <div>
-              <h3 className="text-lg font-bold text-slate-900">Why Verification?</h3>
-              <p className="text-xs text-slate-400">Security policies protect both shippers and transporters.</p>
-            </div>
-            
-            <div className="space-y-4">
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex items-start gap-3">
-                <ShieldCheck className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
-                <div className="space-y-1 text-xs">
-                  <p className="font-bold text-slate-800">Escrow Disbursals</p>
-                  <p className="text-slate-500 font-light leading-relaxed">Only verified carriers have access to immediate payout release locks.</p>
-                </div>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex items-start gap-3">
-                <Truck className="h-5 w-5 text-indigo-600 shrink-0 mt-0.5" />
-                <div className="space-y-1 text-xs">
-                  <p className="font-bold text-slate-800">High Weight Bids</p>
-                  <p className="text-slate-500 font-light leading-relaxed">Bulk cement flatbed loads &gt; 25 Tons require verification audit compliance.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-8 border-t border-slate-100 pt-6">
-            <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 p-3 rounded-2xl border border-amber-100 font-medium">
-              <AlertTriangle className="h-4.5 w-4.5 text-amber-500 shrink-0" />
-              <span>Compliance reviews take 2-4 hours.</span>
-            </div>
-          </div>
-        </div>
-
-      </form>
+      <div className="flex justify-end mt-6">
+        <Button 
+          disabled={loading || status === 'UNDER_REVIEW' || status === 'ACTIVE'}
+          onClick={handleSubmitKYC} 
+          className="bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-3 text-sm border-0 disabled:opacity-50"
+        >
+          {loading ? 'Submitting...' : status === 'UNDER_REVIEW' ? 'Under Review' : status === 'ACTIVE' ? 'KYC Approved' : 'Submit KYC Profile'}
+        </Button>
+      </div>
 
     </div>
   );

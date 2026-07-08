@@ -38,6 +38,30 @@ const DEFAULT_BOOKINGS = [
   { id: 'bk-1003', loadId: 'ld-104', customerId: 'usr-3', driverId: 'drv-1', vehicleId: 'vh-1', price: 15000, paymentStatus: 'paid', bookingStatus: 'completed', date: '2026-06-22' }
 ];
 
+
+const DEFAULT_EQUIPMENT = [
+  { id: 'EQ-001', name: 'TLB (Backhoe Loader)', make: 'JCB 3CX', rate: 850, status: 'on_hire', site: 'Rustenburg Mine Site', operatorId: 'op-1', image: 'https://images.unsplash.com/photo-1579970894563-305aa31fa6d2?w=300&auto=format&fit=crop' },
+  { id: 'EQ-002', name: 'Excavator (20T)', make: 'CAT 320', rate: 1200, status: 'available', site: '—', operatorId: null, image: 'https://images.unsplash.com/photo-1581451076939-5a9e33d2629b?w=300&auto=format&fit=crop' },
+  { id: 'EQ-003', name: 'Grader (Motor)', make: 'Komatsu GD655', rate: 1400, status: 'on_hire', site: 'Joburg Road Works', operatorId: 'op-2', image: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=300&auto=format&fit=crop' },
+  { id: 'EQ-004', name: 'Compactor (Roller)', make: 'Bomag BW 213', rate: 600, status: 'maintenance', site: '—', operatorId: null, image: 'https://images.unsplash.com/photo-1575828292850-d4766bc943a4?w=300&auto=format&fit=crop' }
+];
+
+const DEFAULT_OPERATORS = [
+  { id: 'op-1', name: 'Thabo Mokoena', phone: '+27 71 222 3333', status: 'active', equipmentId: 'EQ-001', rating: 4.8 },
+  { id: 'op-2', name: 'John van der Merwe', phone: '+27 82 444 5555', status: 'active', equipmentId: 'EQ-003', rating: 4.9 },
+  { id: 'op-3', name: 'Sibusiso Nxumalo', phone: '+27 83 666 7777', status: 'available', equipmentId: null, rating: 4.5 }
+];
+
+const DEFAULT_HIRE_REQUESTS = [
+  { id: 'HR-2024-018', client: 'BuildRight Construction', machine: 'TLB (Backhoe Loader)', site: 'Pretoria, Gauteng', startDate: '2026-07-08', duration: '5 days', totalValue: 34000, status: 'pending' },
+  { id: 'HR-2024-019', client: 'City Roads Ltd', machine: 'Grader (Motor)', site: 'Johannesburg, Gauteng', startDate: '2026-07-10', duration: '3 days', totalValue: 29400, status: 'pending' }
+];
+
+const DEFAULT_MAINTENANCE = [
+  { id: 'mt-1', equipmentId: 'EQ-004', issue: 'Hydraulic leak repair', date: '2026-07-05', cost: 4500, status: 'in_progress' },
+  { id: 'mt-2', equipmentId: 'EQ-001', issue: 'Regular 500hr service', date: '2026-06-20', cost: 2100, status: 'completed' }
+];
+
 const DEFAULT_PAYMENTS = [
   { id: 'tx-2001', bookingId: 'bk-1001', amount: 12000, status: 'completed', method: 'EFT Bank Transfer', date: '2026-06-24', customerName: 'Patrice Motsepe', driverName: 'Sipho Zuma' },
   { id: 'tx-2002', bookingId: 'bk-1002', amount: 49000, status: 'completed', method: 'Card (Visa)', date: '2026-06-23', customerName: 'Patrice Motsepe', driverName: 'Jabulani Khumalo' },
@@ -83,6 +107,10 @@ export const initializeMockData = () => {
     setStored('loads', DEFAULT_LOADS);
     setStored('bookings', DEFAULT_BOOKINGS);
     setStored('payments', DEFAULT_PAYMENTS);
+    setStored('equipment', DEFAULT_EQUIPMENT);
+    setStored('operators', DEFAULT_OPERATORS);
+    setStored('hireRequests', DEFAULT_HIRE_REQUESTS);
+    setStored('maintenance', DEFAULT_MAINTENANCE);
     setStored('notifications', DEFAULT_NOTIFICATIONS);
     localStorage.setItem('loadafrica_initialized_sa', 'true');
   }
@@ -98,6 +126,10 @@ export const getMockData = (key) => {
     case 'loads': return getStored('loads', DEFAULT_LOADS);
     case 'bookings': return getStored('bookings', DEFAULT_BOOKINGS);
     case 'payments': return getStored('payments', DEFAULT_PAYMENTS);
+    case 'equipment': return getStored('equipment', DEFAULT_EQUIPMENT);
+    case 'operators': return getStored('operators', DEFAULT_OPERATORS);
+    case 'hireRequests': return getStored('hireRequests', DEFAULT_HIRE_REQUESTS);
+    case 'maintenance': return getStored('maintenance', DEFAULT_MAINTENANCE);
     case 'notifications': return getStored('notifications', DEFAULT_NOTIFICATIONS);
     default: return null;
   }

@@ -1,31 +1,56 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Users, Search, Plus, Mail, Phone, Building, 
-  ExternalLink, Calendar, ChevronRight 
+  ExternalLink, Calendar, ChevronRight, RefreshCcw 
 } from 'lucide-react';
-import { getMockData } from '../../data/mockData';
+import { brokerService } from '../../services/brokerService';
 import { Table, Input, Card } from '../../components/ui';
 
 export default function CustomersList() {
   const [customers, setCustomers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setCustomers(getMockData('users') || []);
+    fetchCustomers();
   }, []);
 
-  const filteredCustomers = customers.filter(c => 
-    c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.company.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const fetchCustomers = async () => {
+    try {
+      setLoading(true);
+      const res = await brokerService.getCustomers();
+      if (res.success) {
+        setCustomers(res.data);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredCustomers = customers.filter(c => {
+    const name = c.user?.first_name || '';
+    const company = c.company_name || '';
+    return name.toLowerCase().includes(searchTerm.toLowerCase()) || company.toLowerCase().includes(searchTerm.toLowerCase());
+  });
 
   return (
     <div className="space-y-6 animate-fadeIn text-left">
       
       {/* Header */}
-      <div>
-        <h2 className="text-2xl font-black text-slate-900 tracking-tight">Cargo Shippers Database</h2>
-        <p className="text-xs text-slate-400 font-medium">Shipper client registrations managed under your broker account.</p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-black text-slate-900 tracking-tight">Cargo Shippers Database</h2>
+          <p className="text-xs text-slate-400 font-medium">Shipper client registrations managed under your broker account.</p>
+        </div>
+        <button 
+          onClick={fetchCustomers}
+          className="flex items-center gap-2 px-4 py-2 border border-slate-200 text-slate-700 bg-white rounded-xl text-sm font-semibold hover:bg-slate-50 transition-colors"
+        >
+          <RefreshCcw className="h-4 w-4" />
+          Refresh
+        </button>
       </div>
 
       {/* Filter Row */}
@@ -44,33 +69,40 @@ export default function CustomersList() {
 
       {/* Shippers Table */}
       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden text-xs">
-        {filteredCustomers.length === 0 ? (
-          <div className="p-12 text-center text-slate-400 font-medium">No customer shippers registered.</div>
+        {loading ? (
+           <div className="p-12 text-center text-slate-500 font-medium">
+              <RefreshCcw className="h-6 w-6 animate-spin mx-auto mb-2 text-slate-400" />
+              Loading customers...
+           </div>
+        ) : filteredCustomers.length === 0 ? (
+          <div className="p-12 text-center text-slate-400 font-medium">No customer shippers found.</div>
         ) : (
           <Table headers={['Shipper Name', 'Company', 'Phone Contact', 'System Status', 'Date Joined']}>
             {filteredCustomers.map((cust) => (
               <tr key={cust.id} className="hover:bg-slate-50/30">
                 <td className="py-4.5 px-6">
                   <div className="flex items-center gap-3">
-                    <img src={cust.avatar} alt={cust.name} className="h-9 w-9 rounded-full object-cover border border-slate-100" />
+                    <div className="h-9 w-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 border border-slate-200">
+                      <Users className="h-4 w-4" />
+                    </div>
                     <div>
-                      <p className="font-bold text-slate-800 text-sm">{cust.name}</p>
-                      <span className="text-[10px] text-slate-450 font-mono">{cust.email}</span>
+                      <p className="font-bold text-slate-800 text-sm">{cust.user?.first_name} {cust.user?.last_name}</p>
+                      <span className="text-[10px] text-slate-450 font-mono">{cust.user?.email}</span>
                     </div>
                   </div>
                 </td>
                 <td className="py-4.5 px-6 font-bold text-slate-850">
-                  <p>{cust.company}</p>
+                  <p>{cust.company_name || 'Individual'}</p>
                 </td>
-                <td className="py-4.5 px-6 font-mono text-slate-700">{cust.phone}</td>
+                <td className="py-4.5 px-6 font-mono text-slate-700">{cust.user?.phone}</td>
                 <td className="py-4.5 px-6">
-                  {cust.status === 'active' ? (
+                  {cust.user?.status === 'APPROVED' ? (
                     <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-100 uppercase text-[9px]">Active</span>
                   ) : (
-                    <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-400 uppercase text-[9px]">Deactivated</span>
+                    <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200 uppercase text-[9px]">{cust.user?.status || 'Pending'}</span>
                   )}
                 </td>
-                <td className="py-4.5 px-6 font-mono text-slate-400">{cust.joinedDate}</td>
+                <td className="py-4.5 px-6 font-mono text-slate-400">{new Date(cust.created_at).toLocaleDateString()}</td>
               </tr>
             ))}
           </Table>

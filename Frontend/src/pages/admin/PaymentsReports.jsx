@@ -104,7 +104,7 @@ export default function PaymentsReports() {
         </div>
 
         <div className="overflow-x-auto text-xs">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full min-w-[800px] text-left border-collapse">
             <thead>
               <tr className="border-b border-slate-100 text-slate-400 font-bold uppercase bg-slate-50/50">
                 <th className="py-4 px-6">Transaction ID</th>

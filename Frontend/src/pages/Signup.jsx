@@ -3,6 +3,7 @@ import Footer from '../components/Footer';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Truck } from 'lucide-react';
+import { authService } from '../services/authService';
 
 export default function Signup() {
   const [fullName, setFullName] = useState('John Doe');
@@ -13,7 +14,7 @@ export default function Signup() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!fullName || !email || !password) {
       setError('Please fill in all fields.');
@@ -22,11 +23,33 @@ export default function Signup() {
     setError('');
     setLoading(true);
     
-    // Simulate API loading
-    setTimeout(() => {
+    // Map role format to match backend enum
+    const roleMapping = {
+      'Customer': 'CUSTOMER',
+      'Driver': 'DRIVER',
+      'Fleet Owner': 'FLEET_OWNER',
+      'Plant Owner': 'PLANT_OWNER'
+    };
+
+    const backendRole = roleMapping[role] || 'CUSTOMER';
+    const nameParts = fullName.split(' ');
+    const firstName = nameParts[0];
+    const lastName = nameParts.slice(1).join(' ');
+
+    try {
+      await authService.register({
+        email,
+        password,
+        role: backendRole,
+        firstName,
+        lastName
+      });
       setLoading(false);
       navigate('/login');
-    }, 1000);
+    } catch (err) {
+      setLoading(false);
+      setError(err.response?.data?.message || 'Registration failed.');
+    }
   };
 
   return (

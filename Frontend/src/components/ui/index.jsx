@@ -68,7 +68,7 @@ export function Input({
     <div className="space-y-1.5 w-full text-left">
       {label && (
         <label className="block text-xs font-bold text-slate-900 tracking-wider">
-          {label}
+          {label} {props.required && <span className="text-red-500">*</span>}
         </label>
       )}
       <div className="relative">
@@ -121,7 +121,7 @@ export function Select({
     <div className="space-y-1.5 w-full text-left">
       {label && (
         <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider">
-          {label}
+          {label} {props.required && <span className="text-red-500">*</span>}
         </label>
       )}
       <select 
@@ -214,7 +214,7 @@ export function Table({
 }) {
   return (
     <div className={`overflow-x-auto w-full border border-slate-200 rounded-2xl bg-white shadow-sm ${className}`}>
-      <table className="w-full text-left border-collapse text-xs sm:text-sm">
+      <table className="w-full min-w-[600px] text-left border-collapse text-xs sm:text-sm">
         <thead>
           <tr className="border-b border-slate-150 text-slate-400 font-bold uppercase bg-slate-50/60">
             {headers.map((h, i) => (
@@ -480,22 +480,32 @@ export function GooglePlacesInput({
   };
 
   return (
-    <div className="relative w-full">
-      <input
-        type="text"
-        placeholder={placeholder}
-        value={value}
-        onChange={handleChange}
-        required={required}
-        className={`w-full rounded-md focus:outline-none focus:ring-1 focus:ring-[#EF9A30] focus:border-[#EF9A30] text-xs transition-all ${
-          hasBg ? '' : 'bg-white'
-        } ${
-          hasBorder ? '' : 'border border-slate-300'
-        } ${
-          hasTextColor ? '' : 'text-slate-800'
-        } px-3 py-2.5 ${className}`}
-        {...props}
-      />
+    <div className="space-y-1.5 w-full text-left relative">
+      {label && (
+        <label className="block text-xs font-bold text-slate-900 tracking-wider">
+          {label} {required && <span className="text-red-500">*</span>}
+        </label>
+      )}
+      <div className="relative">
+        {Icon && (
+          <Icon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+        )}
+        <input
+          type="text"
+          placeholder={placeholder}
+          value={value}
+          onChange={handleChange}
+          required={required}
+          className={`w-full rounded-md focus:outline-none focus:ring-1 focus:ring-[#EF9A30] focus:border-[#EF9A30] text-xs transition-all ${
+            hasBg ? '' : 'bg-white'
+          } ${
+            hasBorder ? '' : 'border border-slate-300'
+          } ${
+            hasTextColor ? '' : 'text-slate-800'
+          } ${Icon && !className.includes('pl-') ? 'pl-9 pr-3' : 'px-3'} py-2.5 ${className}`}
+          {...props}
+        />
+      </div>
     </div>
   );
 }

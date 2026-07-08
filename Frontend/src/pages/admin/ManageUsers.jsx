@@ -3,7 +3,7 @@ import {
   Users, Truck, Compass, Search, Filter, CheckCircle2, 
   XCircle, Award, Eye, ExternalLink, Calendar, Trash2, Percent
 } from 'lucide-react';
-import { getMockData, saveMockData } from '../../data/mockData';
+import { adminService } from '../../services/adminService';
 import { Table, Badge } from '../../components/ui';
 
 export default function ManageUsers() {
@@ -13,51 +13,72 @@ export default function ManageUsers() {
   const [customers, setCustomers] = useState([]);
   const [drivers, setDrivers] = useState([]);
   const [brokers, setBrokers] = useState([]);
-  const [vehicles, setVehicles] = useState([]);
+  const [vehicles, setVehicles] = useState([]); // Will map separately later
 
-  const loadData = () => {
-    setCustomers(getMockData('users') || []);
-    setDrivers(getMockData('drivers') || []);
-    setBrokers(getMockData('brokers') || []);
-    setVehicles(getMockData('vehicles') || []);
+  const loadData = async () => {
+    try {
+      const res = await adminService.getAllUsers();
+      if (res.success) {
+        const users = res.data;
+        // Map backend users to frontend format for now
+        const mappedCustomers = users.filter(u => u.role === 'CUSTOMER').map(u => ({
+          id: u.id,
+          name: u.first_name ? `${u.first_name} ${u.last_name || ''}` : u.customer?.company_name || 'Customer',
+          email: u.email,
+          company: u.customer?.company_name || 'N/A',
+          joinedDate: new Date(u.created_at).toLocaleDateString(),
+          status: u.status.toLowerCase(),
+          avatar: u.avatar || `https://ui-avatars.com/api/?name=${u.first_name || 'User'}`
+        }));
+
+        const mappedDrivers = users.filter(u => u.role === 'DRIVER').map(u => ({
+          id: u.id,
+          name: u.first_name ? `${u.first_name} ${u.last_name || ''}` : 'Driver',
+          email: u.email,
+          phone: u.phone || 'N/A',
+          kycStatus: u.driver?.status === 'ACTIVE' ? 'verified' : (u.status === 'PENDING' ? 'submitted' : 'pending'),
+          trips: 0, // Mock for now, update in Phase 4
+          rating: 5.0,
+          status: u.status.toLowerCase(),
+          avatar: u.avatar || `https://ui-avatars.com/api/?name=${u.first_name || 'Driver'}`
+        }));
+
+        const mappedBrokers = users.filter(u => u.role === 'BROKER').map(u => ({
+          id: u.id,
+          name: u.first_name ? `${u.first_name} ${u.last_name || ''}` : u.broker?.company_name || 'Broker',
+          email: u.email,
+          commissionRate: 5, // Mock
+          assignedLoadsCount: 0, // Mock
+          status: u.status.toLowerCase(),
+          avatar: u.avatar || `https://ui-avatars.com/api/?name=${u.first_name || 'Broker'}`
+        }));
+
+        setCustomers(mappedCustomers);
+        setDrivers(mappedDrivers);
+        setBrokers(mappedBrokers);
+        // Vehicle fetching can be added from fleet data later
+      }
+    } catch (error) {
+      console.error("Failed to load users", error);
+    }
   };
 
   useEffect(() => {
     loadData();
   }, []);
 
-  const handleUpdateStatus = (type, id, newStatus) => {
-    if (type === 'driver') {
-      const allDrivers = getMockData('drivers') || [];
-      const idx = allDrivers.findIndex(d => d.id === id);
-      if (idx > -1) {
-        allDrivers[idx].status = newStatus;
-        if (newStatus === 'active') allDrivers[idx].kycStatus = 'verified';
-        saveMockData('drivers', allDrivers);
+  const handleUpdateStatus = async (type, id, newStatus) => {
+    try {
+      if (newStatus === 'active') {
+        await adminService.approveUser(id);
+      } else if (newStatus === 'inactive' || newStatus === 'rejected') {
+        await adminService.rejectUser(id);
       }
-    } else if (type === 'customer') {
-      const allUsers = getMockData('users') || [];
-      const idx = allUsers.findIndex(u => u.id === id);
-      if (idx > -1) {
-        allUsers[idx].status = newStatus;
-        saveMockData('users', allUsers);
-      }
-    } else if (type === 'broker') {
-      const allBrokers = getMockData('brokers') || [];
-      const idx = allBrokers.findIndex(b => b.id === id);
-      if (idx > -1) {
-        allBrokers[idx].status = newStatus;
-        saveMockData('brokers', allBrokers);
-      }
-    } else if (type === 'vehicle') {
-      const allVehicles = getMockData('vehicles') || [];
-      const idx = allVehicles.findIndex(v => v.id === id);
-      if (idx > -1) {
-        allVehicles[idx].status = newStatus;
-        saveMockData('vehicles', allVehicles);
-      }
+      loadData();
+    } catch (error) {
+      console.error("Failed to update status", error);
+      alert("Failed to update status");
     }
-    loadData();
   };
 
   return (

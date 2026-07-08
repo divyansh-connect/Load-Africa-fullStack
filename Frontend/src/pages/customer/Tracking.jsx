@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Compass, ShieldCheck, MapPin, Truck, Phone, Star, Info } from 'lucide-react';
+import { Compass, ShieldCheck, MapPin, Truck, Phone, Star, Info, CheckCircle2 } from 'lucide-react';
 import { getMockData } from '../../data/mockData';
 import { Card, Button, Badge } from '../../components/ui';
 
@@ -140,7 +140,7 @@ export default function Tracking() {
           <h3 className="text-lg font-bold text-slate-800">Assigned Driver</h3>
           
           <div className="flex items-center gap-4">
-            <img src={driver.avatar} alt={driver.name} className="h-16 w-16 rounded-full border border-slate-200 object-cover" />
+            <img src={driver.avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80'} alt={driver.name} className="h-16 w-16 rounded-full border border-slate-200 object-cover" />
             <div className="space-y-1">
               <h4 className="font-bold text-slate-800 text-base">{driver.name}</h4>
               <div className="flex items-center gap-1">
@@ -160,6 +160,10 @@ export default function Tracking() {
               <span>Vehicle Registry:</span>
               <span className="text-slate-850 font-mono font-bold bg-slate-50 border px-1.5 py-0.5 rounded">{getMockData('vehicles')?.find(v => v.driverName === driver.name)?.numberPlate || 'GP 82 DF GP'}</span>
             </div>
+            <div className="flex justify-between border-t border-slate-100 pt-3">
+              <span>Broker:</span>
+              <span className="text-slate-850 font-bold text-slate-800">Global Logistics Coordinator</span>
+            </div>
           </div>
 
           <a 
@@ -168,6 +172,40 @@ export default function Tracking() {
           >
             Call Driver Support
           </a>
+        </Card>
+
+        {/* Timeline */}
+        <Card className="p-6 space-y-4">
+          <h3 className="text-lg font-bold text-slate-800">Shipment Timeline</h3>
+          <div className="space-y-4 relative before:absolute before:inset-0 before:ml-2.5 before:-translate-x-px before:h-full before:w-0.5 before:bg-slate-200">
+            <div className="relative flex items-start gap-4">
+              <div className="h-5 w-5 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 z-10 border-2 border-white mt-1">
+                <CheckCircle2 className="h-3 w-3" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-slate-800">Driver Assigned</p>
+                <p className="text-[10px] text-slate-500">12 Jun, 09:15</p>
+              </div>
+            </div>
+            <div className="relative flex items-start gap-4">
+              <div className="h-5 w-5 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0 z-10 border-2 border-white mt-1">
+                <Compass className="h-3 w-3 animate-spin" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-slate-800">In Transit</p>
+                <p className="text-[10px] text-slate-500">ETA: ~3.5h remaining</p>
+              </div>
+            </div>
+            <div className="relative flex items-start gap-4">
+              <div className="h-5 w-5 rounded-full bg-slate-200 text-slate-400 flex items-center justify-center shrink-0 z-10 border-2 border-white mt-1">
+                <MapPin className="h-3 w-3" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-slate-400">Delivery Destination</p>
+                <p className="text-[10px] text-slate-400">Pending</p>
+              </div>
+            </div>
+          </div>
         </Card>
       </div>
 

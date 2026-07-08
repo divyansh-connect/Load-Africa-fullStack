@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate, Outlet } from 'react-router-dom';
 import {
   LayoutDashboard, HardHat, DollarSign, PlusCircle, Bell,
-  Menu, X, LogOut, User, FileText, Settings, Wrench
+  Menu, X, LogOut, User, FileText, Settings, Wrench, ShieldAlert
 } from 'lucide-react';
+import { plantService } from '../services/plantService';
 
 const plantOwner = {
   name: 'Plant Owner',
@@ -17,13 +18,33 @@ export default function PlantLayout({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
 
+  const [plantStatus, setPlantStatus] = useState('REGISTERED');
+
+  useEffect(() => {
+    const fetchStatus = async () => {
+      try {
+        const res = await plantService.getDashboard();
+        if (res.success && res.data) {
+          setPlantStatus(res.data.status);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchStatus();
+  }, [location.pathname]);
+
   const navItems = [
     { name: 'Dashboard', path: '/plant-portal/dashboard', icon: LayoutDashboard },
-    { name: 'My Equipment', path: '/plant-portal/equipment', icon: HardHat },
-    { name: 'Hire Requests', path: '/plant-portal/requests', icon: FileText },
-    { name: 'Revenue', path: '/plant-portal/revenue', icon: DollarSign },
-    { name: 'List New Machine', path: '/plant-portal/add-machine', icon: PlusCircle },
-    { name: 'Maintenance', path: '/plant-portal/maintenance', icon: Wrench },
+    ...(plantStatus === 'ACTIVE' ? [
+      { name: 'My Equipment', path: '/plant-portal/equipment', icon: HardHat },
+      { name: 'Hire Requests', path: '/plant-portal/requests', icon: FileText },
+      { name: 'Revenue', path: '/plant-portal/revenue', icon: DollarSign },
+      { name: 'List New Machine', path: '/plant-portal/add-machine', icon: PlusCircle },
+      { name: 'Maintenance', path: '/plant-portal/maintenance', icon: Wrench },
+    ] : [
+      { name: 'Compliance', path: '/plant-portal/compliance', icon: ShieldAlert },
+    ]),
     { name: 'Profile & Settings', path: '/plant-portal/profile', icon: User },
   ];
 

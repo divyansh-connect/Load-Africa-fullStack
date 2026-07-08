@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate, Outlet } from 'react-router-dom';
 import {
   LayoutDashboard, Truck, DollarSign, PlusCircle, Bell,
-  Menu, X, LogOut, User, FileText, Settings
+  Menu, X, LogOut, User, FileText, Settings, ShieldAlert
 } from 'lucide-react';
+import { fleetService } from '../services/fleetService';
 
 const fleetOwner = {
   name: 'Fleet Owner',
@@ -17,12 +18,32 @@ export default function FleetLayout({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
 
+  const [fleetStatus, setFleetStatus] = useState('REGISTERED');
+
+  useEffect(() => {
+    const fetchStatus = async () => {
+      try {
+        const res = await fleetService.getDashboard();
+        if (res.success && res.data) {
+          setFleetStatus(res.data.status);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchStatus();
+  }, [location.pathname]); // re-fetch on navigation
+
   const navItems = [
     { name: 'Dashboard', path: '/fleet-portal/dashboard', icon: LayoutDashboard },
-    { name: 'My Fleet', path: '/fleet-portal/vehicles', icon: Truck },
-    { name: 'Booking Requests', path: '/fleet-portal/requests', icon: FileText },
-    { name: 'Revenue', path: '/fleet-portal/revenue', icon: DollarSign },
-    { name: 'Add Vehicle', path: '/fleet-portal/add-vehicle', icon: PlusCircle },
+    ...(fleetStatus === 'ACTIVE' ? [
+      { name: 'My Fleet', path: '/fleet-portal/vehicles', icon: Truck },
+      { name: 'Booking Requests', path: '/fleet-portal/requests', icon: FileText },
+      { name: 'Revenue', path: '/fleet-portal/revenue', icon: DollarSign },
+      { name: 'Add Vehicle', path: '/fleet-portal/add-vehicle', icon: PlusCircle },
+    ] : [
+      { name: 'Compliance', path: '/fleet-portal/compliance', icon: ShieldAlert },
+    ]),
     { name: 'Profile & Settings', path: '/fleet-portal/profile', icon: User },
   ];
 

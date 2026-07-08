@@ -10,7 +10,6 @@ export default function CustomerProfile() {
   const location = useLocation();
   const navigate = useNavigate();
   const queryTab = new URLSearchParams(location.search).get('tab');
-  
   const [activeTab, setActiveTab] = useState(queryTab || 'profile');
   const [user, setUser] = useState({
     name: '',
@@ -86,7 +85,7 @@ export default function CustomerProfile() {
       {/* Profile Navigation Tabs */}
       <div className="flex border-b border-slate-200 bg-white p-2 rounded-xl shadow-sm border">
         <button 
-          onClick={() => { setActiveTab('profile'); navigate('/customer/profile?tab=profile'); }}
+          onClick={() => { setActiveTab('profile'); navigate('/customer/profile?tab=profile', { replace: true }); }}
           className={`flex-1 flex items-center justify-center gap-2 py-3 text-xs font-bold rounded-lg transition-all ${
             activeTab === 'profile' 
               ? 'bg-slate-900 text-white shadow-sm' 
@@ -97,7 +96,7 @@ export default function CustomerProfile() {
           Edit Profile
         </button>
         <button 
-          onClick={() => { setActiveTab('notifications'); navigate('/customer/profile?tab=notifications'); }}
+          onClick={() => { setActiveTab('notifications'); navigate('/customer/profile?tab=notifications', { replace: true }); }}
           className={`flex-1 flex items-center justify-center gap-2 py-3 text-xs font-bold rounded-lg transition-all ${
             activeTab === 'notifications' 
               ? 'bg-slate-900 text-white shadow-sm' 
@@ -108,7 +107,7 @@ export default function CustomerProfile() {
           Notifications
         </button>
         <button 
-          onClick={() => { setActiveTab('settings'); navigate('/customer/profile?tab=settings'); }}
+          onClick={() => { setActiveTab('settings'); navigate('/customer/profile?tab=settings', { replace: true }); }}
           className={`flex-1 flex items-center justify-center gap-2 py-3 text-xs font-bold rounded-lg transition-all ${
             activeTab === 'settings' 
               ? 'bg-slate-900 text-white shadow-sm' 
@@ -125,7 +124,7 @@ export default function CustomerProfile() {
         <form onSubmit={handleSaveProfile} className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-6">
           <div className="flex flex-col sm:flex-row items-center gap-6 pb-4 border-b border-slate-100">
             <img 
-              src={user.avatar} 
+              src={user.avatar || null} 
               alt={user.name} 
               className="h-20 w-20 rounded-full border border-slate-200 object-cover"
             />
@@ -278,7 +277,7 @@ export default function CustomerProfile() {
 
           <div>
             <h3 className="text-lg font-bold text-slate-800">Account Security</h3>
-            <p className="text-xs text-slate-400">Configure safety mechanisms to lock down your booking funds.</p>
+            <p className="text-xs text-slate-400">Configure safety mechanisms to protect your account.</p>
           </div>
 
           <div className="space-y-6">
@@ -297,7 +296,7 @@ export default function CustomerProfile() {
                 Change Password
               </button>
               <button className="px-5 py-3 border border-red-200 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-xl transition-all">
-                Deactivate Escrow Account
+                Deactivate Account
               </button>
             </div>
           </div>
