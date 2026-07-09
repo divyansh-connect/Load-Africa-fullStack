@@ -665,7 +665,7 @@ const approveDriver = async (req, res) => {
       // Update Driver
       await tx.driver.update({
         where: { id: driver.id },
-        data: { status: 'ACTIVE' }
+        data: { status: 'INACTIVE' }
       });
 
       // Update DriverApproval

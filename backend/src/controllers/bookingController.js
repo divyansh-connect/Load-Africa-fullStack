@@ -296,12 +296,33 @@ const acceptBooking = async (req, res, next) => {
     
     if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
 
-    // Validate the driver/fleet who is accepting is actually assigned
-    // For now, we trust the assignment or auth token logic.
-    
-    const newStatus = 'BOOKING_CONFIRMED';
-    
+    const driverId = req.user?.driver?.id;
+    const fleetOwnerId = req.user?.fleet_owner?.id;
+
     const updated = await prisma.$transaction(async (tx) => {
+      // Find the pending assignment for this driver or fleet owner
+      const assignment = await tx.bookingAssignment.findFirst({
+        where: {
+          booking_id: id,
+          OR: [
+            driverId ? { driver_id: driverId } : undefined,
+            fleetOwnerId ? { fleet_owner_id: fleetOwnerId } : undefined
+          ].filter(Boolean),
+          status: 'PENDING'
+        }
+      });
+
+      if (assignment) {
+        await tx.bookingAssignment.update({
+          where: { id: assignment.id },
+          data: { status: 'ACTIVE' }
+        });
+      }
+
+      // If driver accepted, keep the status as DRIVER_ASSIGNED (which is the active trip status)
+      // otherwise fallback to BOOKING_CONFIRMED.
+      const newStatus = booking.status === 'DRIVER_ASSIGNED' ? 'DRIVER_ASSIGNED' : 'BOOKING_CONFIRMED';
+
       const b = await tx.booking.update({
         where: { id },
         data: { status: newStatus }
@@ -311,14 +332,14 @@ const acceptBooking = async (req, res, next) => {
         data: {
           booking_id: id,
           status: newStatus,
-          remarks: 'Provider accepted the booking',
+          remarks: req.user?.role === 'DRIVER' ? 'Driver accepted the trip assignment' : 'Fleet Owner accepted the booking assignment',
           updated_by: req.user?.id || 'SYSTEM'
         }
       });
       return b;
     });
 
-    res.status(200).json({ success: true, data: updated, message: 'Booking accepted' });
+    res.status(200).json({ success: true, data: updated, message: 'Booking assignment accepted successfully' });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }
@@ -331,32 +352,39 @@ const rejectBooking = async (req, res, next) => {
     
     if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
 
-    // When a provider rejects, it should probably go back to DRAFT or DRIVER_SEARCHING
+    const driverId = req.user?.driver?.id;
+    const fleetOwnerId = req.user?.fleet_owner?.id;
     const newStatus = 'DRIVER_SEARCHING';
     
     const updated = await prisma.$transaction(async (tx) => {
+      // Find and delete the pending assignment
+      await tx.bookingAssignment.deleteMany({
+        where: {
+          booking_id: id,
+          OR: [
+            driverId ? { driver_id: driverId } : undefined,
+            fleetOwnerId ? { fleet_owner_id: fleetOwnerId } : undefined
+          ].filter(Boolean)
+        }
+      });
+
       const b = await tx.booking.update({
         where: { id },
         data: { status: newStatus }
-      });
-
-      // Optionally we could delete the assignment or mark it inactive.
-      await tx.bookingAssignment.deleteMany({
-        where: { booking_id: id }
       });
 
       await tx.trackingHistory.create({
         data: {
           booking_id: id,
           status: newStatus,
-          remarks: 'Provider rejected the booking. Searching for new driver.',
+          remarks: req.user?.role === 'DRIVER' ? 'Driver rejected the trip assignment. Searching for new driver.' : 'Fleet Owner rejected the assignment. Searching for new transporter.',
           updated_by: req.user?.id || 'SYSTEM'
         }
       });
       return b;
     });
 
-    res.status(200).json({ success: true, data: updated, message: 'Booking rejected' });
+    res.status(200).json({ success: true, data: updated, message: 'Booking assignment rejected' });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }

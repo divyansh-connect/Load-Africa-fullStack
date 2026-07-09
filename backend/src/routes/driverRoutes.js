@@ -11,7 +11,8 @@ const {
   getProfile,
   updateProfile,
   completeOnboarding,
-  updateTelemetry
+  updateTelemetry,
+  toggleOnlineStatus
 } = require('../controllers/driverController');
 
 const router = express.Router();
@@ -27,5 +28,6 @@ router.get('/profile', requireAuth, getProfile);
 router.put('/profile', requireAuth, updateProfile);
 router.post('/onboarding/complete', requireAuth, completeOnboarding);
 router.post('/trips/:bookingId/telemetry', requireAuth, updateTelemetry);
+router.post('/toggle-online', requireAuth, toggleOnlineStatus);
 
 module.exports = router;

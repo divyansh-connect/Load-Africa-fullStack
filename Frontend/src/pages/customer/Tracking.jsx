@@ -38,7 +38,7 @@ export default function Tracking() {
             const bookingDetails = detailsRes.data;
             setLoad(bookingDetails);
             setTelemetry(bookingDetails.telemetry);
-            const assignment = bookingDetails.assignments?.[0];
+            const assignment = bookingDetails.assignments?.find(a => a.status === 'ACTIVE') || bookingDetails.assignments?.[0];
             if (assignment?.driver) {
               setDriver(assignment.driver);
             }
@@ -231,7 +231,7 @@ export default function Tracking() {
             <div className="flex justify-between">
               <span>Vehicle Registry:</span>
               <span className="text-slate-800 font-mono font-bold bg-slate-50 border px-1.5 py-0.5 rounded">
-                {load.assignments?.[0]?.vehicle?.registration_number || 'GP 82 DF GP'}
+                {(load.assignments?.find(a => a.status === 'ACTIVE') || load.assignments?.[0])?.vehicle?.registration_number || 'GP 82 DF GP'}
               </span>
             </div>
           </div>

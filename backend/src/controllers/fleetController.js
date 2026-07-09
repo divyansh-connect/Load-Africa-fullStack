@@ -225,9 +225,19 @@ const bcrypt = require('bcrypt');
 
 const getDrivers = async (req, res) => {
   try {
-    const fleetOwnerId = await getFleetOwnerId(req);
+    // Authorization check — return 403 not 400 for wrong role
+    if (!req.user || req.user.role !== 'FLEET_OWNER') {
+      return res.status(403).json({ success: false, message: 'Fleet Owner access required.' });
+    }
+    const fleetOwner = await prisma.fleetOwner.findUnique({
+      where: { user_id: req.user.id }
+    });
+    if (!fleetOwner) {
+      return res.status(403).json({ success: false, message: 'Fleet Owner profile not found.' });
+    }
+
     const drivers = await prisma.driver.findMany({
-      where: { fleet_owner_id: fleetOwnerId, is_deleted: false },
+      where: { fleet_owner_id: fleetOwner.id, is_deleted: false },
       include: {
         user: true,
         assigned_vehicle: true
@@ -477,6 +487,71 @@ const acceptAndDispatch = async (req, res) => {
   }
 };
 
+const getProfile = async (req, res) => {
+  try {
+    const fleetOwnerId = await getFleetOwnerId(req);
+    const fleetOwner = await prisma.fleetOwner.findUnique({
+      where: { id: fleetOwnerId },
+      include: { user: true }
+    });
+
+    if (!fleetOwner) return res.status(404).json({ success: false, message: 'Profile not found' });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        first_name: fleetOwner.user.first_name || '',
+        last_name: fleetOwner.user.last_name || '',
+        email: fleetOwner.user.email,
+        phone: fleetOwner.user.phone || '',
+        avatar: fleetOwner.user.avatar || '',
+        company_name: fleetOwner.company_name,
+        company_registration: fleetOwner.company_registration,
+        tax_number: fleetOwner.tax_number || '',
+        address: fleetOwner.address || ''
+      }
+    });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+const updateProfile = async (req, res) => {
+  try {
+    const fleetOwnerId = await getFleetOwnerId(req);
+    const { first_name, last_name, phone, company_name, company_registration, tax_number, address } = req.body;
+
+    const fleetOwner = await prisma.fleetOwner.findUnique({
+      where: { id: fleetOwnerId }
+    });
+
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: fleetOwner.user_id },
+        data: {
+          first_name: first_name !== undefined ? first_name : undefined,
+          last_name: last_name !== undefined ? last_name : undefined,
+          phone: phone !== undefined ? phone : undefined,
+        }
+      });
+
+      await tx.fleetOwner.update({
+        where: { id: fleetOwnerId },
+        data: {
+          company_name: company_name !== undefined ? company_name : undefined,
+          company_registration: company_registration !== undefined ? company_registration : undefined,
+          tax_number: tax_number !== undefined ? tax_number : undefined,
+          address: address !== undefined ? address : undefined,
+        }
+      });
+    });
+
+    res.status(200).json({ success: true, message: 'Profile updated successfully' });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   getDashboard,
   submitCompliance,
@@ -490,5 +565,7 @@ module.exports = {
   updateDriverStatus,
   deleteDriver,
   getLoads,
-  acceptAndDispatch
+  acceptAndDispatch,
+  getProfile,
+  updateProfile
 };

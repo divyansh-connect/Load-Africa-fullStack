@@ -59,5 +59,20 @@ export const driverService = {
   updateTelemetry: async (bookingId, latitude, longitude) => {
     const response = await api.post(`/driver/trips/${bookingId}/telemetry`, { latitude, longitude });
     return response.data;
+  },
+
+  acceptAssignment: async (bookingId) => {
+    const response = await api.post(`/bookings/${bookingId}/accept`);
+    return response.data;
+  },
+
+  rejectAssignment: async (bookingId) => {
+    const response = await api.post(`/bookings/${bookingId}/reject`);
+    return response.data;
+  },
+
+  toggleOnline: async (isOnline, latitude, longitude) => {
+    const response = await api.post('/driver/toggle-online', { isOnline, latitude, longitude });
+    return response.data;
   }
 };

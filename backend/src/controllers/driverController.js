@@ -99,7 +99,13 @@ const getActiveTrip = async (req, res) => {
       }
     });
 
-    res.status(200).json({ success: true, data: activeTrip ? activeTrip.booking : null });
+    res.status(200).json({
+      success: true,
+      data: activeTrip ? {
+        ...activeTrip.booking,
+        assignmentStatus: activeTrip.status
+      } : null
+    });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }
@@ -439,6 +445,36 @@ const updateTelemetry = async (req, res) => {
   }
 };
 
+const toggleOnlineStatus = async (req, res) => {
+  try {
+    const driverId = await getDriverId(req);
+    const { isOnline, latitude, longitude } = req.body;
+
+    if (!driverId) return res.status(404).json({ success: false, message: 'Driver profile not found' });
+
+    const newStatus = isOnline ? 'AVAILABLE' : 'INACTIVE';
+
+    await prisma.$transaction(async (tx) => {
+      await tx.driver.update({
+        where: { id: driverId },
+        data: { status: newStatus }
+      });
+
+      await tx.driverProfile.update({
+        where: { driver_id: driverId },
+        data: {
+          gps_lat: latitude ? parseFloat(latitude) : null,
+          gps_lng: longitude ? parseFloat(longitude) : null
+        }
+      });
+    });
+
+    res.status(200).json({ success: true, message: `Driver is now ${isOnline ? 'online' : 'offline'}` });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   getAvailableLoads,
   applyForLoad,
@@ -450,5 +486,6 @@ module.exports = {
   getProfile,
   updateProfile,
   completeOnboarding,
-  updateTelemetry
+  updateTelemetry,
+  toggleOnlineStatus
 };

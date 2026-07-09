@@ -65,14 +65,41 @@ const CARGO_CATEGORIES = [
 // ─────────────────────────────────────────────
 // Address autocomplete hook
 // ─────────────────────────────────────────────
-function useAddressSearch(initialValue = '') {
-  const [value, setValue] = useState(initialValue);
+function useAddressSearch(initialValue = '', storageKey = null) {
+  const [value, setValue] = useState(() => {
+    if (initialValue) return initialValue;
+    if (storageKey) {
+      const stored = localStorage.getItem(`${storageKey}_value`);
+      if (stored) return stored;
+    }
+    return initialValue;
+  });
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [selected, setSelected] = useState(
-    initialValue ? { label: initialValue, lat: -26.2041, lng: 28.0473 } : null
-  );
+  const [selected, setSelected] = useState(() => {
+    if (initialValue) return { label: initialValue, lat: -26.2041, lng: 28.0473 };
+    if (storageKey) {
+      const stored = localStorage.getItem(`${storageKey}_selected`);
+      if (stored) {
+        try {
+          return JSON.parse(stored);
+        } catch (e) {}
+      }
+    }
+    return initialValue ? { label: initialValue, lat: -26.2041, lng: 28.0473 } : null;
+  });
   const debounceRef = useRef(null);
+
+  useEffect(() => {
+    if (storageKey) {
+      localStorage.setItem(`${storageKey}_value`, value);
+      if (selected) {
+        localStorage.setItem(`${storageKey}_selected`, JSON.stringify(selected));
+      } else {
+        localStorage.removeItem(`${storageKey}_selected`);
+      }
+    }
+  }, [value, selected, storageKey]);
 
   const onChange = useCallback((text) => {
     setValue(text);
@@ -101,7 +128,15 @@ function useAddressSearch(initialValue = '') {
     setSuggestions([]);
   };
 
-  const clear = () => { setValue(''); setSelected(null); setSuggestions([]); };
+  const clear = () => {
+    setValue('');
+    setSelected(null);
+    setSuggestions([]);
+    if (storageKey) {
+      localStorage.removeItem(`${storageKey}_value`);
+      localStorage.removeItem(`${storageKey}_selected`);
+    }
+  };
 
   return { value, onChange, onSelect, suggestions, loading, selected, clear, closeSuggestions };
 }
@@ -238,24 +273,37 @@ export default function CreateBooking() {
   const [routeLoading, setRouteLoading] = useState(false);
 
   // Address hooks
-  const pickupHook = useAddressSearch(location.state?.pickup || '');
-  const deliveryHook = useAddressSearch(location.state?.dropoff || '');
+  const pickupHook = useAddressSearch(location.state?.pickup || '', 'booking_pickup');
+  const deliveryHook = useAddressSearch(location.state?.dropoff || '', 'booking_delivery');
 
-  // Form data (all empty)
-  const [form, setForm] = useState({
-    vehicleCategory: '',
-    vehicleType: '',
-    cargoCategory: '',
-    cargoName: '',
-    weight: '',
-    volume: '',
-    pickupDate: '',
-    pickupTime: '',
-    specialInstructions: '',
-    urgency: false,
-    loadingAssistance: false,
-    unloadingAssistance: false,
+  // Form data (restored from localStorage if exists)
+  const [form, setForm] = useState(() => {
+    const stored = localStorage.getItem('booking_form_data');
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch (e) {}
+    }
+    return {
+      vehicleCategory: '',
+      vehicleType: '',
+      cargoCategory: '',
+      cargoName: '',
+      weight: '',
+      volume: '',
+      pickupDate: '',
+      pickupTime: '',
+      specialInstructions: '',
+      urgency: false,
+      loadingAssistance: false,
+      unloadingAssistance: false,
+    };
   });
+
+  // Persist form changes
+  useEffect(() => {
+    localStorage.setItem('booking_form_data', JSON.stringify(form));
+  }, [form]);
 
   const handleFormChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -302,8 +350,22 @@ export default function CreateBooking() {
     setSubmitting(true);
     setSubmitError('');
     try {
+      // Verify user is still authenticated
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setSubmitError('You are not logged in. Please log in and try again.');
+        setSubmitting(false);
+        return;
+      }
+
       const pickup = pickupHook.selected;
       const delivery = deliveryHook.selected;
+
+      if (!pickup?.lat || !delivery?.lat) {
+        setSubmitError('Please select valid pickup and delivery addresses.');
+        setSubmitting(false);
+        return;
+      }
 
       const payload = {
         pickup_address: pickup.label,
@@ -313,25 +375,30 @@ export default function CreateBooking() {
         delivery_coords_lat: delivery.lat,
         delivery_coords_lng: delivery.lng,
         pickup_date: form.pickupDate,
-        delivery_date: form.pickupDate, // Broker will refine this
+        delivery_date: form.pickupDate,
         cargo_name: form.cargoName,
         cargo_category: form.cargoCategory,
-        weight: form.weight,
-        volume: form.volume || null,
+        description: form.cargoName,
+        weight: parseFloat(form.weight),
+        volume: form.volume ? parseFloat(form.volume) : null,
         requested_vehicle: form.vehicleType,
         pickup_instructions: [
           form.specialInstructions,
-          form.pickupTime ? `Pickup time: ${form.pickupTime}` : '',
+          form.pickupTime ? `Preferred pickup time: ${form.pickupTime}` : '',
         ].filter(Boolean).join('\n') || null,
         estimated_distance: routeData?.distanceKm ? parseFloat(routeData.distanceKm) : null,
-        estimated_duration_mins: routeData?.durationMins || null,
-        is_urgent: form.urgency,
-        loading_assistance: form.loadingAssistance,
-        unloading_assistance: form.unloadingAssistance,
+        estimated_duration_mins: routeData?.durationMins ? parseInt(routeData.durationMins) : null,
       };
 
       const res = await bookingService.createBooking(payload);
       if (res.success) {
+        // Clear all persisted draft values on successful submission
+        localStorage.removeItem('booking_form_data');
+        localStorage.removeItem('booking_pickup_value');
+        localStorage.removeItem('booking_pickup_selected');
+        localStorage.removeItem('booking_delivery_value');
+        localStorage.removeItem('booking_delivery_selected');
+        
         setSubmittedBookingId(res.data.id);
         setStep(3);
       } else {

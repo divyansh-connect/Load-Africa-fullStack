@@ -91,7 +91,7 @@ export default function ActiveDeliveries() {
         <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden text-xs">
           <Table headers={['Cargo Shipment', 'Route Details', 'Budget & Weight', 'Status', 'Actions']}>
             {activeLoads.map((load) => {
-              const assignment = load.assignments?.[0];
+              const assignment = load.assignments?.find(a => a.status === 'ACTIVE') || load.assignments?.[0];
               const driverName = assignment?.driver?.user 
                 ? `${assignment.driver.user.first_name} ${assignment.driver.user.last_name || ''}` 
                 : 'Awaiting dispatch';

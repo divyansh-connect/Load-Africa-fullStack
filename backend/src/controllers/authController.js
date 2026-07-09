@@ -21,6 +21,9 @@ const registerSchema = z.object({
   idDocument: z.string().optional(),
   vehicleType: z.string().optional(),
   vehicleReg: z.string().optional(),
+  licenseFront: z.string().optional(),
+  pdpDoc: z.string().optional(),
+  vehicleDoc: z.string().optional(),
 });
 
 const driverRegisterSchema = z.object({

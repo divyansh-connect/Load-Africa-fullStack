@@ -68,6 +68,32 @@ export default function ActiveTrip() {
     }, 3000);
   };
 
+  const handleAcceptAssignment = async () => {
+    try {
+      setUpdating(true);
+      await driverService.acceptAssignment(trip.id);
+      showToast("Trip assignment accepted!");
+      await fetchActiveTrip();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to accept trip");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleRejectAssignment = async () => {
+    try {
+      setUpdating(true);
+      await driverService.rejectAssignment(trip.id);
+      showToast("Trip assignment declined.");
+      await fetchActiveTrip();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to decline trip");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   const updateStatus = async (newStatus) => {
     try {
       setUpdating(true);
@@ -143,17 +169,49 @@ export default function ActiveTrip() {
           <h2 className="text-2xl font-black">{trip.cargo_name}</h2>
         </div>
         
-        {action && (
-          <button 
-            disabled={updating}
-            onClick={() => updateStatus(action.status)}
-            className="flex items-center gap-2 px-6 py-3 bg-[#f4a236] hover:bg-[#fdd086] hover:text-amber-900 text-white font-extrabold text-sm rounded-xl transition-all shadow-lg shadow-amber-500/20"
-          >
-            {updating ? 'Updating...' : action.label}
-            {!updating && <ArrowRight className="h-4 w-4" />}
-          </button>
+        {trip.assignmentStatus === 'PENDING' ? (
+          <div className="flex items-center gap-3">
+            <button
+              disabled={updating}
+              onClick={handleRejectAssignment}
+              className="px-5 py-2.5 bg-red-600 hover:bg-red-500 text-white font-extrabold text-sm rounded-xl transition-all shadow-lg shadow-red-500/10"
+            >
+              Decline Assignment
+            </button>
+            <button
+              disabled={updating}
+              onClick={handleAcceptAssignment}
+              className="px-5 py-2.5 bg-[#f4a236] hover:bg-amber-400 hover:text-amber-950 text-slate-950 font-extrabold text-sm rounded-xl transition-all shadow-lg shadow-amber-500/20"
+            >
+              Accept Assignment
+            </button>
+          </div>
+        ) : (
+          action && (
+            <button 
+              disabled={updating}
+              onClick={() => updateStatus(action.status)}
+              className="flex items-center gap-2 px-6 py-3 bg-[#f4a236] hover:bg-[#fdd086] hover:text-amber-900 text-white font-extrabold text-sm rounded-xl transition-all shadow-lg shadow-amber-500/20"
+            >
+              {updating ? 'Updating...' : action.label}
+              {!updating && <ArrowRight className="h-4 w-4" />}
+            </button>
+          )
         )}
       </div>
+
+      {/* Pending assignment warning banner */}
+      {trip.assignmentStatus === 'PENDING' && (
+        <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-3xl p-5 text-amber-800 animate-pulse">
+          <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="text-left text-xs">
+            <p className="font-black mb-1 uppercase tracking-wider text-amber-900">New Trip Assignment Awaiting Acceptance</p>
+            <p className="font-semibold leading-relaxed">
+              Please review the cargo details, pickup location, and delivery route below. You must accept the assignment before you can start moving or initiate GPS live tracking.
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         

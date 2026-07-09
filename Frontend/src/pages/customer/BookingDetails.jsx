@@ -80,8 +80,9 @@ export default function BookingDetails() {
 
   const quote = load.quotes?.[0];
   const grandTotal = quote ? Number(quote.grand_total) : 0;
-  const driver = load.assignments?.[0]?.driver;
-  const vehicle = load.assignments?.[0]?.vehicle;
+  const activeAssignment = load.assignments?.find(a => a.status === 'ACTIVE') || load.assignments?.[0];
+  const driver = activeAssignment?.driver;
+  const vehicle = activeAssignment?.vehicle;
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 text-left animate-fadeIn pb-12">

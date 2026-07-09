@@ -13,7 +13,8 @@ export default function FleetDrivers() {
   const [search, setSearch] = useState('');
   
   const [actionModal, setActionModal] = useState({ open: false, driver: null, action: '' });
-  const [error, setError] = useState('');
+  const [loadError, setLoadError] = useState('');
+  const [actionError, setActionError] = useState('');
 
   useEffect(() => {
     fetchDrivers();
@@ -21,12 +22,20 @@ export default function FleetDrivers() {
 
   const fetchDrivers = async () => {
     try {
+      setLoadError('');
       const data = await fleetService.getDrivers();
       if (data.success) {
         setDrivers(data.data);
+      } else {
+        setLoadError(data.message || 'Failed to load drivers.');
       }
     } catch (err) {
-      console.error(err);
+      const status = err?.response?.status;
+      if (status === 401 || status === 403) {
+        setLoadError('You do not have Fleet Owner access. Please log in with a Fleet Owner account.');
+      } else {
+        setLoadError(err?.response?.data?.message || 'Failed to load drivers. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -39,7 +48,7 @@ export default function FleetDrivers() {
   );
 
   const handleAction = async () => {
-    setError('');
+    setActionError('');
     const { driver, action } = actionModal;
 
     try {
@@ -55,11 +64,19 @@ export default function FleetDrivers() {
       setActionModal({ open: false, driver: null, action: '' });
       fetchDrivers();
     } catch (err) {
-      setError(err.message || 'Action failed');
+      setActionError(err.message || 'Action failed');
     }
   };
 
   if (loading) return <div className="p-8 text-center text-slate-500 font-medium">Loading drivers...</div>;
+
+  if (loadError) return (
+    <div className="p-8 flex flex-col items-center justify-center gap-4 text-center">
+      <AlertCircle className="h-12 w-12 text-red-400" />
+      <h2 className="text-lg font-bold text-slate-700">Access Denied</h2>
+      <p className="text-sm text-slate-500 max-w-md">{loadError}</p>
+    </div>
+  );
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-6">
@@ -203,14 +220,14 @@ export default function FleetDrivers() {
 
       <Modal 
         isOpen={actionModal.open} 
-        onClose={() => { setActionModal({ open: false, driver: null, action: '' }); setError(''); }}
+        onClose={() => { setActionModal({ open: false, driver: null, action: '' }); setActionError(''); }}
         title={actionModal.action === 'delete' ? 'Delete Driver' : actionModal.action === 'suspend' ? 'Suspend Driver' : 'Activate Driver'}
       >
         <div className="space-y-4">
-          {error && (
+          {actionError && (
             <div className="p-3 bg-red-50 text-red-600 rounded-xl text-sm font-medium flex items-start gap-2 border border-red-100">
               <AlertCircle className="w-5 h-5 shrink-0" />
-              <p>{error}</p>
+              <p>{actionError}</p>
             </div>
           )}
           

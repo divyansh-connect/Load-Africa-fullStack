@@ -5,18 +5,16 @@ import {
   Menu, X, LogOut, User, Users, FileText, Settings, ShieldAlert
 } from 'lucide-react';
 import { fleetService } from '../services/fleetService';
-
-const fleetOwner = {
-  name: 'Fleet Owner',
-  sub: '12 Vehicles Registered',
-  avatar: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=80&auto=format&fit=crop&q=80',
-};
+import { authService } from '../services/authService';
 
 export default function FleetLayout({ children }) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const user = authService.getCurrentUser();
+  const userDisplayName = user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : 'Fleet Owner';
+  const companyName = user?.email || 'Registered Transporter';
 
   const [fleetStatus, setFleetStatus] = useState('REGISTERED');
 
@@ -47,7 +45,7 @@ export default function FleetLayout({ children }) {
     { name: 'Profile', path: '/fleet-portal/profile', icon: User },
   ];
 
-  const handleLogout = () => navigate('/login');
+  const handleLogout = () => authService.logout();
   const isActive = (path) => location.pathname === path || location.pathname.startsWith(path + '/');
 
   const SidebarContent = () => (
@@ -84,10 +82,12 @@ export default function FleetLayout({ children }) {
 
       <div className="p-4 border-t border-slate-800">
         <div className="flex items-center gap-3 px-2 py-3 rounded-xl bg-slate-800/40 border border-slate-800">
-          <img src={fleetOwner.avatar} alt={fleetOwner.name} className="h-10 w-10 rounded-full border border-slate-700 object-cover" />
+          <div className="h-10 w-10 rounded-full bg-amber-500 flex items-center justify-center font-black text-slate-950 text-sm shrink-0 shadow-md shadow-amber-500/10">
+            {userDisplayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'FL'}
+          </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-white truncate">{fleetOwner.name}</p>
-            <p className="text-xs text-slate-400 truncate">{fleetOwner.sub}</p>
+            <p className="text-sm font-semibold text-white truncate">{userDisplayName}</p>
+            <p className="text-xs text-slate-400 truncate">{companyName}</p>
           </div>
         </div>
         <button
@@ -142,16 +142,18 @@ export default function FleetLayout({ children }) {
             </button>
             <div className="relative">
               <button onClick={() => setIsUserMenuOpen(!isUserMenuOpen)} className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-slate-100">
-                <img src={fleetOwner.avatar} alt={fleetOwner.name} className="h-8 w-8 rounded-full border border-slate-200 object-cover" />
-                <span className="hidden md:block text-sm font-semibold text-slate-700">Fleet</span>
+                <div className="h-8 w-8 rounded-full bg-amber-500 flex items-center justify-center font-black text-slate-955 text-xs shrink-0">
+                  {userDisplayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'FL'}
+                </div>
+                <span className="hidden md:block text-sm font-semibold text-slate-700">{userDisplayName.split(' ')[0]}</span>
               </button>
               {isUserMenuOpen && (
                 <>
                   <div className="fixed inset-0 z-20" onClick={() => setIsUserMenuOpen(false)} />
                   <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-150 py-2 z-30">
                     <div className="px-4 py-3 border-b border-slate-100">
-                      <p className="text-sm font-bold text-slate-800">{fleetOwner.name}</p>
-                      <p className="text-xs text-slate-500">fleet@loadafrica.co.za</p>
+                      <p className="text-sm font-bold text-slate-800">{userDisplayName}</p>
+                      <p className="text-xs text-slate-500">{user?.email || 'fleet@loadafrica.co.za'}</p>
                     </div>
                     <Link to="/fleet-portal/profile" onClick={() => setIsUserMenuOpen(false)} className="flex items-center px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50">
                       <User className="h-4 w-4 mr-3 text-slate-400" /> My Profile

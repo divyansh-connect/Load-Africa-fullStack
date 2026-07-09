@@ -192,21 +192,98 @@ export default function QuoteRequests() {
               </button>
             </div>
             
-            <div className="p-6 space-y-4 overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-slate-200">
-              {/* Load Info Summary */}
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-2">
-                <div className="flex justify-between items-start">
+            <div className="p-6 space-y-5 overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-slate-200">
+              {/* Detailed Load Info Summary */}
+              <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200/60 space-y-4 text-xs font-semibold text-slate-700">
+                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2">Trip & Cargo Specifications</h4>
+                
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-xs font-bold text-slate-400 uppercase">Pickup</p>
-                    <p className="text-sm font-semibold text-slate-900">{selectedBooking.pickup_address}</p>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Pickup Point</p>
+                    <p className="text-slate-800 font-bold truncate max-w-[200px]" title={selectedBooking.pickup_address}>
+                      {selectedBooking.pickup_address?.split(',')[0]}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Delivery Point</p>
+                    <p className="text-slate-800 font-bold truncate max-w-[200px]" title={selectedBooking.delivery_address}>
+                      {selectedBooking.delivery_address?.split(',')[0]}
+                    </p>
                   </div>
                 </div>
-                <div className="flex justify-between items-start pt-2 border-t border-slate-200">
+
+                <div className="grid grid-cols-2 gap-4 pt-1 border-t border-slate-100/50">
                   <div>
-                    <p className="text-xs font-bold text-slate-400 uppercase">Delivery</p>
-                    <p className="text-sm font-semibold text-slate-900">{selectedBooking.delivery_address}</p>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Customer / Company</p>
+                    <p className="text-slate-800 font-bold">
+                      {selectedBooking.customer?.company_name || 'Individual Customer'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Contact Person</p>
+                    <p className="text-slate-800 font-bold">
+                      {selectedBooking.customer?.user?.first_name ? `${selectedBooking.customer.user.first_name} ${selectedBooking.customer.user.last_name || ''}` : 'Guest'}
+                    </p>
                   </div>
                 </div>
+
+                <div className="grid grid-cols-2 gap-4 pt-1">
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Phone Number</p>
+                    <p className="text-slate-800 font-bold">{selectedBooking.customer?.user?.phone || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Email Address</p>
+                    <p className="text-slate-800 font-bold truncate max-w-[200px]" title={selectedBooking.customer?.user?.email}>
+                      {selectedBooking.customer?.user?.email || 'N/A'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4 pt-1 border-t border-slate-100/50">
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Cargo & Weight</p>
+                    <p className="text-slate-800 font-bold">{selectedBooking.cargo_name} ({selectedBooking.weight} kg)</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Category</p>
+                    <p className="text-slate-800 font-bold">{selectedBooking.cargo_category}</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Vehicle Type</p>
+                    <p className="text-slate-800 font-bold">{selectedBooking.requested_vehicle || 'Any Available'}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4 pt-1">
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Pickup Date</p>
+                    <p className="text-slate-800 font-bold">
+                      {selectedBooking.pickup_date ? new Date(selectedBooking.pickup_date).toLocaleDateString() : 'Immediate'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Est. Distance</p>
+                    <p className="text-slate-800 font-bold">
+                      {selectedBooking.estimated_distance ? `${selectedBooking.estimated_distance} km` : '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Est. Travel Time</p>
+                    <p className="text-slate-800 font-bold">
+                      {selectedBooking.estimated_duration_mins ? `${Math.round(selectedBooking.estimated_duration_mins / 60)} hours` : '—'}
+                    </p>
+                  </div>
+                </div>
+
+                {selectedBooking.pickup_instructions && (
+                  <div className="pt-2 border-t border-slate-100">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Broker & Driver Guidelines</p>
+                    <p className="text-slate-650 font-medium leading-relaxed italic bg-white p-2.5 rounded-xl border border-slate-100 mt-1 max-h-20 overflow-y-auto whitespace-pre-wrap">
+                      {selectedBooking.pickup_instructions}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Pricing Inputs */}
@@ -235,14 +312,49 @@ export default function QuoteRequests() {
                     <input type="number" name="hazard_charge" value={quoteForm.hazard_charge} onChange={handleQuoteChange} className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-amber-500 text-sm font-semibold" placeholder="e.g. 0" />
                   </div>
                   <div className="space-y-1">
-                    <label className="block text-xs font-bold text-red-600">Discount</label>
+                    <label className="block text-xs font-bold text-red-650">Discount</label>
                     <input type="number" name="discount" value={quoteForm.discount} onChange={handleQuoteChange} className="w-full px-3 py-2 border border-red-200 bg-red-50 rounded-lg focus:outline-none focus:border-red-500 text-sm font-semibold" placeholder="e.g. 0" />
                   </div>
                 </div>
 
-                <div className="bg-amber-50 p-3 rounded-lg border border-amber-100 flex justify-between items-center mt-2">
-                  <span className="text-xs font-bold text-amber-800">Note: Platform (10%) and Broker (5%) fees will be calculated automatically on the subtotal.</span>
-                </div>
+                {/* Live Real-time Quote Split Calculator */}
+                {(() => {
+                  const subtotal = (Number(quoteForm.vehicle_rate) || 0) + 
+                                   (Number(quoteForm.fuel_charges) || 0) + 
+                                   (Number(quoteForm.weight_charges) || 0) + 
+                                   (Number(quoteForm.insurance_charges) || 0) + 
+                                   (Number(quoteForm.hazard_charge) || 0) - 
+                                   (Number(quoteForm.discount) || 0);
+                  const brokerFee = subtotal * 0.05;
+                  const platformFee = subtotal * 0.10;
+                  const tax = subtotal * 0.15;
+                  const grandTotal = subtotal + brokerFee + platformFee + tax;
+                  return (
+                    <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 mt-4 space-y-2 text-xs font-semibold text-slate-650">
+                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2">Live Calculation Preview</h4>
+                      <div className="flex justify-between">
+                        <span>Pricing Subtotal:</span>
+                        <span className="text-slate-800 font-bold">R {subtotal.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Broker Fee (5%):</span>
+                        <span className="text-slate-800 font-bold">R {brokerFee.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Platform Fee (10%):</span>
+                        <span className="text-slate-800 font-bold">R {platformFee.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>VAT Tax (15%):</span>
+                        <span className="text-slate-800 font-bold">R {tax.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between pt-2 border-t border-slate-200 text-sm font-black text-slate-900">
+                        <span>GRAND TOTAL CHARGE:</span>
+                        <span className="text-amber-500 font-black">R {grandTotal.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 

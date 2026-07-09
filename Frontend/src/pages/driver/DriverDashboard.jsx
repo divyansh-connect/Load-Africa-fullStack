@@ -12,7 +12,47 @@ export default function DriverDashboard() {
   const [activeTrip, setActiveTrip] = useState(null);
   const [availableLoads, setAvailableLoads] = useState([]);
   const [history, setHistory] = useState([]);
-  const [isOnline, setIsOnline] = useState(true);
+  const [isOnline, setIsOnline] = useState(false);
+  const [gpsCoords, setGpsCoords] = useState(null);
+
+  useEffect(() => {
+    const syncStatus = async () => {
+      if (isOnline) {
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            async (pos) => {
+              const lat = pos.coords.latitude;
+              const lng = pos.coords.longitude;
+              setGpsCoords({ lat, lng });
+              try {
+                await driverService.toggleOnline(true, lat, lng);
+              } catch (e) {
+                console.error("Failed to update GPS online status", e);
+              }
+            },
+            async () => {
+              const lat = -26.2041;
+              const lng = 28.0473;
+              setGpsCoords({ lat, lng });
+              try {
+                await driverService.toggleOnline(true, lat, lng);
+              } catch (e) {
+                console.error("Failed to update GPS fallback status", e);
+              }
+            }
+          );
+        }
+      } else {
+        setGpsCoords(null);
+        try {
+          await driverService.toggleOnline(false, null, null);
+        } catch (e) {
+          console.error("Failed to update GPS offline status", e);
+        }
+      }
+    };
+    syncStatus();
+  }, [isOnline]);
 
   // Onboarding verification checks (local state for wizard)
   const [onboardingCompleted, setOnboardingCompleted] = useState(true); // default true, loaded from profile
@@ -42,18 +82,12 @@ export default function DriverDashboard() {
 
       if (dashRes.success) {
         setDashboardData(dashRes.data);
-        // Let's check status. If user role details from backend says onboarding is not complete, we toggle onboarding view
-        // We'll read it directly from dashboard data
-        const profile = await driverService.getProfile();
-        // Fetch driver's onboarding status from database
-        const resProfile = await driverService.getDriverDashboard();
-        // Wait, the profile response returns user, let's fetch it from local storage as well or mock it if backend didn't set onboarding completion
+        setIsOnline(dashRes.data.currentStatus === 'AVAILABLE');
+        
         const userObj = JSON.parse(localStorage.getItem('user') || '{}');
-        // Let's check if the driver status is APPROVED or ACTIVE
         if (userObj.onboarding_completed) {
           setOnboardingCompleted(true);
         } else {
-          // Check backend status
           setOnboardingCompleted(userObj.onboarding_completed || false);
         }
       }
@@ -378,8 +412,82 @@ export default function DriverDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
         {/* Available Loads seeking drivers */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="flex items-center justify-between">
+        <div className="lg:col-span-2 space-y-6">
+          
+          {/* Live Telemetry Radar Map */}
+          {isOnline && (
+            <div className="bg-slate-955 bg-slate-900 rounded-3xl border border-slate-800 shadow-xl overflow-hidden flex flex-col h-[280px] relative text-left">
+              <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.01)_1px,_transparent_1px),_linear-gradient(90deg,_rgba(255,255,255,0.01)_1px,_transparent_1px)] bg-[size:20px_20px] pointer-events-none" />
+              
+              <div className="px-5 py-3.5 bg-slate-950 border-b border-slate-850/80 text-white flex items-center justify-between z-10">
+                <div className="flex items-center gap-2">
+                  <div className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
+                  <span className="font-bold text-xs">GPS Telemetry - Route Assistant</span>
+                </div>
+                {gpsCoords && (
+                  <span className="text-[10px] font-mono text-slate-400">
+                    {gpsCoords.lat.toFixed(4)}° S, {gpsCoords.lng.toFixed(4)}° E
+                  </span>
+                )}
+              </div>
+
+              {activeTrip ? (
+                // Active trip route view
+                <div className="flex-1 flex flex-col justify-between p-5 relative z-10">
+                  <div className="space-y-1">
+                    <span className="px-1.5 py-0.5 bg-amber-500/10 text-amber-400 text-[9px] font-bold rounded uppercase tracking-wider border border-amber-500/20">
+                      Active Cargo Transit Route
+                    </span>
+                    <h4 className="text-sm font-black text-white">{activeTrip.cargo_name} ({activeTrip.weight} kg)</h4>
+                    <p className="text-[10px] text-slate-450 truncate font-semibold">
+                      {activeTrip.pickup_address?.split(',')[0]} → {activeTrip.delivery_address?.split(',')[0]}
+                    </p>
+                  </div>
+
+                  <svg className="w-full h-20" viewBox="0 0 400 80">
+                    <circle cx="50" cy="40" r="5" className="fill-emerald-500 stroke-emerald-500/30 stroke-8" />
+                    <text x="50" y="25" className="fill-slate-400 font-bold text-[9px]" textAnchor="middle">Pickup</text>
+
+                    <circle cx="350" cy="40" r="5" className="fill-amber-500 stroke-amber-500/30 stroke-8" />
+                    <text x="350" y="25" className="fill-slate-400 font-bold text-[9px]" textAnchor="middle">Delivery</text>
+
+                    <line x1="50" y1="40" x2="350" y2="40" stroke="#334155" strokeWidth="3" strokeDasharray="5,5" />
+                    
+                    {/* Moving truck indicator */}
+                    <g transform="translate(170, 30)">
+                      <rect x="0" y="4" width="20" height="12" rx="2" className="fill-amber-500" />
+                      <circle cx="5" cy="18" r="2" className="fill-slate-900" />
+                      <circle cx="15" cy="18" r="2" className="fill-slate-900" />
+                    </g>
+                  </svg>
+
+                  <div className="flex justify-between items-center text-[10px] pt-1">
+                    <span className="text-slate-450 font-semibold">Status: <span className="text-amber-500 font-bold uppercase">{activeTrip.status.replace(/_/g, ' ')}</span></span>
+                    <button onClick={() => navigate('/driver/active-trip')} className="px-3.5 py-1.5 bg-slate-800 text-white hover:bg-slate-700 font-bold rounded-xl border border-slate-700">Open Map Navigation</button>
+                  </div>
+                </div>
+              ) : (
+                // Radar searching view
+                <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-4 relative z-10">
+                  <div className="relative h-20 w-20 flex items-center justify-center">
+                    <div className="absolute inset-0 h-full w-full rounded-full border border-emerald-500/10 animate-ping" />
+                    <div className="absolute inset-2 h-16 w-16 rounded-full border border-emerald-500/20 animate-pulse" />
+                    <div className="h-10 w-10 rounded-full bg-emerald-500/10 flex items-center justify-center border border-emerald-500/30">
+                      <Truck className="h-5 w-5 text-emerald-500" />
+                    </div>
+                  </div>
+                  <div className="text-center space-y-0.5">
+                    <h4 className="text-xs font-bold text-slate-200">Active Live Matching Radar</h4>
+                    <p className="text-[10px] text-slate-500 font-semibold leading-relaxed">
+                      Broadcasting live coordinates to brokers. Waiting for load assignments near you...
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="flex items-center justify-between pt-2">
             <h2 className="text-sm font-extrabold text-slate-800 uppercase tracking-wide">Live Matching Loads ({dashboardData?.availableLoads || 0})</h2>
             <button onClick={() => navigate('/driver/available-loads')} className="text-[10px] font-black text-amber-600 flex items-center gap-1 uppercase tracking-wide hover:text-amber-700">
               View all <ChevronRight className="h-3.5 w-3.5" />

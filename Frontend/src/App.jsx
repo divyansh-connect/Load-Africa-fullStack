@@ -52,6 +52,8 @@ import AddVehicle from './pages/fleet/AddVehicle';
 import VehicleDetails from './pages/fleet/VehicleDetails';
 import EditVehicle from './pages/fleet/EditVehicle';
 import EditDriver from './pages/fleet/EditDriver';
+import FleetProfile from './pages/fleet/FleetProfile';
+import FleetRevenue from './pages/fleet/FleetRevenue';
 
 // ── Yellow Plant Auth + Dashboard ──
 import PlantAuth from './pages/plant/PlantAuth';
@@ -162,9 +164,9 @@ export default function App() {
           <Route path="drivers/add" element={<AddDriver />} />
           <Route path="drivers/:id/edit" element={<EditDriver />} />
           <Route path="requests" element={<FleetDashboard />} />
-          <Route path="revenue" element={<FleetDashboard />} />
+          <Route path="revenue" element={<FleetRevenue />} />
           <Route path="add-vehicle" element={<Navigate to="/fleet-portal/vehicles/add" replace />} />
-          <Route path="profile" element={<FleetDashboard />} />
+          <Route path="profile" element={<FleetProfile />} />
           <Route index element={<Navigate to="dashboard" replace />} />
         </Route>
 

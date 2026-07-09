@@ -12,7 +12,9 @@ const {
   updateDriverStatus,
   deleteDriver,
   getLoads,
-  acceptAndDispatch
+  acceptAndDispatch,
+  getProfile,
+  updateProfile
 } = require('../controllers/fleetController');
 
 const router = express.Router();
@@ -39,6 +41,10 @@ const softProtect = async (req, res, next) => {
 
 router.get('/dashboard', softProtect, getDashboard);
 router.post('/compliance/submit', softProtect, submitCompliance);
+
+// Profile Management
+router.get('/profile', softProtect, getProfile);
+router.put('/profile', softProtect, updateProfile);
 
 // Vehicle CRUD
 router.get('/vehicles', softProtect, getVehicles);

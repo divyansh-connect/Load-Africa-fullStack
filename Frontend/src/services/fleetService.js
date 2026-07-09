@@ -95,13 +95,32 @@ export const fleetService = {
     return response.data;
   },
 
-  // ── Upload helper ─────────────────────────────
   uploadFile: async (file) => {
     const formData = new FormData();
     formData.append('files', file);
     const response = await api.post('/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
+    return response.data;
+  },
+
+  getProfile: async () => {
+    const response = await api.get('/fleet/profile');
+    return response.data;
+  },
+
+  updateProfile: async (data) => {
+    const response = await api.put('/fleet/profile', data);
+    return response.data;
+  },
+
+  getWallet: async () => {
+    const response = await api.get('/finance/wallet');
+    return response.data;
+  },
+
+  withdrawEarnings: async (amount) => {
+    const response = await api.post('/finance/withdraw', { amount });
     return response.data;
   }
 };

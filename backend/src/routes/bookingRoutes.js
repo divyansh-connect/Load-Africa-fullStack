@@ -16,8 +16,8 @@ const router = express.Router();
 // Generate quote recommendations based on distance and weight
 router.post('/quote', getQuoteRecommendations);
 
-// Using a soft check for creation to allow guests
-router.post('/', softAuth, createBooking);
+// Booking creation — must be authenticated so it links to the customer profile
+router.post('/', requireAuth, createBooking);
 
 // New Lifecycle Routes
 router.get('/history', requireAuth, getCustomerBookingsHistory);

@@ -57,13 +57,13 @@ export default function Drivers() {
   }, []);
 
   // Form states
-  const [fullName, setFullName] = useState('John Doe');
-  const [email, setEmail] = useState('john@example.com');
-  const [password, setPassword] = useState('password123');
-  const [phone, setPhone] = useState('+27 82 123 4567');
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [phone, setPhone] = useState('');
   const [idNumber, setIdNumber] = useState('');
-  const [vehicleType, setVehicleType] = useState('bakkie');
-  const [vehicleReg, setVehicleReg] = useState('ABC 123 GP');
+  const [vehicleType, setVehicleType] = useState('Bakkie');
+  const [vehicleReg, setVehicleReg] = useState('');
   const [licenseNumber, setLicenseNumber] = useState('');
   const [baseAddress, setBaseAddress] = useState('');
   
@@ -71,6 +71,59 @@ export default function Drivers() {
   const [licenceUploaded, setLicenceUploaded] = useState(false);
   const [prdpUploaded, setPrdpUploaded] = useState(false);
   const [vehicleDocUploaded, setVehicleDocUploaded] = useState(false);
+
+  const fileInputLicenceRef = useRef(null);
+  const fileInputPrdpRef = useRef(null);
+  const fileInputVehicleDocRef = useRef(null);
+
+  const [licenceUrl, setLicenceUrl] = useState('');
+  const [prdpUrl, setPrdpUrl] = useState('');
+  const [vehicleDocUrl, setVehicleDocUrl] = useState('');
+
+  const [uploadingLicence, setUploadingLicence] = useState(false);
+  const [uploadingPrdp, setUploadingPrdp] = useState(false);
+  const [uploadingVehicleDoc, setUploadingVehicleDoc] = useState(false);
+
+  const handleFileUpload = async (e, type) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('files', file);
+
+    if (type === 'licence') setUploadingLicence(true);
+    if (type === 'prdp') setUploadingPrdp(true);
+    if (type === 'vehicleDoc') setUploadingVehicleDoc(true);
+
+    try {
+      const res = await authService.uploadFile(formData);
+      if (res.success && res.data?.urls?.[0]) {
+        const url = res.data.urls[0];
+        if (type === 'licence') {
+          setLicenceUrl(url);
+          setLicenceUploaded(true);
+        }
+        if (type === 'prdp') {
+          setPrdpUrl(url);
+          setPrdpUploaded(true);
+        }
+        if (type === 'vehicleDoc') {
+          setVehicleDocUrl(url);
+          setVehicleDocUploaded(true);
+        }
+      } else {
+        alert('File upload failed.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Upload error.');
+    } finally {
+      if (type === 'licence') setUploadingLicence(false);
+      if (type === 'prdp') setUploadingPrdp(false);
+      if (type === 'vehicleDoc') setUploadingVehicleDoc(false);
+    }
+  };
+
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
@@ -105,7 +158,10 @@ export default function Drivers() {
         pdp: 'Verified',
         idDocument: idNumber,
         vehicleType,
-        vehicleReg
+        vehicleReg,
+        licenseFront: licenceUrl,
+        pdpDoc: prdpUrl,
+        vehicleDoc: vehicleDocUrl
       });
 
       if (res.success) {
@@ -456,50 +512,72 @@ export default function Drivers() {
                   <h4 className="font-extrabold text-sm text-slate-950">Upload Documents</h4>
                   <p className="text-xs text-slate-400 font-bold">Provide verified credentials to get approved</p>
                 </div>
-              </div>
-
-              {/* Upload Item 1: License */}
+              </div>              {/* Upload Item 1: License */}
               <div className="p-4 border border-dashed border-slate-350 rounded-2xl flex items-center justify-between bg-slate-50/50">
-                <div className="space-y-1">
-                  <h5 className="font-extrabold text-xs text-slate-950">Driver's License *</h5>
+                <div className="space-y-1 text-left">
+                  <h5 className="font-extrabold text-xs text-slate-955">Driver's License *</h5>
                   <p className="text-[10px] text-slate-450 leading-normal font-bold">Front side of SA Driver's License card</p>
                 </div>
+                <input 
+                  type="file" 
+                  ref={fileInputLicenceRef} 
+                  onChange={(e) => handleFileUpload(e, 'licence')} 
+                  className="hidden" 
+                  accept="image/jpeg,image/png,image/webp,application/pdf"
+                />
                 <button
                   type="button"
-                  onClick={() => setLicenceUploaded(true)}
-                  className={`px-4 py-2 text-[10px] font-bold rounded-lg transition-colors ${licenceUploaded ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-500 hover:bg-amber-400 text-slate-950'}`}
+                  onClick={() => fileInputLicenceRef.current?.click()}
+                  disabled={uploadingLicence}
+                  className={`px-4 py-2 text-[10px] font-bold rounded-lg transition-colors cursor-pointer ${licenceUploaded ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-500 hover:bg-amber-400 text-slate-950'}`}
                 >
-                  {licenceUploaded ? 'Uploaded ✓' : 'Upload File'}
+                  {uploadingLicence ? 'Uploading...' : licenceUploaded ? 'Uploaded ✓' : 'Upload File'}
                 </button>
               </div>
 
               {/* Upload Item 2: PrDP */}
               <div className="p-4 border border-dashed border-slate-350 rounded-2xl flex items-center justify-between bg-slate-50/50">
-                <div className="space-y-1">
+                <div className="space-y-1 text-left">
                   <h5 className="font-extrabold text-xs text-slate-955">Professional Driving Permit (PrDP) *</h5>
                   <p className="text-[10px] text-slate-455 leading-normal font-bold">Valid PrDP endorsement page</p>
                 </div>
+                <input 
+                  type="file" 
+                  ref={fileInputPrdpRef} 
+                  onChange={(e) => handleFileUpload(e, 'prdp')} 
+                  className="hidden" 
+                  accept="image/jpeg,image/png,image/webp,application/pdf"
+                />
                 <button
                   type="button"
-                  onClick={() => setPrdpUploaded(true)}
-                  className={`px-4 py-2 text-[10px] font-bold rounded-lg transition-colors ${prdpUploaded ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-500 hover:bg-amber-400 text-slate-950'}`}
+                  onClick={() => fileInputPrdpRef.current?.click()}
+                  disabled={uploadingPrdp}
+                  className={`px-4 py-2 text-[10px] font-bold rounded-lg transition-colors cursor-pointer ${prdpUploaded ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-500 hover:bg-amber-400 text-slate-950'}`}
                 >
-                  {prdpUploaded ? 'Uploaded ✓' : 'Upload File'}
+                  {uploadingPrdp ? 'Uploading...' : prdpUploaded ? 'Uploaded ✓' : 'Upload File'}
                 </button>
               </div>
 
               {/* Upload Item 3: Vehicle Docs */}
               <div className="p-4 border border-dashed border-slate-350 rounded-2xl flex items-center justify-between bg-slate-50/50">
-                <div className="space-y-1">
-                  <h5 className="font-extrabold text-xs text-slate-950">Vehicle License Disc *</h5>
-                  <p className="text-[10px] text-slate-450 leading-normal font-bold">Clear scan of current vehicle registration paper or windscreen disc</p>
+                <div className="space-y-1 text-left">
+                  <h5 className="font-extrabold text-xs text-slate-955">Vehicle License Disc *</h5>
+                  <p className="text-[10px] text-slate-455 leading-normal font-bold">Clear scan of current vehicle registration paper or windscreen disc</p>
                 </div>
+                <input 
+                  type="file" 
+                  ref={fileInputVehicleDocRef} 
+                  onChange={(e) => handleFileUpload(e, 'vehicleDoc')} 
+                  className="hidden" 
+                  accept="image/jpeg,image/png,image/webp,application/pdf"
+                />
                 <button
                   type="button"
-                  onClick={() => setVehicleDocUploaded(true)}
-                  className={`px-4 py-2 text-[10px] font-bold rounded-lg transition-colors ${vehicleDocUploaded ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-500 hover:bg-amber-400 text-slate-950'}`}
+                  onClick={() => fileInputVehicleDocRef.current?.click()}
+                  disabled={uploadingVehicleDoc}
+                  className={`px-4 py-2 text-[10px] font-bold rounded-lg transition-colors cursor-pointer ${vehicleDocUploaded ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-500 hover:bg-amber-400 text-slate-950'}`}
                 >
-                  {vehicleDocUploaded ? 'Uploaded ✓' : 'Upload File'}
+                  {uploadingVehicleDoc ? 'Uploading...' : vehicleDocUploaded ? 'Uploaded ✓' : 'Upload File'}
                 </button>
               </div>
 

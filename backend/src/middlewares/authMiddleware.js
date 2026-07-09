@@ -20,8 +20,10 @@ const requireAuth = async (req, res, next) => {
       return res.status(401).json({ success: false, message: 'User not found' });
     }
 
-    if (user.status !== 'ACTIVE') {
-      return res.status(403).json({ success: false, message: 'Account is suspended or inactive' });
+    // Block only explicitly disabled accounts
+    const blockedStatuses = ['SUSPENDED', 'BANNED', 'DELETED'];
+    if (blockedStatuses.includes(user.status)) {
+      return res.status(403).json({ success: false, message: 'Account is suspended or disabled' });
     }
 
     req.user = user;
@@ -50,7 +52,8 @@ const softAuth = async (req, res, next) => {
         where: { id: decoded.id },
         include: { customer: true, driver: true, broker: true, fleet_owner: true }
       });
-      if (user && user.status === 'ACTIVE') {
+      const blockedStatuses = ['SUSPENDED', 'BANNED', 'DELETED'];
+      if (user && !blockedStatuses.includes(user.status)) {
         req.user = user;
       }
     }

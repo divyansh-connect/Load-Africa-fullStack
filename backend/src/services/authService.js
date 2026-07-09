@@ -3,7 +3,7 @@ const { prisma } = require('../config/db');
 const { generateToken } = require('../utils/jwt');
 
 const registerUser = async (data) => {
-  const { email, password, role, firstName, lastName, phone, companyName, vatNumber, numVehicles, fleetTier, operatingAreas, servicesOffered, notes, address, license, pdp, idDocument, vehicleType, vehicleReg } = data;
+  const { email, password, role, firstName, lastName, phone, companyName, vatNumber, numVehicles, fleetTier, operatingAreas, servicesOffered, notes, address, license, pdp, idDocument, vehicleType, vehicleReg, licenseFront, pdpDoc, vehicleDoc } = data;
 
   const existingUser = await prisma.user.findUnique({ where: { email } });
   if (existingUser) {
@@ -49,7 +49,15 @@ const registerUser = async (data) => {
       // Initialize empty relational models for this driver to prevent null lookup errors
       await tx.driverProfile.create({ data: { driver_id: driver.id, onboarding_completed: false } });
       await tx.driverPhoto.create({ data: { driver_id: driver.id } });
-      await tx.driverDocuments.create({ data: { driver_id: driver.id } });
+      await tx.driverDocuments.create({
+        data: {
+          driver_id: driver.id,
+          license_front: licenseFront || null,
+          police_clearance: pdpDoc || null,
+          roadworthy_certificate: vehicleDoc || null,
+          govt_id: idDocument || null
+        }
+      });
       await tx.driverKYC.create({ data: { driver_id: driver.id } });
       await tx.driverApproval.create({ data: { driver_id: driver.id, status: 'PENDING' } });
     } else if (role === 'FLEET_OWNER') {

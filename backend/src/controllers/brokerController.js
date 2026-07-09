@@ -135,41 +135,72 @@ const getDashboardStats = async (req, res) => {
       where: { user_id: req.user.id }
     });
 
-    const pendingQuotes = await prisma.quote.count({
-      where: { prepared_by: req.user.id, status: 'ISSUED' }
+    // 1. Pending quotes count (all quote requests in system)
+    const pendingQuotesCount = await prisma.booking.count({
+      where: { status: 'QUOTE_REQUESTED', is_deleted: false }
     });
 
-    const acceptedQuotes = await prisma.quote.count({
-      where: { prepared_by: req.user.id, status: 'ACCEPTED' }
-    });
-
-    const activeBookings = broker ? await prisma.bookingAssignment.count({
-      where: { 
-        broker_id: broker.id, 
-        booking: { status: { notIn: ['COMPLETED', 'CANCELLED', 'DELIVERED', 'CLOSED'] } } 
-      }
+    // 2. Assigned bookings count for this broker
+    const assignedBookingsCount = broker ? await prisma.bookingAssignment.count({
+      where: { broker_id: broker.id, is_deleted: false }
     }) : 0;
 
-    const completedBookings = broker ? await prisma.bookingAssignment.count({
-      where: { 
-        broker_id: broker.id, 
-        booking: { status: 'COMPLETED' } 
-      }
-    }) : 0;
+    // 3. Unique customers managed by this broker
+    let customersCount = 0;
+    if (broker) {
+      const assignments = await prisma.bookingAssignment.findMany({
+        where: { broker_id: broker.id },
+        include: { booking: true }
+      });
+      const customerIds = assignments.map(a => a.booking?.customer_id).filter(Boolean);
+      customersCount = new Set(customerIds).size;
+    }
 
-    const wallet = await prisma.wallet.findFirst({
-      where: { user_id: req.user.id }
+    // 4. Commission earned sum
+    const commissionSum = await prisma.commission.aggregate({
+      where: { earned_by_user_id: req.user.id },
+      _sum: { amount: true }
     });
+    const commissionEarned = commissionSum._sum.amount ? Number(commissionSum._sum.amount) : 0;
+
+    // 5. Recent Quotes requests
+    const recentQuotes = await prisma.booking.findMany({
+      where: { status: 'QUOTE_REQUESTED', is_deleted: false },
+      include: { customer: { include: { user: true } } },
+      orderBy: { created_at: 'desc' },
+      take: 5
+    });
+
+    // 6. Recent Assigned bookings
+    const recentAssignedRaw = broker ? await prisma.bookingAssignment.findMany({
+      where: { broker_id: broker.id, is_deleted: false },
+      include: {
+        booking: true,
+        driver: { include: { user: true } },
+        fleet_owner: true
+      },
+      orderBy: { created_at: 'desc' },
+      take: 5
+    }) : [];
+
+    const recentAssigned = recentAssignedRaw.map(a => ({
+      id: a.booking.id,
+      status: a.booking.status,
+      assignment: {
+        driver: a.driver,
+        fleet_owner: a.fleet_owner
+      }
+    }));
 
     res.status(200).json({
       success: true,
       data: {
-        pendingQuotes,
-        acceptedQuotes,
-        activeBookings,
-        completedBookings,
-        walletBalance: wallet ? Number(wallet.balance) : 0,
-        pendingBalance: wallet ? Number(wallet.pending_balance) : 0
+        pendingQuotesCount,
+        assignedBookingsCount,
+        customersCount,
+        commissionEarned,
+        recentQuotes,
+        recentAssigned
       }
     });
   } catch (error) {
@@ -335,7 +366,13 @@ const getApprovedFleetOwners = async (req, res) => {
 const getApprovedDrivers = async (req, res) => {
   try {
     const drivers = await prisma.user.findMany({
-      where: { role: 'DRIVER', status: 'ACTIVE' },
+      where: { 
+        role: 'DRIVER', 
+        status: 'ACTIVE',
+        driver: {
+          status: 'AVAILABLE'
+        }
+      },
       include: { driver: { include: { profile: true } } }
     });
     res.status(200).json({ success: true, data: drivers });
