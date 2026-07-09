@@ -24,11 +24,11 @@ const getCustomerDashboard = async (userId) => {
     }
   });
 
-  // Get pending quotes
+  // Count bookings where broker has prepared a quote — customer needs to act
   const pendingQuotesCount = await prisma.booking.count({
     where: {
       customer_id: customer.id,
-      status: { in: ['QUOTE_REQUESTED', 'QUOTE_PREPARED', 'CUSTOMER_ACCEPTED', 'BOOKING_CONFIRMED'] }
+      status: 'QUOTE_PREPARED',
     }
   });
 
@@ -37,11 +37,19 @@ const getCustomerDashboard = async (userId) => {
     where: { customer_id: customer.id }
   });
 
-  // Fetch recent bookings
+  // Fetch recent bookings with quotes for pricing display
   const recentBookings = await prisma.booking.findMany({
     where: { customer_id: customer.id },
     orderBy: { created_at: 'desc' },
-    take: 5
+    take: 5,
+    include: {
+      quotes: { orderBy: { created_at: 'desc' }, take: 1 },
+      assignments: {
+        where: { status: 'ACTIVE' },
+        include: { driver: { include: { user: true } } },
+        take: 1
+      }
+    }
   });
 
   const walletBalance = customer.user.wallets[0]?.balance || 0;
@@ -56,3 +64,38 @@ const getCustomerDashboard = async (userId) => {
 };
 
 module.exports = { getCustomerDashboard };
+
+/**
+ * Returns all bookings where the Broker has prepared an official quotation.
+ * These are the bookings where the customer must Accept or Reject the quote.
+ */
+const getMyQuotations = async (userId) => {
+  const customer = await prisma.customer.findUnique({
+    where: { user_id: userId },
+  });
+
+  if (!customer) {
+    throw new Error('Customer profile not found');
+  }
+
+  const quotations = await prisma.booking.findMany({
+    where: {
+      customer_id: customer.id,
+      status: { in: ['QUOTE_PREPARED', 'CUSTOMER_ACCEPTED', 'BOOKING_CONFIRMED', 'REJECTED'] },
+      is_deleted: false,
+    },
+    orderBy: { updated_at: 'desc' },
+    include: {
+      quotes: {
+        orderBy: { created_at: 'desc' },
+        take: 1,
+      },
+      requirements: true,
+    },
+  });
+
+  return quotations;
+};
+
+module.exports = { getCustomerDashboard, getMyQuotations };
+

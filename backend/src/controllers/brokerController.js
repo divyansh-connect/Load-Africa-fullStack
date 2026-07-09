@@ -93,30 +93,37 @@ const getAssignedLoads = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Broker profile not found' });
     }
 
-    const assignments = await prisma.bookingAssignment.findMany({
-      where: { broker_id: broker.id },
+    const bookings = await prisma.booking.findMany({
+      where: {
+        status: { notIn: ['DRAFT', 'QUOTE_REQUESTED', 'QUOTE_PREPARED'] }
+      },
       include: {
-        booking: {
-          include: { customer: { include: { user: true } } }
-        },
-        driver: { include: { user: true } },
-        fleet_owner: { include: { user: true } },
-        vehicle: true
+        customer: { include: { user: true } },
+        assignments: {
+          include: {
+            driver: { include: { user: true } },
+            fleet_owner: { include: { user: true } },
+            vehicle: true
+          }
+        }
       },
       orderBy: { created_at: 'desc' }
     });
 
-    const bookings = assignments.map(a => ({
-      ...a.booking,
-      assignment: {
-        driver: a.driver,
-        fleet_owner: a.fleet_owner,
-        vehicle: a.vehicle,
-        status: a.status
-      }
-    }));
+    const mapped = bookings.map(b => {
+      const activeAssignment = b.assignments.find(a => a.status === 'ACTIVE') || b.assignments[0] || null;
+      return {
+        ...b,
+        assignment: activeAssignment ? {
+          driver: activeAssignment.driver,
+          fleet_owner: activeAssignment.fleet_owner,
+          vehicle: activeAssignment.vehicle,
+          status: activeAssignment.status
+        } : null
+      };
+    });
 
-    res.status(200).json({ success: true, data: bookings });
+    res.status(200).json({ success: true, data: mapped });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }
@@ -213,11 +220,139 @@ const getCustomers = async (req, res) => {
   }
 };
 
+const assignFleet = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { fleetOwnerId } = req.body;
+
+    const broker = await prisma.broker.findUnique({
+      where: { user_id: req.user.id }
+    });
+    if (!broker) return res.status(403).json({ success: false, message: 'Broker profile not found' });
+
+    const booking = await prisma.booking.findUnique({ where: { id } });
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+
+    await prisma.$transaction(async (tx) => {
+      await tx.bookingAssignment.updateMany({
+        where: { booking_id: id, status: 'ACTIVE' },
+        data: { status: 'INACTIVE' }
+      });
+
+      await tx.bookingAssignment.create({
+        data: {
+          booking_id: id,
+          fleet_owner_id: fleetOwnerId,
+          broker_id: broker.id,
+          assigned_by: req.user.id,
+          status: 'PENDING'
+        }
+      });
+
+      await tx.booking.update({
+        where: { id },
+        data: { status: 'BOOKING_CONFIRMED' }
+      });
+
+      await tx.trackingHistory.create({
+        data: {
+          booking_id: id,
+          status: 'BOOKING_CONFIRMED',
+          remarks: 'Broker assigned booking to Fleet Owner',
+          updated_by: req.user.id
+        }
+      });
+    });
+
+    res.status(200).json({ success: true, message: 'Assigned to Fleet Owner successfully' });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+const assignDriver = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { driverId } = req.body;
+
+    const broker = await prisma.broker.findUnique({
+      where: { user_id: req.user.id }
+    });
+    if (!broker) return res.status(403).json({ success: false, message: 'Broker profile not found' });
+
+    const booking = await prisma.booking.findUnique({ where: { id } });
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+
+    await prisma.$transaction(async (tx) => {
+      await tx.bookingAssignment.updateMany({
+        where: { booking_id: id, status: 'ACTIVE' },
+        data: { status: 'INACTIVE' }
+      });
+
+      await tx.bookingAssignment.create({
+        data: {
+          booking_id: id,
+          driver_id: driverId,
+          broker_id: broker.id,
+          assigned_by: req.user.id,
+          status: 'PENDING'
+        }
+      });
+
+      await tx.booking.update({
+        where: { id },
+        data: { status: 'DRIVER_ASSIGNED' }
+      });
+
+      await tx.trackingHistory.create({
+        data: {
+          booking_id: id,
+          status: 'DRIVER_ASSIGNED',
+          remarks: 'Broker assigned booking to Independent Driver',
+          updated_by: req.user.id
+        }
+      });
+    });
+
+    res.status(200).json({ success: true, message: 'Assigned to Independent Driver successfully' });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+const getApprovedFleetOwners = async (req, res) => {
+  try {
+    const fleetOwners = await prisma.user.findMany({
+      where: { role: 'FLEET_OWNER', status: 'ACTIVE' },
+      include: { fleet_owner: true }
+    });
+    res.status(200).json({ success: true, data: fleetOwners });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+const getApprovedDrivers = async (req, res) => {
+  try {
+    const drivers = await prisma.user.findMany({
+      where: { role: 'DRIVER', status: 'ACTIVE' },
+      include: { driver: { include: { profile: true } } }
+    });
+    res.status(200).json({ success: true, data: drivers });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   getQuoteRequests,
   submitQuote,
   getAssignedLoads,
   getDashboardStats,
   getCommissions,
-  getCustomers
+  getCustomers,
+  assignFleet,
+  assignDriver,
+  getApprovedFleetOwners,
+  getApprovedDrivers
 };

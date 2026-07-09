@@ -255,7 +255,7 @@ const addDriver = async (req, res) => {
           email,
           password: hashedPassword,
           role: 'DRIVER',
-          status: status === 'ACTIVE' ? 'ACTIVE' : 'PENDING',
+          status: 'PENDING',
           first_name,
           last_name,
           phone,
@@ -390,6 +390,93 @@ const deleteDriver = async (req, res) => {
   }
 };
 
+const getLoads = async (req, res) => {
+  try {
+    const fleetOwnerId = await getFleetOwnerId(req);
+
+    const assignments = await prisma.bookingAssignment.findMany({
+      where: { fleet_owner_id: fleetOwnerId },
+      include: {
+        booking: {
+          include: { customer: { include: { user: true } } }
+        },
+        driver: { include: { user: true } },
+        vehicle: true
+      },
+      orderBy: { created_at: 'desc' }
+    });
+
+    res.status(200).json({ success: true, data: assignments });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+const acceptAndDispatch = async (req, res) => {
+  try {
+    const fleetOwnerId = await getFleetOwnerId(req);
+    const { id } = req.params;
+    const { driverId, vehicleId } = req.body;
+
+    const assignment = await prisma.bookingAssignment.findFirst({
+      where: { booking_id: id, fleet_owner_id: fleetOwnerId }
+    });
+
+    if (!assignment) {
+      return res.status(404).json({ success: false, message: 'Load assignment not found for this fleet owner.' });
+    }
+
+    const driver = await prisma.driver.findFirst({
+      where: { id: driverId, fleet_owner_id: fleetOwnerId }
+    });
+    if (!driver) return res.status(400).json({ success: false, message: 'Selected driver does not belong to your fleet.' });
+
+    const vehicle = await prisma.vehicle.findFirst({
+      where: { id: vehicleId, fleet_owner_id: fleetOwnerId }
+    });
+    if (!vehicle) return res.status(400).json({ success: false, message: 'Selected vehicle does not belong to your fleet.' });
+
+    await prisma.$transaction(async (tx) => {
+      await tx.bookingAssignment.update({
+        where: { id: assignment.id },
+        data: {
+          driver_id: driverId,
+          vehicle_id: vehicleId,
+          status: 'ACTIVE'
+        }
+      });
+
+      await tx.booking.update({
+        where: { id },
+        data: { status: 'DRIVER_ASSIGNED' }
+      });
+
+      await tx.driver.update({
+        where: { id: driverId },
+        data: { status: 'ON_TRIP' }
+      });
+
+      await tx.vehicle.update({
+        where: { id: vehicleId },
+        data: { status: 'ON_TRIP' }
+      });
+
+      await tx.trackingHistory.create({
+        data: {
+          booking_id: id,
+          status: 'DRIVER_ASSIGNED',
+          remarks: 'Fleet Owner accepted load and dispatched vehicle + driver.',
+          updated_by: req.user.id
+        }
+      });
+    });
+
+    res.status(200).json({ success: true, message: 'Load dispatched successfully' });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   getDashboard,
   submitCompliance,
@@ -401,5 +488,7 @@ module.exports = {
   addDriver,
   updateDriver,
   updateDriverStatus,
-  deleteDriver
+  deleteDriver,
+  getLoads,
+  acceptAndDispatch
 };

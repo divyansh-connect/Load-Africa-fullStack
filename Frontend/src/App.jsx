@@ -22,6 +22,7 @@ import CustomerAuth from './pages/customer/CustomerAuth';
 import CustomerLayout from './layouts/CustomerLayout';
 import CustomerDashboard from './pages/customer/CustomerDashboard';
 import CreateBooking from './pages/customer/CreateBooking';
+import MyQuotations from './pages/customer/MyQuotations';
 import ActiveDeliveries from './pages/customer/ActiveDeliveries';
 import Tracking from './pages/customer/Tracking';
 import BookingHistory from './pages/customer/BookingHistory';
@@ -122,6 +123,7 @@ export default function App() {
         <Route path="/customer" element={<CustomerLayout />}>
           <Route path="dashboard" element={<CustomerDashboard />} />
           <Route path="create-booking" element={<CreateBooking />} />
+          <Route path="my-quotations" element={<MyQuotations />} />
           <Route path="active-deliveries" element={<ActiveDeliveries />} />
           <Route path="tracking" element={<Tracking />} />
           <Route path="booking-history" element={<BookingHistory />} />

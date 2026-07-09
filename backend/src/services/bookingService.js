@@ -1,71 +1,114 @@
 const { prisma } = require('../config/db');
 
+/**
+ * POST /api/v1/bookings
+ * Creates a new booking request with status QUOTE_REQUESTED.
+ * NO auto-pricing is done here. Broker will prepare the official quote.
+ */
 const createBooking = async (req, res, next) => {
   try {
     const {
       guest_email, guest_phone, guest_company,
       cargo_name, cargo_category, description, weight, volume, quantity,
-      pickup_address, pickup_coords_lat, pickup_coords_lng, pickup_date, pickup_contact, pickup_instructions,
-      delivery_address, delivery_coords_lat, delivery_coords_lng, delivery_date, delivery_contact, delivery_instructions,
-      requested_vehicle, estimated_distance,
-      requirements, // array of strings
-      quote // object containing breakdown
+      pickup_address, pickup_coords_lat, pickup_coords_lng, pickup_date,
+      pickup_contact, pickup_instructions,
+      delivery_address, delivery_coords_lat, delivery_coords_lng, delivery_date,
+      delivery_contact, delivery_instructions,
+      requested_vehicle, estimated_distance, estimated_duration_mins,
+      requirements,
+      is_urgent,
+      loading_assistance,
+      unloading_assistance,
+      night_pickup,
     } = req.body;
 
-    // Optional customer_id if logged in
-    const customer_id = req.user ? req.user.customer?.id : null;
+    // Get customer_id from authenticated user
+    let customer_id = req.user?.customer?.id;
+    if (!customer_id && req.user?.id) {
+      const customer = await prisma.customer.findUnique({
+        where: { user_id: req.user.id }
+      });
+      customer_id = customer?.id;
+    }
 
-    // We use a Prisma transaction to ensure Booking, Requirements, and Quote are saved atomically
+    // Sanitise numeric inputs
+    const lat1 = pickup_coords_lat ? parseFloat(pickup_coords_lat) : null;
+    const lon1 = pickup_coords_lng ? parseFloat(pickup_coords_lng) : null;
+    const lat2 = delivery_coords_lat ? parseFloat(delivery_coords_lat) : null;
+    const lon2 = delivery_coords_lng ? parseFloat(delivery_coords_lng) : null;
+    const distanceKm = estimated_distance ? parseFloat(estimated_distance) : null;
+    const durationMins = estimated_duration_mins ? parseFloat(estimated_duration_mins) : null;
+
+    // Build requirements tags
+    const requirementTags = [];
+    if (is_urgent) requirementTags.push('URGENT');
+    if (loading_assistance) requirementTags.push('LOADING_ASSISTANCE');
+    if (unloading_assistance) requirementTags.push('UNLOADING_ASSISTANCE');
+    if (night_pickup) requirementTags.push('NIGHT_PICKUP');
+    if (requirements && Array.isArray(requirements)) {
+      requirements.forEach(r => {
+        if (!requirementTags.includes(r)) requirementTags.push(r);
+      });
+    }
+
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Create Booking
+      // 1. Create the booking record
       const booking = await tx.booking.create({
         data: {
-          customer_id,
-          guest_email, guest_phone, guest_company,
-          cargo_name, cargo_category, description, weight, volume, quantity,
-          pickup_address, pickup_coords_lat, pickup_coords_lng, pickup_date: new Date(pickup_date), pickup_contact, pickup_instructions,
-          delivery_address, delivery_coords_lat, delivery_coords_lng, delivery_date: new Date(delivery_date), delivery_contact, delivery_instructions,
-          requested_vehicle, estimated_distance,
-          status: 'QUOTE_REQUESTED'
+          customer_id: customer_id || null,
+          guest_email: guest_email || null,
+          guest_phone: guest_phone || null,
+          guest_company: guest_company || null,
+          cargo_name: cargo_name || 'General Cargo',
+          cargo_category: cargo_category || 'GENERAL',
+          description: description || null,
+          weight: parseFloat(weight) || 0,
+          volume: volume ? parseFloat(volume) : null,
+          quantity: quantity ? parseInt(quantity) : null,
+          pickup_address,
+          pickup_coords_lat: lat1,
+          pickup_coords_lng: lon1,
+          pickup_date: pickup_date ? new Date(pickup_date) : new Date(),
+          pickup_contact: pickup_contact || null,
+          pickup_instructions: pickup_instructions || null,
+          delivery_address,
+          delivery_coords_lat: lat2,
+          delivery_coords_lng: lon2,
+          delivery_date: delivery_date ? new Date(delivery_date) : new Date(Date.now() + 86400000),
+          delivery_contact: delivery_contact || null,
+          delivery_instructions: delivery_instructions || null,
+          requested_vehicle: requested_vehicle || null,
+          estimated_distance: distanceKm,
+          status: 'QUOTE_REQUESTED',
         }
       });
 
-      // 2. Create Requirements
-      if (requirements && requirements.length > 0) {
-        const reqData = requirements.map(r => ({
-          booking_id: booking.id,
-          tag: r
-        }));
-        await tx.bookingRequirement.createMany({ data: reqData });
-      }
-
-      // 3. Create Quote (if calculated on frontend, we store it as DRAFT or ISSUED)
-      if (quote) {
-        await tx.quote.create({
-          data: {
+      // 2. Store requirement tags
+      if (requirementTags.length > 0) {
+        await tx.bookingRequirement.createMany({
+          data: requirementTags.map(tag => ({
             booking_id: booking.id,
-            distance_cost: quote.distance_cost || 0,
-            vehicle_rate: quote.vehicle_rate || 0,
-            weight_charges: quote.weight_charges || 0,
-            fuel_charges: quote.fuel_charges || 0,
-            insurance_charges: quote.insurance_charges || 0,
-            hazard_charge: quote.hazard_charge || 0,
-            platform_fee: quote.platform_fee || 0,
-            broker_fee: quote.broker_fee || 0,
-            tax: quote.tax || 0,
-            discount: quote.discount || 0,
-            grand_total: quote.grand_total,
-            status: 'DRAFT'
-          }
+            tag,
+          }))
         });
       }
 
-      // 4. Activity Log
+      // 3. Tracking history entry
+      await tx.trackingHistory.create({
+        data: {
+          booking_id: booking.id,
+          status: 'QUOTE_REQUESTED',
+          remarks: `Booking request submitted by customer. Route: ${pickup_address} → ${delivery_address}. Distance: ${distanceKm ? distanceKm.toFixed(1) + ' km' : 'TBD'}. Awaiting broker quotation.`,
+          updated_by: req.user ? req.user.id : 'SYSTEM',
+        }
+      });
+
+      // 4. Activity log
       await tx.activityLog.create({
         data: {
           user_id: req.user ? req.user.id : null,
           action: 'BOOKING_CREATED',
-          description: `Quote requested for booking ${booking.id}`,
+          description: `Booking ${booking.id} created. Status: QUOTE_REQUESTED. Awaiting broker to prepare official quotation.`,
         }
       });
 
@@ -74,14 +117,12 @@ const createBooking = async (req, res, next) => {
 
     res.status(201).json({
       success: true,
-      message: 'Booking request created successfully',
-      data: result
+      message: 'Booking request submitted successfully. A broker will prepare your quotation shortly.',
+      data: result,
     });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }
 };
 
-module.exports = {
-  createBooking
-};
+module.exports = { createBooking };

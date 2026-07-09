@@ -14,7 +14,7 @@ const registerUser = async (data) => {
 
   // Prisma Transaction for User + Profile Creation + Wallet
   const result = await prisma.$transaction(async (tx) => {
-    const status = ['DRIVER', 'FLEET_OWNER', 'PLANT_OWNER', 'BROKER'].includes(role) ? 'PENDING' : 'ACTIVE';
+    const status = ['CUSTOMER', 'DRIVER', 'FLEET_OWNER', 'PLANT_OWNER', 'BROKER'].includes(role) ? 'PENDING' : 'ACTIVE';
 
     const user = await tx.user.create({
       data: {

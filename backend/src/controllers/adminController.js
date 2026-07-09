@@ -992,6 +992,56 @@ const getApprovedFleetOwners = async (req, res) => {
   }
 };
 
+const getAdminFinancials = async (req, res) => {
+  try {
+    const invoices = await prisma.invoice.findMany({
+      include: { booking: true, customer: { include: { user: true } } },
+      orderBy: { created_at: 'desc' }
+    });
+
+    const payments = await prisma.payment.findMany({
+      include: { invoice: { include: { booking: true } } },
+      orderBy: { created_at: 'desc' }
+    });
+
+    const walletTransactions = await prisma.walletTransaction.findMany({
+      include: { wallet: { include: { user: true } } },
+      orderBy: { created_at: 'desc' }
+    });
+
+    const totalRevenue = invoices
+      .filter(inv => inv.status === 'PAID')
+      .reduce((sum, inv) => sum + Number(inv.total_amount), 0);
+
+    const platformEarnings = invoices
+      .filter(inv => inv.status === 'PAID')
+      .reduce((sum, inv) => sum + Number(inv.platform_commission), 0);
+
+    const pendingWithdrawals = walletTransactions
+      .filter(txn => txn.type === 'DEBIT' && txn.status === 'PENDING')
+      .reduce((sum, txn) => sum + Number(txn.amount), 0);
+
+    const paidInvoicesCount = invoices.filter(inv => inv.status === 'PAID').length;
+
+    res.status(200).json({
+      success: true,
+      data: {
+        invoices,
+        payments,
+        walletTransactions,
+        stats: {
+          totalRevenue,
+          platformEarnings,
+          pendingWithdrawals,
+          paidInvoicesCount
+        }
+      }
+    });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   approveDriverKYC,
   approveFleetOwner,
@@ -1015,5 +1065,6 @@ module.exports = {
   suspendDriver,
   requestMoreDocuments,
   assignDriverFleet,
-  getApprovedFleetOwners
+  getApprovedFleetOwners,
+  getAdminFinancials
 };

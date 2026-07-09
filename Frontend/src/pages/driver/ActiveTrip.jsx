@@ -29,6 +29,45 @@ export default function ActiveTrip() {
     }
   };
 
+  const [toast, setToast] = useState({ show: false, message: '' });
+
+  const showToast = (message) => {
+    setToast({ show: true, message });
+    setTimeout(() => setToast({ show: false, message: '' }), 4000);
+  };
+
+  const simulateProgress = async () => {
+    if (!trip) return;
+    const startLat = trip.pickup_coords_lat || -26.2041;
+    const startLng = trip.pickup_coords_lng || 28.0473;
+    const endLat = trip.delivery_coords_lat || -25.7479;
+    const endLng = trip.delivery_coords_lng || 28.2292;
+
+    const steps = 5;
+    let step = 1;
+
+    showToast("Starting live transit simulation...");
+
+    const interval = setInterval(async () => {
+      const currentLat = startLat + ((endLat - startLat) * step) / steps;
+      const currentLng = startLng + ((endLng - startLng) * step) / steps;
+
+      try {
+        await driverService.updateTelemetry(trip.id, currentLat, currentLng);
+        showToast(`Simulation step ${step}/5. Progress: ${step * 20}%`);
+      } catch (err) {
+        console.error(err);
+      }
+
+      step += 1;
+      if (step > steps) {
+        clearInterval(interval);
+        showToast("Transit simulation complete! Trip arrived.");
+        await updateStatus('ARRIVED_DESTINATION');
+      }
+    }, 3000);
+  };
+
   const updateStatus = async (newStatus) => {
     try {
       setUpdating(true);
@@ -237,9 +276,28 @@ export default function ActiveTrip() {
               {trip.pickup_instructions || 'Please ensure you have all required PPE before entering the pickup facility. Call the pickup contact 30 minutes prior to arrival.'}
             </p>
           </div>
+
+          {s === 'IN_TRANSIT' && (
+            <div className="mt-4 p-6 border border-emerald-205 rounded-3xl bg-emerald-50 text-center space-y-3">
+              <p className="text-xs font-bold text-emerald-800">Simulate vehicle coordinates, completed distance, and remaining distance tracking updates.</p>
+              <button
+                onClick={simulateProgress}
+                className="w-full py-3 bg-emerald-600 text-white hover:bg-emerald-500 font-extrabold text-xs tracking-wider rounded-xl uppercase transition-all cursor-pointer"
+              >
+                Simulate Driving Progress
+              </button>
+            </div>
+          )}
         </div>
 
       </div>
+
+      {/* Local Toast Alert */}
+      {toast.show && (
+        <div className="fixed bottom-6 right-6 p-4 rounded-xl shadow-xl bg-slate-900 border border-slate-800 text-white z-50 animate-slideUp">
+          <p className="text-xs font-bold">{toast.message}</p>
+        </div>
+      )}
     </div>
   );
 }

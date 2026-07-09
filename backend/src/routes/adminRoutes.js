@@ -22,7 +22,8 @@ const {
   suspendDriver,
   requestMoreDocuments,
   assignDriverFleet,
-  getApprovedFleetOwners
+  getApprovedFleetOwners,
+  getAdminFinancials
 } = require('../controllers/adminController');
 const { requireAuth, requireRole } = require('../middlewares/authMiddleware');
 
@@ -64,5 +65,8 @@ router.post('/machine/approve/:machineId', approveMachine);
 
 // Delete User
 router.delete('/users/:userId', deleteUser);
+
+// Payments & Financials Ledger
+router.get('/payments', getAdminFinancials);
 
 module.exports = router;

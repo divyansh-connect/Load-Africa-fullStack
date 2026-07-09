@@ -10,7 +10,9 @@ const {
   addDriver,
   updateDriver,
   updateDriverStatus,
-  deleteDriver
+  deleteDriver,
+  getLoads,
+  acceptAndDispatch
 } = require('../controllers/fleetController');
 
 const router = express.Router();
@@ -50,5 +52,9 @@ router.post('/drivers', softProtect, addDriver);
 router.put('/drivers/:id', softProtect, updateDriver);
 router.put('/drivers/:id/status', softProtect, updateDriverStatus);
 router.delete('/drivers/:id', softProtect, deleteDriver);
+
+// Load Management & Dispatch
+router.get('/loads', softProtect, getLoads);
+router.post('/loads/:id/dispatch', softProtect, acceptAndDispatch);
 
 module.exports = router;

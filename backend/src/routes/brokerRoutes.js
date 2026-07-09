@@ -6,7 +6,11 @@ const {
   getAssignedLoads,
   getDashboardStats,
   getCommissions,
-  getCustomers
+  getCustomers,
+  assignFleet,
+  assignDriver,
+  getApprovedFleetOwners,
+  getApprovedDrivers
 } = require('../controllers/brokerController');
 
 const router = express.Router();
@@ -20,5 +24,9 @@ router.post('/quotes/:bookingId', submitQuote);
 router.get('/assigned-loads', getAssignedLoads);
 router.get('/commissions', getCommissions);
 router.get('/customers', getCustomers);
+router.post('/bookings/:id/assign-fleet', assignFleet);
+router.post('/bookings/:id/assign-driver', assignDriver);
+router.get('/fleet-owners', getApprovedFleetOwners);
+router.get('/drivers', getApprovedDrivers);
 
 module.exports = router;

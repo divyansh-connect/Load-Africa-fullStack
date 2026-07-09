@@ -84,6 +84,17 @@ export const fleetService = {
     return response.data;
   },
 
+  // ── Load Management APIs ─────────────────────
+  getLoads: async () => {
+    const response = await api.get('/fleet/loads');
+    return response.data;
+  },
+
+  dispatchLoad: async (bookingId, driverId, vehicleId) => {
+    const response = await api.post(`/fleet/loads/${bookingId}/dispatch`, { driverId, vehicleId });
+    return response.data;
+  },
+
   // ── Upload helper ─────────────────────────────
   uploadFile: async (file) => {
     const formData = new FormData();
@@ -94,3 +105,5 @@ export const fleetService = {
     return response.data;
   }
 };
+
+export default fleetService;

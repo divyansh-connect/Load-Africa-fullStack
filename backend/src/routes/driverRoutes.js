@@ -10,7 +10,8 @@ const {
   submitKYC,
   getProfile,
   updateProfile,
-  completeOnboarding
+  completeOnboarding,
+  updateTelemetry
 } = require('../controllers/driverController');
 
 const router = express.Router();
@@ -25,5 +26,6 @@ router.post('/kyc/submit', requireAuth, submitKYC);
 router.get('/profile', requireAuth, getProfile);
 router.put('/profile', requireAuth, updateProfile);
 router.post('/onboarding/complete', requireAuth, completeOnboarding);
+router.post('/trips/:bookingId/telemetry', requireAuth, updateTelemetry);
 
 module.exports = router;

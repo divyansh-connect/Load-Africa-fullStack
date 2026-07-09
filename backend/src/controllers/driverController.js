@@ -348,6 +348,97 @@ const updateProfile = async (req, res) => {
   }
 };
 
+const updateTelemetry = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+    const { latitude, longitude } = req.body;
+    const driverId = await getDriverId(req);
+
+    const assignment = await prisma.bookingAssignment.findFirst({
+      where: { booking_id: bookingId, driver_id: driverId }
+    });
+    if (!assignment) {
+      return res.status(403).json({ success: false, message: 'Not authorized to update tracking for this trip' });
+    }
+
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId }
+    });
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+
+    const startLat = booking.pickup_coords_lat;
+    const startLng = booking.pickup_coords_lng;
+    const endLat = booking.delivery_coords_lat;
+    const endLng = booking.delivery_coords_lng;
+
+    const calcDist = (lat1, lon1, lat2, lon2) => {
+      if (!lat1 || !lon1 || !lat2 || !lon2) return 0;
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return parseFloat((R * c).toFixed(2));
+    };
+
+    const completed = calcDist(startLat, startLng, latitude, longitude);
+    const remaining = calcDist(latitude, longitude, endLat, endLng);
+    
+    const etaMs = remaining > 0 ? (remaining / 50) * 60 * 60 * 1000 : 0;
+    const etaDate = new Date(Date.now() + etaMs);
+
+    const telemetry = await prisma.liveTrackingTelemetry.upsert({
+      where: { booking_id: bookingId },
+      update: {
+        latitude: parseFloat(latitude),
+        longitude: parseFloat(longitude),
+        completed_distance: completed,
+        remaining_distance: remaining,
+        eta: etaDate
+      },
+      create: {
+        booking_id: bookingId,
+        driver_id: driverId,
+        latitude: parseFloat(latitude),
+        longitude: parseFloat(longitude),
+        completed_distance: completed,
+        remaining_distance: remaining,
+        eta: etaDate
+      }
+    });
+
+    await prisma.trackingHistory.create({
+      data: {
+        booking_id: bookingId,
+        status: booking.status,
+        lat: parseFloat(latitude),
+        lng: parseFloat(longitude),
+        remarks: `Live telemetry update. Completed: ${completed} km. Remaining: ${remaining} km.`,
+        updated_by: req.user?.id || 'SYSTEM'
+      }
+    });
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit(`telemetry_updated_${bookingId}`, {
+        bookingId,
+        latitude,
+        longitude,
+        completed_distance: completed,
+        remaining_distance: remaining,
+        eta: etaDate
+      });
+    }
+
+    res.status(200).json({ success: true, data: telemetry });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   getAvailableLoads,
   applyForLoad,
@@ -358,5 +449,6 @@ module.exports = {
   submitKYC,
   getProfile,
   updateProfile,
-  completeOnboarding
+  completeOnboarding,
+  updateTelemetry
 };

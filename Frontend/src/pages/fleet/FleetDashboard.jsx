@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { Modal, Button, Input, Card, Table, StatCard } from '../../components/ui';
 import { fleetService } from '../../services/fleetService';
+import { driverService } from '../../services/driverService';
 
 
 export default function FleetDashboard() {
@@ -21,11 +22,13 @@ export default function FleetDashboard() {
   const [fleetStatus, setFleetStatus] = useState('REGISTERED');
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
+  const [wallet, setWallet] = useState(null);
 
   // Local State
   const [actionModal, setActionModal] = useState({ open: false, type: '', load: null });
   const [assignModal, setAssignModal] = useState({ vehicleId: '', driverId: '' });
   const [rejectReason, setRejectReason] = useState('');
+  const [withdrawAmount, setWithdrawAmount] = useState('');
   
   // Toast State
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
@@ -47,7 +50,18 @@ export default function FleetDashboard() {
         if (res.stats) setStats(res.stats);
         setVehicles(res.data.vehicles || []);
         setDrivers(res.data.drivers || []);
-        setBookings(res.data.assignments || []);
+        
+        const resLoads = await fleetService.getLoads();
+        if (resLoads.success) {
+          setBookings(resLoads.data || []);
+        } else {
+          setBookings(res.data.assignments || []);
+        }
+
+        const resWallet = await driverService.getWallet();
+        if (resWallet.success) {
+          setWallet(resWallet.data);
+        }
       }
     } catch (err) {
       console.error(err);
@@ -55,10 +69,22 @@ export default function FleetDashboard() {
     setLoading(false);
   };
 
-  // Derived Stats (real data)
-  const totalVehicles = vehicles.length;
-
-  // --- ACTIONS ---
+  const handleWithdrawal = async (e) => {
+    e.preventDefault();
+    if (!withdrawAmount || Number(withdrawAmount) <= 0) return;
+    try {
+      const res = await driverService.withdrawEarnings(Number(withdrawAmount));
+      if (res.success) {
+        showToast('Withdrawal request submitted for review!');
+        setWithdrawAmount('');
+        await fetchData();
+      } else {
+        showToast(res.message || 'Withdrawal failed', 'error');
+      }
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Withdrawal failed', 'error');
+    }
+  };
 
   const handleAcceptRequest = async (e) => {
     e.preventDefault();
@@ -67,31 +93,21 @@ export default function FleetDashboard() {
       return;
     }
 
-    const load = actionModal.load;
+    const assignment = actionModal.load;
     try {
-      // Call the real booking API to assign vehicle and driver
-      const token = localStorage.getItem('token');
-      const res = await fetch(`/api/v1/bookings/${load.id}/assign`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ vehicle_id: assignModal.vehicleId, driver_id: assignModal.driverId })
-      });
+      const res = await fleetService.dispatchLoad(assignment.booking_id, assignModal.driverId, assignModal.vehicleId);
 
-      if (!res.ok) {
-        // If no real endpoint yet, just update UI optimistically
-        console.warn('Assign endpoint not available yet');
+      if (res.success) {
+        setActionModal({ open: false, type: '', load: null });
+        setAssignModal({ vehicleId: '', driverId: '' });
+        showToast('Booking accepted! Vehicle & Driver assigned.');
+        await fetchData();
+        navigate('/fleet-portal/dashboard');
+      } else {
+        showToast(res.message || 'Failed to assign booking', 'error');
       }
-
-      setActionModal({ open: false, type: '', load: null });
-      setAssignModal({ vehicleId: '', driverId: '' });
-      showToast('Booking accepted! Vehicle & Driver assigned.');
-      await fetchData(); // Refresh data
-      navigate('/fleet-portal/dashboard');
     } catch (err) {
-      showToast('Failed to assign booking', 'error');
+      showToast(err.response?.data?.message || 'Failed to assign booking', 'error');
     }
   };
 
@@ -100,7 +116,6 @@ export default function FleetDashboard() {
     setRejectReason('');
     showToast('Booking request rejected.', 'error');
   };
-
   const renderDashboard = () => (
     <div className="space-y-6">
       <div>
@@ -124,10 +139,10 @@ export default function FleetDashboard() {
               <button onClick={() => navigate('/fleet-portal/vehicles')} className="text-xs text-amber-600 hover:text-amber-700">View All</button>
             </h3>
             <div className="space-y-3">
-              {bookings.filter(b => ['assigned', 'in_transit'].includes(b.bookingStatus)).map(trip => {
-                const vehicle = vehicles.find(v => v.id === trip.vehicleId);
-                const driver = drivers.find(d => d.id === trip.driverId);
-                const load = loads.find(l => l.id === trip.loadId);
+              {bookings.filter(b => b.status === 'ACTIVE' && ['DRIVER_ASSIGNED', 'DRIVER_EN_ROUTE', 'ARRIVED_PICKUP', 'LOADING', 'PICKED_UP', 'IN_TRANSIT'].includes(b.booking?.status)).map(trip => {
+                const vehicle = trip.vehicle;
+                const driver = trip.driver;
+                const load = trip.booking;
                 if (!load) return null;
                 return (
                   <div key={trip.id} className="flex items-center justify-between p-3 border border-slate-100 rounded-xl hover:bg-slate-50 transition-colors">
@@ -136,20 +151,20 @@ export default function FleetDashboard() {
                         <Truck className="h-5 w-5" />
                       </div>
                       <div>
-                        <p className="font-bold text-slate-800 text-sm">{vehicle?.numberPlate || 'Unknown Vehicle'}</p>
-                        <p className="text-xs text-slate-500">{load.pickup.split(',')[0]} → {load.dropoff.split(',')[0]}</p>
+                        <p className="font-bold text-slate-800 text-sm">{vehicle?.registration_number || 'Unknown Vehicle'}</p>
+                        <p className="text-xs text-slate-500">{load.pickup_address?.split(',')[0]} → {load.delivery_address?.split(',')[0]}</p>
                       </div>
                     </div>
                     <div className="text-right">
                       <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-blue-100 text-blue-700">
-                        {trip.bookingStatus.replace('_', ' ')}
+                        {load.status?.replace(/_/g, ' ')}
                       </span>
-                      <p className="text-xs text-slate-500 mt-1 font-medium">{driver?.name}</p>
+                      <p className="text-xs text-slate-500 mt-1 font-medium">{driver?.user ? `${driver.user.first_name} ${driver.user.last_name || ''}` : 'No Driver'}</p>
                     </div>
                   </div>
                 );
               })}
-              {bookings.filter(b => ['assigned', 'in_transit'].includes(b.bookingStatus)).length === 0 && (
+              {bookings.filter(b => b.status === 'ACTIVE' && ['DRIVER_ASSIGNED', 'DRIVER_EN_ROUTE', 'ARRIVED_PICKUP', 'LOADING', 'PICKED_UP', 'IN_TRANSIT'].includes(b.booking?.status)).length === 0 && (
                 <div className="p-6 text-center text-slate-500 text-sm bg-slate-50 rounded-xl">No active trips currently.</div>
               )}
             </div>
@@ -165,7 +180,7 @@ export default function FleetDashboard() {
                   <div key={v.id} className="flex items-start gap-3 p-3 bg-amber-50 rounded-xl border border-amber-100/50">
                     <AlertCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
                     <div>
-                      <p className="text-xs font-bold text-slate-800">{v.numberPlate}</p>
+                      <p className="text-xs font-bold text-slate-800">{v.registration_number}</p>
                       <p className="text-[10px] text-amber-700 mt-0.5">Scheduled Maintenance</p>
                     </div>
                   </div>
@@ -181,10 +196,8 @@ export default function FleetDashboard() {
   );
 
   const renderRequests = () => {
-    // Show bookings that are in PENDING / QUOTE_REQUESTED state as "requests"
-    const pendingBookings = bookings.filter(b =>
-      ['PENDING', 'QUOTE_REQUESTED', 'AWAITING_ASSIGNMENT'].includes(b.status)
-    );
+    // Show assignments that are in PENDING state
+    const pendingBookings = bookings.filter(b => b.status === 'PENDING');
 
     return (
       <div className="space-y-6">
@@ -317,55 +330,126 @@ export default function FleetDashboard() {
           <p className="text-xs text-slate-500 font-medium">Track payments, download statements, and manage cash flow.</p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <StatCard title="Total Trips" value={bookings.length} icon={DollarSign} color="emerald" />
-          <StatCard title="Active Trips" value={bookings.filter(b => ['DRIVER_ASSIGNED','IN_TRANSIT','DRIVER_EN_ROUTE'].includes(b.status)).length} icon={Clock} color="amber" />
-          <StatCard title="Completed Trips" value={bookings.filter(b => b.status === 'DELIVERED').length} icon={CheckCircle2} color="blue" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Wallet Balance Cards */}
+          <Card className="flex flex-col justify-between p-6 bg-slate-900 text-white relative overflow-hidden">
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Available Wallet Balance</p>
+              <h2 className="text-3xl font-black mt-2 text-amber-500">R{Number(wallet?.balance || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</h2>
+            </div>
+            <div className="text-xs text-slate-400 mt-4 font-bold uppercase tracking-wider">Settled Payouts (90% split)</div>
+          </Card>
+
+          <Card className="flex flex-col justify-between p-6 bg-slate-800 text-white">
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Pending Settlements</p>
+              <h2 className="text-3xl font-black mt-2 text-slate-300">R{Number(wallet?.pending_balance || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</h2>
+            </div>
+            <div className="text-xs text-slate-400 mt-4 font-bold uppercase tracking-wider">Awaiting Admin Release</div>
+          </Card>
+
+          {/* Withdraw Funds Request Form */}
+          <Card className="p-6">
+            <h4 className="font-bold text-slate-800 text-xs uppercase mb-3">Withdraw Funds</h4>
+            <form onSubmit={handleWithdrawal} className="space-y-3">
+              <input
+                type="number"
+                step="0.01"
+                min="1"
+                max={wallet?.balance || 0}
+                placeholder="Amount (e.g. 500)"
+                value={withdrawAmount}
+                onChange={(e) => setWithdrawAmount(e.target.value)}
+                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-amber-500 outline-none"
+              />
+              <button
+                type="submit"
+                disabled={!withdrawAmount || Number(withdrawAmount) > (wallet?.balance || 0)}
+                className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-900 font-extrabold text-[10px] uppercase rounded-xl transition-colors cursor-pointer"
+              >
+                Submit Withdrawal
+              </button>
+            </form>
+          </Card>
         </div>
 
-        <Card>
-          <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
-            <h3 className="font-bold text-slate-800">Trip / Booking History</h3>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Trip / Booking History */}
+          <div className="lg:col-span-2">
+            <Card>
+              <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
+                <h3 className="font-bold text-slate-800">Trip / Booking History</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[500px] text-left text-sm">
+                  <thead>
+                    <tr className="text-xs text-slate-400 font-bold uppercase border-b border-slate-100">
+                      <th className="pb-3">Booking ID</th>
+                      <th className="pb-3">Pickup</th>
+                      <th className="pb-3">Delivery</th>
+                      <th className="pb-3">Vehicle</th>
+                      <th className="pb-3">Payout</th>
+                      <th className="pb-3">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50 text-slate-700 font-medium">
+                    {bookings.length === 0 && (
+                      <tr><td colSpan="6" className="py-8 text-center text-slate-400">No bookings yet.</td></tr>
+                    )}
+                    {bookings.map(b => {
+                      const vehicle = vehicles.find(v => v.id === b.vehicle_id);
+                      const grandTotal = b.booking?.quotes?.[0]?.grand_total || 0;
+                      const payout = grandTotal * 0.90;
+                      return (
+                      <tr key={b.id}>
+                        <td className="py-3 font-mono text-xs">{b.booking_id?.slice(0,8)}…</td>
+                        <td className="py-3 text-xs truncate max-w-[100px]">{b.booking?.pickup_address || '-'}</td>
+                        <td className="py-3 text-xs truncate max-w-[100px]">{b.booking?.delivery_address || '-'}</td>
+                        <td className="py-3 text-xs">{vehicle?.registration_number || '-'}</td>
+                        <td className="py-3 text-xs font-bold text-slate-900">R{payout > 0 ? payout.toFixed(2) : '-'}</td>
+                        <td className="py-3">
+                          <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                            b.booking?.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700' :
+                            ['DRIVER_ASSIGNED','IN_TRANSIT','DRIVER_EN_ROUTE'].includes(b.booking?.status) ? 'bg-blue-100 text-blue-700' :
+                            'bg-amber-100 text-amber-700'
+                          }`}>
+                            {b.booking?.status?.replace(/_/g, ' ') || 'PENDING'}
+                          </span>
+                        </td>
+                      </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[600px] text-left text-sm">
-              <thead>
-                <tr className="text-xs text-slate-400 font-bold uppercase border-b border-slate-100">
-                  <th className="pb-3">Booking ID</th>
-                  <th className="pb-3">Pickup</th>
-                  <th className="pb-3">Delivery</th>
-                  <th className="pb-3">Vehicle</th>
-                  <th className="pb-3">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50 text-slate-700 font-medium">
-                {bookings.length === 0 && (
-                  <tr><td colSpan="5" className="py-8 text-center text-slate-400">No bookings yet.</td></tr>
+
+          {/* Financial Transactions Ledger */}
+          <div>
+            <Card>
+              <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
+                <h3 className="font-bold text-slate-800">Financial Ledger</h3>
+              </div>
+              <div className="space-y-4 max-h-[350px] overflow-y-auto pr-1">
+                {(!wallet?.transactions || wallet.transactions.length === 0) && (
+                  <p className="text-xs text-slate-400 text-center py-8 font-medium">No ledger transactions.</p>
                 )}
-                {bookings.map(b => {
-                  const vehicle = vehicles.find(v => v.id === b.vehicle_id);
-                  return (
-                  <tr key={b.id}>
-                    <td className="py-3 font-mono text-xs">{b.id?.slice(0,8)}…</td>
-                    <td className="py-3 text-xs truncate max-w-[120px]">{b.booking?.pickup_address || '-'}</td>
-                    <td className="py-3 text-xs truncate max-w-[120px]">{b.booking?.delivery_address || '-'}</td>
-                    <td className="py-3 text-xs">{vehicle?.registration_number || '-'}</td>
-                    <td className="py-3">
-                      <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                        b.status === 'DELIVERED' ? 'bg-emerald-100 text-emerald-700' :
-                        b.status === 'IN_TRANSIT' ? 'bg-blue-100 text-blue-700' :
-                        'bg-amber-100 text-amber-700'
-                      }`}>
-                        {b.status?.replace(/_/g, ' ')}
-                      </span>
-                    </td>
-                  </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                {wallet?.transactions?.map(txn => (
+                  <div key={txn.id} className="flex justify-between items-center p-3 border border-slate-100 rounded-xl bg-slate-50/50">
+                    <div className="space-y-0.5">
+                      <p className="text-xs font-bold text-slate-800">{txn.description}</p>
+                      <p className="text-[9px] text-slate-400 font-bold uppercase">{txn.type} • {txn.status || 'COMPLETED'}</p>
+                    </div>
+                    <p className={`text-sm font-black ${txn.type === 'CREDIT' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                      {txn.type === 'CREDIT' ? '+' : '-'}R{Number(txn.amount).toFixed(2)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </Card>
           </div>
-        </Card>
+        </div>
       </div>
     );
   };

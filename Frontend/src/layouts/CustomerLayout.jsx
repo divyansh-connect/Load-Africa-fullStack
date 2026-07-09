@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate, Outlet } from 'react-router-dom';
 import { 
   LayoutDashboard, PlusCircle, History, User, Settings, Bell, 
-  Menu, X, LogOut, Navigation, ShieldCheck, HelpCircle, Truck
+  Menu, X, LogOut, Navigation, ShieldCheck, HelpCircle, Truck, FileText
 } from 'lucide-react';
-import { getMockData, saveMockData } from '../data/mockData';
+import { authService } from '../services/authService';
 
 export default function CustomerLayout({ children }) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -14,31 +14,21 @@ export default function CustomerLayout({ children }) {
   
   const location = useLocation();
   const navigate = useNavigate();
-  const activeUser = getMockData('users')[0]; // Patrice Motsepe
+  const activeUser = authService.getCurrentUser();
+  const userDisplayName = activeUser?.firstName
+    ? `${activeUser.firstName} ${activeUser.lastName || ''}`.trim()
+    : activeUser?.email || 'Customer';
 
-  useEffect(() => {
-    const notifs = getMockData('notifications');
-    if (notifs && notifs.customer) {
-      setNotifications(notifs.customer);
-    }
-  }, [location]);
-
-  const unreadCount = notifications.filter(n => !n.read).length;
-
-  const markAllRead = () => {
-    const allNotifs = getMockData('notifications');
-    allNotifs.customer = allNotifs.customer.map(n => ({ ...n, read: true }));
-    saveMockData('notifications', allNotifs);
-    setNotifications(allNotifs.customer);
-  };
+  const unreadCount = 0;
 
   const handleLogout = () => {
-    navigate('/');
+    authService.logout();
   };
 
   const navItems = [
     { name: 'Dashboard', path: '/customer/dashboard', icon: LayoutDashboard },
     { name: 'Create Booking', path: '/customer/create-booking', icon: PlusCircle },
+    { name: 'My Quotations', path: '/customer/my-quotations', icon: FileText },
     { name: 'Active Deliveries', path: '/customer/active-deliveries', icon: Truck },
     { name: 'Live Tracking', path: '/customer/tracking', icon: Navigation },
     { name: 'Booking History', path: '/customer/booking-history', icon: History },
@@ -81,14 +71,12 @@ export default function CustomerLayout({ children }) {
         {/* User Card on Sidebar bottom */}
         <div className="p-4 border-t border-slate-800">
           <div className="flex items-center gap-3 px-2 py-3 rounded-xl bg-slate-800/40 border border-slate-800">
-            <img 
-              src={activeUser.avatar} 
-              alt={activeUser.name} 
-              className="h-10 w-10 rounded-full border border-slate-700 object-cover"
-            />
+            <div className="h-10 w-10 rounded-full bg-amber-500 flex items-center justify-center font-black text-slate-950 text-sm border border-amber-400 shrink-0">
+              {userDisplayName[0]?.toUpperCase() || 'C'}
+            </div>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-white truncate">{activeUser.name}</p>
-              <p className="text-xs text-slate-400 truncate">{activeUser.company}</p>
+              <p className="text-sm font-medium text-white truncate">{userDisplayName}</p>
+              <p className="text-xs text-slate-400 truncate">{activeUser?.email || ''}</p>
             </div>
           </div>
           <button 
@@ -147,10 +135,12 @@ export default function CustomerLayout({ children }) {
 
         <div className="p-4 border-t border-slate-800">
           <div className="flex items-center gap-3 px-2 py-3 rounded-xl bg-slate-800/40 border border-slate-800">
-            <img src={activeUser.avatar} alt={activeUser.name} className="h-10 w-10 rounded-full object-cover" />
+            <div className="h-10 w-10 rounded-full bg-amber-500 flex items-center justify-center font-black text-slate-950 text-sm border border-amber-400 shrink-0">
+              {userDisplayName[0]?.toUpperCase() || 'C'}
+            </div>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-white truncate">{activeUser.name}</p>
-              <p className="text-xs text-slate-400 truncate">{activeUser.company}</p>
+              <p className="text-sm font-medium text-white truncate">{userDisplayName}</p>
+              <p className="text-xs text-slate-400 truncate">{activeUser?.email || ''}</p>
             </div>
           </div>
           <button 
@@ -203,7 +193,7 @@ export default function CustomerLayout({ children }) {
                       <span className="font-semibold text-slate-800 text-sm">Notifications</span>
                       {unreadCount > 0 && (
                         <button 
-                          onClick={markAllRead}
+                          onClick={() => setNotifications(prev => prev.map(n => ({ ...n, read: true })))}
                           className="text-xs text-amber-600 hover:text-amber-700 font-medium"
                         >
                           Mark all read
@@ -218,11 +208,7 @@ export default function CustomerLayout({ children }) {
                           <div 
                             key={notif.id} 
                             onClick={() => {
-                              // mark as read
-                              const allNotifs = getMockData('notifications');
-                              allNotifs.customer = allNotifs.customer.map(n => n.id === notif.id ? { ...n, read: true } : n);
-                              saveMockData('notifications', allNotifs);
-                              setNotifications(allNotifs.customer);
+                              setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
                               setIsNotifOpen(false);
                             }}
                             className={`px-4 py-3 hover:bg-slate-50 border-b border-slate-50 cursor-pointer flex gap-3 text-left transition-colors duration-150 ${
@@ -261,12 +247,10 @@ export default function CustomerLayout({ children }) {
                 onClick={() => { setIsUserMenuOpen(!isUserMenuOpen); setIsNotifOpen(false); }}
                 className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-slate-100 transition-all duration-200"
               >
-                <img 
-                  src={activeUser.avatar} 
-                  alt={activeUser.name} 
-                  className="h-8 w-8 rounded-full border border-slate-200 object-cover"
-                />
-                <span className="hidden md:block text-sm font-semibold text-slate-700">{activeUser.name.split(' ')[0]}</span>
+                <div className="h-8 w-8 rounded-full bg-amber-500 flex items-center justify-center font-black text-slate-950 text-sm border border-amber-300 shrink-0">
+                  {userDisplayName?.[0]?.toUpperCase() || 'C'}
+                </div>
+                <span className="hidden md:block text-sm font-semibold text-slate-700">{userDisplayName?.split(' ')[0] || 'Customer'}</span>
               </button>
 
               {isUserMenuOpen && (
@@ -274,8 +258,8 @@ export default function CustomerLayout({ children }) {
                   <div className="fixed inset-0 z-20" onClick={() => setIsUserMenuOpen(false)} />
                   <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-150 py-2 z-30 transform origin-top-right transition-all">
                     <div className="px-4 py-3 border-b border-slate-100">
-                      <p className="text-sm font-bold text-slate-800">{activeUser.name}</p>
-                      <p className="text-xs text-slate-500 truncate">{activeUser.email}</p>
+                      <p className="text-sm font-bold text-slate-800">{userDisplayName}</p>
+                      <p className="text-xs text-slate-500 truncate">{activeUser?.email || ''}</p>
                     </div>
                     <Link 
                       to="/customer/profile" 

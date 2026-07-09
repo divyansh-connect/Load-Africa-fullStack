@@ -1,65 +1,87 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
-  Package, MapPin, Scale, DollarSign, Calendar, 
-  User, CheckCircle2, Truck, FileText, Download, Building, Clock, Map
+  Package, DollarSign, User, CheckCircle2, Truck, FileText, 
+  Download, Building, Clock, Map, X, Loader2, MapPin, ArrowLeft
 } from 'lucide-react';
-import { getMockData } from '../../data/mockData';
-import { Card, Badge, Button } from '../../components/ui';
+import { Card, Button } from '../../components/ui';
+import { bookingService } from '../../services/bookingService';
 
 export default function BookingDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [load, setLoad] = useState(null);
-  const [driver, setDriver] = useState(null);
-
-  // Use the ID from useParams, or fallback to ld-101 for demo purposes
-  const bookingId = id || 'ld-101';
+  const [timeline, setTimeline] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    const allLoads = getMockData('loads') || [];
-    let ld = allLoads.find(l => l.id === bookingId);
-    
-    // If not found in mock data, create a mock one based on the ID for demo purposes
-    if (!ld) {
-      ld = {
-        id: bookingId,
-        title: '500 Bags of Cement',
-        category: 'Building Materials',
-        weight: '25 Tons',
-        pickup: 'Johannesburg, Gauteng',
-        dropoff: 'Cape Town, Western Cape',
-        budget: 12000,
-        status: 'in_transit',
-        driverId: 'drv-1',
-        date: '2024-06-12',
-      };
-    }
+    if (!id) return;
+    fetchBookingDetails();
+  }, [id]);
 
-    setLoad(ld);
-    if (ld.driverId) {
-      const drivers = getMockData('drivers') || [];
-      const foundDriver = drivers.find(d => d.id === ld.driverId);
-      if (foundDriver) {
-        setDriver(foundDriver);
+  const fetchBookingDetails = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const [detailsRes, timelineRes] = await Promise.all([
+        bookingService.getBookingDetails(id),
+        bookingService.getBookingTimeline(id)
+      ]);
+      if (detailsRes.success && detailsRes.data) {
+        setLoad(detailsRes.data);
       } else {
-        // Mock driver if not found
-        setDriver({
-          name: 'Sipho Zuma',
-          phone: '+27 82 123 4567',
-          trips: 42,
-          avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-          vehicle: { make: 'Scania', model: 'R500', reg: 'CA 123-456', type: '8-Ton Truck' }
-        });
+        setError('Booking not found.');
       }
+      if (timelineRes.success) {
+        setTimeline(timelineRes.data || []);
+      }
+    } catch (err) {
+      console.error(err);
+      setError('Failed to load booking details.');
+    } finally {
+      setLoading(false);
     }
-  }, [bookingId]);
-
-  const handleDownload = (docName) => {
-    alert(`Downloading ${docName} for ${load?.id}...`);
   };
 
-  if (!load) return <div className="p-8 text-center text-slate-500">Loading booking details...</div>;
+  const getStatusBadgeColor = (status) => {
+    const s = (status || '').toUpperCase();
+    if (['COMPLETED', 'DELIVERED', 'PAYMENT_RECEIVED', 'POD_VERIFIED', 'CUSTOMER_ACCEPTED', 'CLOSED'].includes(s)) return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+    if (['CANCELLED', 'REJECTED', 'FAILED', 'EXPIRED'].includes(s)) return 'bg-red-100 text-red-800 border-red-200';
+    if (['IN_TRANSIT', 'PICKED_UP', 'PICKUP_ARRIVED', 'DRIVER_ASSIGNED', 'DRIVER_EN_ROUTE', 'ARRIVED_PICKUP', 'LOADING'].includes(s)) return 'bg-blue-100 text-blue-800 border-blue-200';
+    if (['PAYMENT_PENDING', 'QUOTE_PREPARED', 'QUOTE_REQUESTED'].includes(s)) return 'bg-amber-100 text-amber-800 border-amber-200';
+    return 'bg-slate-100 text-slate-800 border-slate-200';
+  };
+
+  const isDelivered = (s) => ['COMPLETED', 'DELIVERED', 'POD_UPLOADED', 'POD_VERIFIED', 'PAYMENT_RECEIVED', 'CLOSED'].includes((s || '').toUpperCase());
+  const isInTransit = (s) => ['IN_TRANSIT', 'PICKED_UP', 'LOADING', 'DRIVER_EN_ROUTE', 'ARRIVED_PICKUP', 'ARRIVED_DESTINATION'].includes((s || '').toUpperCase());
+  const isDriverAssigned = (s) => isInTransit(s) || isDelivered(s) || ['DRIVER_ASSIGNED', 'PICKUP_SCHEDULED'].includes((s || '').toUpperCase());
+  const isPaid = (s) => ['PAYMENT_RECEIVED', 'COMPLETED', 'CLOSED'].includes((s || '').toUpperCase());
+
+  if (loading) {
+    return (
+      <div className="flex h-64 items-center justify-center gap-3 text-slate-500 font-medium">
+        <Loader2 className="h-6 w-6 animate-spin text-amber-500" />
+        Loading booking details...
+      </div>
+    );
+  }
+
+  if (error || !load) {
+    return (
+      <div className="p-12 text-center max-w-md mx-auto mt-10">
+        <div className="text-red-500 font-bold mb-4">{error || 'Booking not found.'}</div>
+        <button onClick={() => navigate('/customer/booking-history')} className="text-amber-500 font-bold flex items-center gap-2 mx-auto">
+          <ArrowLeft className="h-4 w-4" /> Back to Booking History
+        </button>
+      </div>
+    );
+  }
+
+  const quote = load.quotes?.[0];
+  const grandTotal = quote ? Number(quote.grand_total) : 0;
+  const driver = load.assignments?.[0]?.driver;
+  const vehicle = load.assignments?.[0]?.vehicle;
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 text-left animate-fadeIn pb-12">
@@ -67,12 +89,20 @@ export default function BookingDetails() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
+          <button 
+            onClick={() => navigate('/customer/booking-history')} 
+            className="text-xs text-slate-400 font-bold flex items-center gap-1 mb-1 hover:text-amber-500 transition-colors"
+          >
+            <ArrowLeft className="h-3 w-3" /> Booking History
+          </button>
           <h2 className="text-2xl font-black text-slate-900 tracking-tight">Booking Details</h2>
-          <p className="text-xs text-slate-400">Complete overview for {load.id}</p>
+          <p className="text-xs text-slate-400 font-mono">{load.id}</p>
         </div>
         <div className="flex items-center gap-3">
-          <Badge status={load.status} />
-          {load.status === 'in_transit' && (
+          <span className={`px-2.5 py-1 text-[10px] font-bold rounded-md border uppercase tracking-wider ${getStatusBadgeColor(load.status)}`}>
+            {load.status?.replace(/_/g, ' ')}
+          </span>
+          {isInTransit(load.status) && (
             <Button onClick={() => navigate('/customer/tracking')}>
               <Map className="h-4 w-4 mr-2" />
               Track Live
@@ -83,153 +113,149 @@ export default function BookingDetails() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Left Column: Cargo, Route, Timeline */}
+        {/* Left Column */}
         <div className="lg:col-span-2 space-y-6">
           
-          {/* Route & Cargo Card */}
+          {/* Cargo & Route Card */}
           <Card className="p-6 space-y-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="bg-slate-100 p-2.5 rounded-xl text-slate-500"><Package className="h-5 w-5" /></div>
+                <div className="bg-slate-100 p-2.5 rounded-xl text-slate-500">
+                  <Package className="h-5 w-5" />
+                </div>
                 <div>
-                  <h3 className="font-bold text-slate-800 text-sm">{load.title}</h3>
-                  <span className="text-[10px] text-slate-400 font-mono">Cargo Name</span>
+                  <h3 className="font-bold text-slate-800 text-sm">{load.cargo_name}</h3>
+                  <span className="text-[10px] text-slate-400 font-mono">Cargo · {load.cargo_category || 'General'}</span>
                 </div>
               </div>
               <div className="text-right">
                 <span className="block text-[9px] font-bold text-slate-400 uppercase">Weight</span>
-                <span className="font-bold text-slate-800 text-sm">{load.weight}</span>
+                <span className="font-bold text-slate-800 text-sm">{load.weight} tons</span>
               </div>
             </div>
 
             <div className="border-t border-slate-100 pt-4 space-y-4 text-sm relative">
-              {/* Connecting line */}
-              <div className="absolute left-2.5 top-6 bottom-4 w-0.5 bg-slate-100 -z-10" />
+              <div className="absolute left-2.5 top-6 bottom-4 w-0.5 bg-slate-200 -z-10" />
               
               <div className="flex items-start gap-4">
-                <div className="h-5 w-5 rounded-full bg-amber-100 flex items-center justify-center shrink-0 mt-0.5 z-10">
-                  <div className="h-2 w-2 rounded-full bg-amber-500" />
+                <div className="h-5 w-5 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5 z-10">
+                  <div className="h-2 w-2 rounded-full bg-emerald-500" />
                 </div>
                 <div className="space-y-0.5">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">PICKUP ADDRESS</span>
-                  <p className="text-slate-700 font-semibold">{load.pickup}</p>
-                  <p className="text-xs text-slate-500">Date: {load.date || 'Pending'}</p>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">Pickup Address</span>
+                  <p className="text-slate-700 font-semibold">{load.pickup_address}</p>
+                  <p className="text-xs text-slate-500">Date: {load.pickup_date ? new Date(load.pickup_date).toLocaleDateString() : 'Scheduled'}</p>
                 </div>
               </div>
 
               <div className="flex items-start gap-4">
-                <div className="h-5 w-5 rounded-full bg-indigo-100 flex items-center justify-center shrink-0 mt-0.5 z-10">
-                  <div className="h-2 w-2 rounded-full bg-indigo-500" />
+                <div className="h-5 w-5 rounded-full bg-red-100 flex items-center justify-center shrink-0 mt-0.5 z-10">
+                  <div className="h-2 w-2 rounded-full bg-red-500" />
                 </div>
                 <div className="space-y-0.5">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">DELIVERY ADDRESS</span>
-                  <p className="text-slate-700 font-semibold">{load.dropoff}</p>
-                  <p className="text-xs text-slate-500">ETA: {load.status === 'in_transit' ? '2h 30m remaining' : 'Pending'}</p>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">Delivery Address</span>
+                  <p className="text-slate-700 font-semibold">{load.delivery_address}</p>
+                  <p className="text-xs text-slate-500">
+                    {load.delivery_date ? `Expected: ${new Date(load.delivery_date).toLocaleDateString()}` : 'ETA pending'}
+                  </p>
                 </div>
+              </div>
+            </div>
+
+            {/* Additional Info */}
+            <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+              <div className="bg-slate-50 rounded-xl p-3">
+                <p className="text-[10px] text-slate-400 uppercase font-bold mb-0.5">Vehicle Type</p>
+                <p className="text-sm font-bold text-slate-800">{load.requested_vehicle || 'Any'}</p>
+              </div>
+              <div className="bg-slate-50 rounded-xl p-3">
+                <p className="text-[10px] text-slate-400 uppercase font-bold mb-0.5">Distance</p>
+                <p className="text-sm font-bold text-slate-800">{load.distance_km ? `${Number(load.distance_km).toFixed(1)} km` : 'Calculating...'}</p>
               </div>
             </div>
           </Card>
 
           {/* Timeline Card */}
-          <Card className="p-6 space-y-6">
-            <h3 className="font-bold text-slate-800 text-sm">Booking Timeline</h3>
-            <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent">
+          <Card className="p-6 space-y-5">
+            <h3 className="font-bold text-slate-800 text-sm">Lifecycle Timeline</h3>
+            
+            <div className="space-y-4 relative before:absolute before:left-5 before:top-0 before:h-full before:w-0.5 before:bg-slate-200">
               
-              {/* Node 1: Quote Requested */}
-              <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-white bg-emerald-500 text-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">
+              {/* Static first node */}
+              <div className="relative flex items-start gap-4">
+                <div className="h-10 w-10 rounded-full border-4 border-white bg-emerald-500 text-white flex items-center justify-center shrink-0 z-10 shadow-sm">
                   <CheckCircle2 className="h-4 w-4" />
                 </div>
-                <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-slate-200 bg-white shadow-sm">
-                  <div className="flex items-center justify-between mb-1">
-                    <h4 className="font-bold text-slate-800 text-xs">Quote Requested</h4>
-                    <span className="text-[9px] font-bold text-slate-400">{load.date || 'Pending'}</span>
-                  </div>
-                  <p className="text-[10px] text-slate-500">You successfully requested a quote for this booking.</p>
+                <div className="pt-1.5 flex-1 border border-slate-100 rounded-xl p-3 bg-slate-50">
+                  <h5 className="font-bold text-slate-800 text-sm">Booking Created</h5>
+                  <span className="text-[10px] text-slate-500 font-mono">{new Date(load.created_at).toLocaleString()}</span>
                 </div>
               </div>
 
-              {/* Node 2: Driver Assigned */}
-              <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group">
-                <div className={`flex items-center justify-center w-10 h-10 rounded-full border-4 border-white ${['assigned', 'in_transit', 'completed', 'delivered'].includes(load.status) ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-400'} shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10`}>
-                  {['assigned', 'in_transit', 'completed', 'delivered'].includes(load.status) ? <CheckCircle2 className="h-4 w-4" /> : <User className="h-4 w-4" />}
-                </div>
-                <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-slate-200 bg-white shadow-sm">
-                  <div className="flex items-center justify-between mb-1">
-                    <h4 className="font-bold text-slate-800 text-xs">Driver Assigned</h4>
-                    <span className="text-[9px] font-bold text-slate-400">{['assigned', 'in_transit', 'completed', 'delivered'].includes(load.status) ? 'Updated' : 'Pending'}</span>
+              {/* Dynamic timeline from DB */}
+              {timeline.map((event, idx) => (
+                <div key={idx} className="relative flex items-start gap-4">
+                  <div className="h-10 w-10 rounded-full border-4 border-white bg-amber-500 text-white flex items-center justify-center shrink-0 z-10 shadow-sm">
+                    <MapPin className="h-4 w-4" />
                   </div>
-                  <p className="text-[10px] text-slate-500">
-                    {['assigned', 'in_transit', 'completed', 'delivered'].includes(load.status) 
-                      ? `Broker assigned ${driver?.name || 'a driver'} to this load.` 
-                      : 'Waiting for broker to assign a driver.'}
-                  </p>
-                </div>
-              </div>
-
-              {/* Node 3: In Transit */}
-              <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group">
-                <div className={`flex items-center justify-center w-10 h-10 rounded-full border-4 border-white ${['in_transit', 'completed', 'delivered'].includes(load.status) ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-400'} shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10`}>
-                  {['in_transit', 'completed', 'delivered'].includes(load.status) ? <CheckCircle2 className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
-                </div>
-                <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-slate-200 bg-white shadow-sm">
-                  <div className="flex items-center justify-between mb-1">
-                    <h4 className="font-bold text-slate-800 text-xs">In Transit</h4>
-                    <span className="text-[9px] font-bold text-slate-400">{['in_transit', 'completed', 'delivered'].includes(load.status) ? 'Updated' : 'Pending'}</span>
+                  <div className="pt-1.5 flex-1 border border-slate-100 rounded-xl p-3 bg-white shadow-sm">
+                    <h5 className="font-bold text-slate-800 text-sm">{event.status?.replace(/_/g, ' ')}</h5>
+                    {event.remarks && <p className="text-xs text-slate-500 mt-0.5">{event.remarks}</p>}
+                    <span className="text-[10px] text-slate-400 font-mono">{new Date(event.timestamp).toLocaleString()}</span>
                   </div>
-                  <p className="text-[10px] text-slate-500">Cargo has been picked up and is en route.</p>
                 </div>
-              </div>
+              ))}
 
-              {/* Node 4: Delivered */}
-              <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group">
-                <div className={`flex items-center justify-center w-10 h-10 rounded-full border-4 border-white ${['completed', 'delivered'].includes(load.status) ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-400'} shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10`}>
-                  {['completed', 'delivered'].includes(load.status) ? <CheckCircle2 className="h-4 w-4" /> : <Package className="h-4 w-4" />}
-                </div>
-                <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-slate-200 bg-white shadow-sm">
-                  <div className="flex items-center justify-between mb-1">
-                    <h4 className="font-bold text-slate-800 text-xs">Delivered</h4>
-                    <span className="text-[9px] font-bold text-slate-400">{['completed', 'delivered'].includes(load.status) ? 'Updated' : 'Pending'}</span>
+              {timeline.length === 0 && (
+                <div className="relative flex items-start gap-4">
+                  <div className="h-10 w-10 rounded-full border-4 border-white bg-slate-200 text-slate-400 flex items-center justify-center shrink-0 z-10">
+                    <Clock className="h-4 w-4" />
                   </div>
-                  <p className="text-[10px] text-slate-500">Cargo delivered safely to destination.</p>
+                  <div className="pt-1.5 flex-1 border border-slate-100 rounded-xl p-3 bg-white">
+                    <h5 className="font-bold text-slate-500 text-sm">Awaiting Updates</h5>
+                    <p className="text-xs text-slate-400">Status changes will appear here</p>
+                  </div>
                 </div>
-              </div>
-
+              )}
             </div>
           </Card>
         </div>
 
-        {/* Right Column: Driver, Payment, Documents */}
+        {/* Right Column */}
         <div className="space-y-6">
           
-          {/* Driver & Vehicle Details */}
+          {/* Driver & Vehicle */}
           <Card className="p-6 space-y-4">
             <h3 className="font-bold text-slate-800 text-sm">Assigned Transporter</h3>
             
             {driver ? (
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
-                  <img src={driver.avatar} alt={driver.name} className="h-12 w-12 rounded-full object-cover border-2 border-white shadow-sm" />
+                  <div className="h-12 w-12 bg-amber-100 rounded-full flex items-center justify-center font-black text-amber-700 text-xl border border-amber-200 shadow-sm">
+                    {driver.user?.first_name?.[0] || 'D'}
+                  </div>
                   <div>
-                    <p className="font-bold text-slate-800 text-sm">{driver.name}</p>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Driver • {driver.trips} Trips</span>
+                    <p className="font-bold text-slate-800 text-sm">{driver.user?.first_name} {driver.user?.last_name || ''}</p>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Verified Driver</span>
                   </div>
                 </div>
                 
-                <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 text-xs space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-slate-500 font-medium">Vehicle</span>
-                    <span className="text-slate-800 font-bold">{driver.vehicle?.make || 'Scania'} {driver.vehicle?.model || 'R500'}</span>
+                {vehicle && (
+                  <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 text-xs space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500 font-medium">Registration</span>
+                      <span className="text-slate-800 font-bold">{vehicle.registration_number || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500 font-medium">Vehicle</span>
+                      <span className="text-slate-800 font-bold">{vehicle.brand} {vehicle.model}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500 font-medium">Type</span>
+                      <span className="text-slate-800 font-bold">{vehicle.vehicle_type || 'Truck'}</span>
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500 font-medium">Type</span>
-                    <span className="text-slate-800 font-bold">{driver.vehicle?.type || '8-Ton Truck'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500 font-medium">Registration</span>
-                    <span className="text-slate-800 font-bold">{driver.vehicle?.reg || 'CA 123-456'}</span>
-                  </div>
-                </div>
+                )}
 
                 <div className="pt-2 border-t border-slate-100">
                   <div className="flex items-center gap-3 text-xs">
@@ -237,8 +263,8 @@ export default function BookingDetails() {
                       <Building className="h-4 w-4 text-slate-500" />
                     </div>
                     <div>
-                      <p className="font-bold text-slate-800">Broker: Global Logistics</p>
-                      <p className="text-slate-400 font-medium">Coordinator</p>
+                      <p className="font-bold text-slate-800">LoadAfrica Dispatch</p>
+                      <p className="text-slate-400 font-medium">Operations Hub</p>
                     </div>
                   </div>
                 </div>
@@ -247,40 +273,54 @@ export default function BookingDetails() {
               <div className="text-center py-6">
                 <Truck className="h-8 w-8 text-slate-300 mx-auto mb-2" />
                 <p className="text-xs text-slate-500 font-medium">Driver assignment pending</p>
+                <p className="text-[10px] text-slate-400 mt-1">A broker will assign a driver shortly</p>
               </div>
             )}
           </Card>
 
-          {/* Payment Summary */}
+          {/* Quote / Payment Summary */}
           <Card className="p-6 space-y-4">
             <h3 className="font-bold text-slate-800 text-sm">Payment Summary</h3>
             
-            <div className="space-y-3 text-xs border-b border-slate-100 pb-4">
-              <div className="flex justify-between">
-                <span className="text-slate-500 font-medium">Base Cost</span>
-                <span className="text-slate-800 font-bold">R {load.budget}</span>
+            {quote ? (
+              <>
+                <div className="space-y-2.5 text-xs border-b border-slate-100 pb-4">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-medium">Distance Cost</span>
+                    <span className="text-slate-800 font-bold">R {Number(quote.distance_cost || 0).toFixed(2)}</span>
+                  </div>
+                  {Number(quote.surcharge) > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-500 font-medium">Surcharges</span>
+                      <span className="text-slate-800 font-bold">R {Number(quote.surcharge).toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-medium">Platform Fee</span>
+                    <span className="text-slate-800 font-bold">R {Number(quote.platform_fee || 0).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-medium">VAT (15%)</span>
+                    <span className="text-slate-800 font-bold">R {Number(quote.tax || 0).toFixed(2)}</span>
+                  </div>
+                </div>
+                <div className="flex justify-between items-end">
+                  <span className="text-xs font-bold text-slate-400 uppercase">Grand Total</span>
+                  <span className="text-xl font-black text-slate-900">R {grandTotal.toFixed(2)}</span>
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-4">
+                <p className="text-xs text-slate-400 font-medium">Quote pending from broker</p>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500 font-medium">Taxes (15% VAT)</span>
-                <span className="text-slate-800 font-bold">R {(load.budget * 0.15).toFixed(0)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500 font-medium">Broker Commission (5%)</span>
-                <span className="text-slate-800 font-bold">R {(load.budget * 0.05).toFixed(0)}</span>
-              </div>
-            </div>
+            )}
 
-            <div className="flex justify-between items-end pt-1">
-              <span className="text-xs font-bold text-slate-400 uppercase">Total Amount</span>
-              <span className="text-xl font-black text-slate-900">R {(load.budget * 1.20).toFixed(0)}</span>
-            </div>
-
-            <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3 flex justify-between items-center text-xs">
+            <div className={`border rounded-xl p-3 flex justify-between items-center text-xs ${isPaid(load.status) ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-amber-50 border-amber-100 text-amber-700'}`}>
               <div className="flex items-center gap-1.5">
-                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                <span className="font-bold text-emerald-700">Payment Status</span>
+                <CheckCircle2 className="h-4 w-4" />
+                <span className="font-bold">Payment Status</span>
               </div>
-              <span className="font-black text-emerald-700">PAID</span>
+              <span className="font-black">{isPaid(load.status) ? 'PAID' : 'PENDING'}</span>
             </div>
           </Card>
 
@@ -289,54 +329,33 @@ export default function BookingDetails() {
             <h3 className="font-bold text-slate-800 text-sm">Documents</h3>
             
             <div className="space-y-2">
-              <button onClick={() => handleDownload('Invoice')} className="w-full flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:border-amber-400 hover:bg-slate-50 transition-colors group text-left">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-slate-100 rounded-lg text-slate-500 group-hover:bg-amber-100 group-hover:text-amber-600 transition-colors">
-                    <FileText className="h-4 w-4" />
+              {[
+                { label: 'Tax Invoice', sub: `INV-${load.id?.slice(0, 8)}.pdf`, icon: FileText, available: !!quote },
+                { label: 'Payment Receipt', sub: `REC-${load.id?.slice(0, 8)}.pdf`, icon: DollarSign, available: isPaid(load.status) },
+                { label: 'Proof of Delivery (POD)', sub: isDelivered(load.status) ? `POD-${load.id?.slice(0, 8)}.pdf` : 'Not yet available', icon: CheckCircle2, available: isDelivered(load.status) },
+              ].map(({ label, sub, icon: Icon, available }) => (
+                <button 
+                  key={label}
+                  disabled={!available}
+                  onClick={() => available && alert(`Downloading ${label}...`)}
+                  className={`w-full flex items-center justify-between p-3 rounded-xl border border-slate-100 transition-colors group text-left ${available ? 'hover:border-amber-400 hover:bg-slate-50 cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg transition-colors ${available ? 'bg-slate-100 text-slate-500 group-hover:bg-amber-100 group-hover:text-amber-600' : 'bg-slate-50 text-slate-300'}`}>
+                      <Icon className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-800">{label}</p>
+                      <p className="text-[10px] text-slate-400">{sub}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-xs font-bold text-slate-800">Tax Invoice</p>
-                    <p className="text-[10px] text-slate-400">INV-{load.id}.pdf</p>
-                  </div>
-                </div>
-                <Download className="h-4 w-4 text-slate-400 group-hover:text-amber-500" />
-              </button>
-
-              <button onClick={() => handleDownload('Receipt')} className="w-full flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:border-amber-400 hover:bg-slate-50 transition-colors group text-left">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-slate-100 rounded-lg text-slate-500 group-hover:bg-amber-100 group-hover:text-amber-600 transition-colors">
-                    <DollarSign className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-slate-800">Payment Receipt</p>
-                    <p className="text-[10px] text-slate-400">REC-{load.id}.pdf</p>
-                  </div>
-                </div>
-                <Download className="h-4 w-4 text-slate-400 group-hover:text-amber-500" />
-              </button>
-
-              <button 
-                onClick={() => handleDownload('Proof of Delivery')} 
-                disabled={load.status !== 'delivered'}
-                className={`w-full flex items-center justify-between p-3 rounded-xl border border-slate-100 transition-colors group text-left ${load.status === 'delivered' ? 'hover:border-amber-400 hover:bg-slate-50' : 'opacity-50 cursor-not-allowed'}`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-lg transition-colors ${load.status === 'delivered' ? 'bg-slate-100 text-slate-500 group-hover:bg-amber-100 group-hover:text-amber-600' : 'bg-slate-50 text-slate-300'}`}>
-                    <CheckCircle2 className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-slate-800">Proof of Delivery (POD)</p>
-                    <p className="text-[10px] text-slate-400">{load.status === 'delivered' ? `POD-${load.id}.pdf` : 'Not yet available'}</p>
-                  </div>
-                </div>
-                <Download className={`h-4 w-4 ${load.status === 'delivered' ? 'text-slate-400 group-hover:text-amber-500' : 'text-slate-300'}`} />
-              </button>
+                  <Download className={`h-4 w-4 ${available ? 'text-slate-400 group-hover:text-amber-500' : 'text-slate-300'}`} />
+                </button>
+              ))}
             </div>
           </Card>
-
         </div>
       </div>
-
     </div>
   );
 }

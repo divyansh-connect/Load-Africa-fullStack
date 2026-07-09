@@ -10,6 +10,7 @@ export default function CustomerRegister() {
   const navigate = useNavigate();
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isRegistered, setIsRegistered] = useState(false);
 
   // Form states
   const [fullName, setFullName] = useState('');
@@ -37,12 +38,45 @@ export default function CustomerRegister() {
         phone,
       });
       setLoading(false);
-      navigate('/customer/login');
+      setIsRegistered(true);
     } catch (err) {
       setLoading(false);
       setError(err.response?.data?.message || 'Registration failed.');
     }
   };
+
+  if (isRegistered) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col justify-between font-sans">
+        <Navbar />
+        <main className="flex-1 flex flex-col justify-center items-center px-4 pt-24 pb-20 animate-fadeIn">
+          <Card className="bg-white border border-slate-205 rounded-2xl shadow-lg p-8 max-w-md w-full text-center space-y-6">
+            <div className="mx-auto h-20 w-20 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center shadow-inner">
+              <svg className="h-10 w-10 stroke-[3]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <div className="space-y-2">
+              <h3 className="font-black text-xl text-slate-950 uppercase tracking-tight">Account Under Review</h3>
+              <p className="text-sm text-slate-500 leading-relaxed font-semibold">
+                Your customer account has been created successfully.
+              </p>
+              <p className="text-xs text-slate-400 font-bold leading-relaxed pt-1">
+                You will receive a notification email once the administration verifies and approves your access.
+              </p>
+            </div>
+            <button
+              onClick={() => navigate('/login')}
+              className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-slate-955 font-black rounded-xl text-xs tracking-wider uppercase transition-colors shadow-sm cursor-pointer"
+            >
+              Go to Login Panel
+            </button>
+          </Card>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white flex flex-col font-sans">
@@ -63,7 +97,11 @@ export default function CustomerRegister() {
 
           {/* Form Card */}
           <Card className="bg-white border border-slate-200 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] p-6 sm:p-8 text-left transition-all duration-300">
-            
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 text-red-600 text-xs font-bold rounded-lg border border-red-200">
+                {error}
+              </div>
+            )}
             <form onSubmit={handleSubmit} className="space-y-6">
               
               {/* Card Header */}
@@ -169,15 +207,16 @@ export default function CustomerRegister() {
               {/* Submit Button */}
               <button 
                 type="submit"
-                className="w-full py-3 bg-[#f99c00] hover:bg-[#e08b00] text-slate-950 font-black rounded-lg text-xs tracking-widest uppercase transition-colors shadow-sm"
+                disabled={loading}
+                className="w-full py-3 bg-[#f99c00] hover:bg-[#e08b00] text-slate-955 font-black rounded-lg text-xs tracking-widest uppercase transition-colors shadow-sm cursor-pointer"
               >
-                CREATE ACCOUNT
+                {loading ? 'CREATING...' : 'CREATE ACCOUNT'}
               </button>
 
               {/* Link to Login */}
               <div className="pt-2 text-center">
                 <p className="text-xs font-bold text-slate-500">
-                  Already registered? <button type="button" onClick={() => navigate('/login')} className="text-[#f99c00] hover:text-[#e08b00] font-black">Sign in</button>
+                  Already registered? <button type="button" onClick={() => navigate('/login')} className="text-[#f99c00] hover:text-[#e08b00] font-black cursor-pointer">Sign in</button>
                 </p>
               </div>
 

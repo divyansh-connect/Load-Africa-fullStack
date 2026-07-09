@@ -5,6 +5,7 @@ import {
   ExternalLink, CheckCircle2, X, RefreshCcw
 } from 'lucide-react';
 import { brokerService } from '../../services/brokerService';
+import { bookingService } from '../../services/bookingService';
 import { Badge, Table, StatCard } from '../../components/ui';
 
 export default function AssignedLoads() {
@@ -14,8 +15,15 @@ export default function AssignedLoads() {
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [selectedLoad, setSelectedLoad] = useState(null);
 
+  const [fleets, setFleets] = useState([]);
+  const [drivers, setDrivers] = useState([]);
+  const [selectedFleetId, setSelectedFleetId] = useState('');
+  const [selectedDriverId, setSelectedDriverId] = useState('');
+  const [assigning, setAssigning] = useState(false);
+
   useEffect(() => {
     fetchAssignedLoads();
+    fetchTransporters();
   }, []);
 
   const fetchAssignedLoads = async () => {
@@ -31,9 +39,54 @@ export default function AssignedLoads() {
     }
   };
 
+  const fetchTransporters = async () => {
+    try {
+      const resFleets = await brokerService.getApprovedFleetOwners();
+      const resDrivers = await brokerService.getApprovedDrivers();
+      if (resFleets.success) setFleets(resFleets.data);
+      if (resDrivers.success) setDrivers(resDrivers.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const handleViewClick = (load) => {
     setSelectedLoad(load);
+    setSelectedFleetId('');
+    setSelectedDriverId('');
     setViewModalOpen(true);
+  };
+
+  const handleAssignFleet = async () => {
+    if (!selectedFleetId) return;
+    try {
+      setAssigning(true);
+      const res = await brokerService.assignFleet(selectedLoad.id, selectedFleetId);
+      if (res.success) {
+        setViewModalOpen(false);
+        fetchAssignedLoads();
+      }
+    } catch (err) {
+      alert(err.message || 'Failed to assign Fleet');
+    } finally {
+      setAssigning(false);
+    }
+  };
+
+  const handleAssignDriver = async () => {
+    if (!selectedDriverId) return;
+    try {
+      setAssigning(true);
+      const res = await brokerService.assignDriver(selectedLoad.id, selectedDriverId);
+      if (res.success) {
+        setViewModalOpen(false);
+        fetchAssignedLoads();
+      }
+    } catch (err) {
+      alert(err.message || 'Failed to assign Driver');
+    } finally {
+      setAssigning(false);
+    }
   };
 
   const getStatusBadge = (status) => {
@@ -51,7 +104,7 @@ export default function AssignedLoads() {
       case 'driver_assigned':
         return <Badge status="assigned" />;
       default:
-        return <span className="px-2 py-1 text-[10px] font-bold uppercase rounded-md bg-slate-100 text-slate-600 border border-slate-200">{status}</span>;
+        return <span className="px-2 py-1 text-[10px] font-bold uppercase rounded-md bg-slate-100 text-slate-650 border border-slate-200">{status}</span>;
     }
   };
 
@@ -92,9 +145,11 @@ export default function AssignedLoads() {
         ) : (
           <Table headers={['Booking Details', 'Assigned Transporter', 'Transit State', 'Date Created', 'Action']}>
             {assignedLoads.map((load) => {
-              const transporterName = load.assignment?.driver?.user?.first_name || 
-                                      load.assignment?.fleet_owner?.company_name || 
-                                      'Admin Dispatching...';
+              const transporterName = load.assignment?.driver?.user?.first_name 
+                ? `${load.assignment.driver.user.first_name} ${load.assignment.driver.user.last_name || ''}` 
+                : load.assignment?.fleet_owner?.company_name 
+                ? load.assignment.fleet_owner.company_name
+                : 'Awaiting Operator Assignment';
               
               return (
                 <tr key={load.id} className="hover:bg-slate-50/30">
@@ -114,7 +169,7 @@ export default function AssignedLoads() {
                   <td className="py-4 px-6 text-right">
                     <button 
                       onClick={() => handleViewClick(load)}
-                      className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-colors" 
+                      className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer" 
                       title="View Details"
                     >
                       <ExternalLink className="h-4 w-4" />
@@ -131,18 +186,18 @@ export default function AssignedLoads() {
       {viewModalOpen && selectedLoad && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setViewModalOpen(false)} />
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-lg relative z-10 overflow-hidden">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-lg relative z-10 overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 shrink-0">
               <div>
                 <h2 className="text-xl font-black text-slate-900">Booking Details</h2>
                 <p className="text-sm text-slate-500">View logistics information</p>
               </div>
-              <button onClick={() => setViewModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-xl transition-colors">
+              <button onClick={() => setViewModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer">
                 <X className="h-5 w-5" />
               </button>
             </div>
             
-            <div className="p-6 space-y-6">
+            <div className="p-6 space-y-6 overflow-y-auto flex-1">
               {/* Header Info */}
               <div className="flex justify-between items-start">
                 <div>
@@ -167,21 +222,113 @@ export default function AssignedLoads() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <p className="text-xs font-bold text-slate-400 uppercase">Cargo</p>
-                  <p className="text-sm font-semibold text-slate-900">{selectedLoad.cargo_name}</p>
+                  <p className="text-sm font-semibold text-slate-900">{selectedLoad.cargo_name} ({selectedLoad.weight}kg)</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-xs font-bold text-slate-400 uppercase">Assigned Transporter</p>
                   <p className="text-sm font-semibold text-slate-900">
-                    {selectedLoad.assignment?.driver?.user?.first_name || 
-                     selectedLoad.assignment?.fleet_owner?.company_name || 
-                     'Awaiting Admin Assignment'}
+                    {selectedLoad.assignment?.driver?.user?.first_name 
+                      ? `${selectedLoad.assignment.driver.user.first_name} ${selectedLoad.assignment.driver.user.last_name || ''}` 
+                      : selectedLoad.assignment?.fleet_owner?.company_name 
+                      ? selectedLoad.assignment.fleet_owner.company_name
+                      : 'Unassigned'}
                   </p>
                 </div>
               </div>
-              
-              <div className="mt-4 p-4 border border-slate-200 rounded-xl bg-slate-50 text-center">
-                <p className="text-xs font-bold text-slate-500">Note: Dispatch and driver management is handled by Admin.</p>
-              </div>
+
+              {selectedLoad.status === 'POD_UPLOADED' && (
+                <div className="bg-amber-50 p-4 border border-amber-200 rounded-xl text-center space-y-3">
+                  <p className="text-xs font-bold text-amber-800">The driver has uploaded the Proof of Delivery (POD). Please verify document correctness.</p>
+                  <button
+                    onClick={async () => {
+                      try {
+                        setAssigning(true);
+                        const res = await bookingService.updateBookingStatus(selectedLoad.id, 'POD_VERIFIED', 'Broker verified uploaded Proof of Delivery (POD).');
+                        if (res.success) {
+                          setViewModalOpen(false);
+                          fetchAssignedLoads();
+                        }
+                      } catch (err) {
+                        alert(err.message || 'Failed to verify POD');
+                      } finally {
+                        setAssigning(false);
+                      }
+                    }}
+                    disabled={assigning}
+                    className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-900 font-extrabold text-xs tracking-wider rounded-xl uppercase transition-colors"
+                  >
+                    {assigning ? 'Verifying...' : 'Verify Proof of Delivery (POD)'}
+                  </button>
+                </div>
+              )}
+
+              {/* Assignment Selector if not assigned */}
+              {!selectedLoad.assignment && (
+                <div className="space-y-4 pt-4 border-t border-slate-200">
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Assign Operations Dispatch</h4>
+                  
+                  <div className="grid grid-cols-1 gap-4">
+                    {/* Option A: Assign Fleet */}
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                      <div>
+                        <p className="text-xs font-bold text-slate-900">Option A: Dispatch to Fleet Owner</p>
+                        <p className="text-[10px] text-slate-450 font-semibold leading-relaxed">Fleet Owner will review, accept, and dispatch their vehicle and fleet driver.</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <select
+                          value={selectedFleetId}
+                          onChange={(e) => { setSelectedFleetId(e.target.value); setSelectedDriverId(''); }}
+                          className="flex-1 px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                        >
+                          <option value="">Select approved fleet owner...</option>
+                          {fleets.map(f => (
+                            <option key={f.id} value={f.fleet_owner?.id}>
+                              {f.fleet_owner?.company_name || `${f.first_name} ${f.last_name}`}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          disabled={!selectedFleetId || assigning}
+                          onClick={handleAssignFleet}
+                          className="px-4 py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-955 text-xs font-black rounded-lg transition-colors cursor-pointer"
+                        >
+                          Assign Fleet
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Option B: Assign Independent Driver */}
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                      <div>
+                        <p className="text-xs font-bold text-slate-900">Option B: Dispatch to Independent Driver</p>
+                        <p className="text-[10px] text-slate-450 font-semibold leading-relaxed">Driver will receive load, review details, and start transit directly.</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <select
+                          value={selectedDriverId}
+                          onChange={(e) => { setSelectedDriverId(e.target.value); setSelectedFleetId(''); }}
+                          className="flex-1 px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                        >
+                          <option value="">Select approved driver...</option>
+                          {drivers.map(d => (
+                            <option key={d.id} value={d.driver?.id}>
+                              {d.first_name} {d.last_name}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          disabled={!selectedDriverId || assigning}
+                          onClick={handleAssignDriver}
+                          className="px-4 py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-955 text-xs font-black rounded-lg transition-colors cursor-pointer"
+                        >
+                          Assign Driver
+                        </button>
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+              )}
 
             </div>
           </div>

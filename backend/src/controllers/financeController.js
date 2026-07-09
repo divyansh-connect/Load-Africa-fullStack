@@ -124,21 +124,20 @@ const withdrawEarnings = async (req, res) => {
 
 const getWallet = async (req, res) => {
   try {
-    const driverId = await getDriverId(req);
-    const driver = await prisma.driver.findUnique({ where: { id: driverId }, include: { user: true } });
+    const userId = req.user.id;
     
     let wallet = await prisma.wallet.findFirst({ 
-      where: { user_id: driver.user_id },
+      where: { user_id: userId },
       include: { transactions: { orderBy: { created_at: 'desc' } } }
     });
-
+ 
     if (!wallet) {
       wallet = await prisma.wallet.create({
-        data: { user_id: driver.user_id, balance: 0 },
+        data: { user_id: userId, balance: 0 },
         include: { transactions: true }
       });
     }
-
+ 
     res.status(200).json({ success: true, data: wallet });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });

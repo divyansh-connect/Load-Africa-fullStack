@@ -1,41 +1,94 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Compass, ShieldCheck, MapPin, Truck, Phone, Star, Info, CheckCircle2 } from 'lucide-react';
-import { getMockData } from '../../data/mockData';
 import { Card, Button, Badge } from '../../components/ui';
+import { bookingService } from '../../services/bookingService';
+import io from 'socket.io-client';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
+const SOCKET_URL = API_URL.replace('/api/v1', '');
 
 export default function Tracking() {
   const navigate = useNavigate();
   const [load, setLoad] = useState(null);
   const [driver, setDriver] = useState(null);
-  const [simProgress, setSimProgress] = useState(45);
+  const [telemetry, setTelemetry] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    const allLoads = getMockData('loads') || [];
-    // Kofi's active load (driver Kofi Mensah)
-    const active = allLoads.find(l => l.customerId === 'usr-1' && (l.status === 'in_transit' || l.status === 'assigned'));
-    
-    if (active) {
-      setLoad(active);
-      const allDrivers = getMockData('drivers') || [];
-      const drv = allDrivers.find(d => d.id === active.driverId);
-      setDriver(drv);
+    fetchActiveLoad();
+  }, []);
+
+  const fetchActiveLoad = async () => {
+    try {
+      setLoading(true);
+      const res = await bookingService.getCustomerBookingsHistory();
+      if (res.success && res.data) {
+        // Find the first active booking that has an assignment
+        const active = res.data.find(b => 
+          ['DRIVER_ASSIGNED', 'DRIVER_EN_ROUTE', 'ARRIVED_PICKUP', 'LOADING', 'PICKED_UP', 'IN_TRANSIT', 'ARRIVED_DESTINATION', 'DELIVERED', 'POD_UPLOADED'].includes(b.status) &&
+          b.assignments && b.assignments.length > 0
+        );
+        
+        if (active) {
+          // Fetch detailed single booking to populate all fields
+          const detailsRes = await bookingService.getBookingDetails(active.id);
+          if (detailsRes.success && detailsRes.data) {
+            const bookingDetails = detailsRes.data;
+            setLoad(bookingDetails);
+            setTelemetry(bookingDetails.telemetry);
+            const assignment = bookingDetails.assignments?.[0];
+            if (assignment?.driver) {
+              setDriver(assignment.driver);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      setError('Failed to fetch tracking data.');
+    } finally {
+      setLoading(false);
     }
-  }, []);
+  };
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setSimProgress(prev => {
-        if (prev >= 98) return 15;
-        return prev + 1.5;
-      });
-    }, 4500);
-    return () => clearInterval(timer);
-  }, []);
+    if (!load) return;
+
+    // Connect socket
+    const socket = io(SOCKET_URL);
+
+    socket.on(`telemetry_updated_${load.id}`, (data) => {
+      console.log('Real-time telemetry update:', data);
+      setTelemetry(data);
+    });
+
+    // Fallback: Poll booking details every 5 seconds
+    const interval = setInterval(async () => {
+      try {
+        const detailsRes = await bookingService.getBookingDetails(load.id);
+        if (detailsRes.success && detailsRes.data) {
+          setLoad(detailsRes.data);
+          setTelemetry(detailsRes.data.telemetry);
+        }
+      } catch (err) {
+        console.error('Polling error:', err);
+      }
+    }, 5000);
+
+    return () => {
+      socket.disconnect();
+      clearInterval(interval);
+    };
+  }, [load?.id]);
+
+  if (loading) return <div className="p-10 text-center text-slate-500">Loading tracking center...</div>;
+  if (error) return <div className="p-10 text-center text-red-500 bg-red-50 rounded-2xl">{error}</div>;
 
   if (!load || !driver) {
     return (
-      <div className="max-w-4xl mx-auto py-12 text-center bg-white rounded-3xl border border-slate-200 shadow-sm p-8 space-y-4 text-left">
+      <div className="max-w-4xl mx-auto py-12 text-center bg-white rounded-3xl border border-slate-200 shadow-sm p-8 space-y-4">
         <div className="inline-flex p-4 bg-amber-500/10 text-amber-500 rounded-full mx-auto">
           <Truck className="h-10 w-10" />
         </div>
@@ -52,11 +105,28 @@ export default function Tracking() {
     );
   }
 
-  const startCoords = { lat: -26.2041, lng: 28.0473 };
-  const endCoords = { lat: -25.7479, lng: 28.2293 };
-  
-  const currentLat = (startCoords.lat + (endCoords.lat - startCoords.lat) * (simProgress / 100)).toFixed(4);
-  const currentLng = (startCoords.lng + (endCoords.lng - startCoords.lng) * (simProgress / 100)).toFixed(4);
+  // Fallback coords if database telemetry doesn't have coordinates yet
+  const startLat = load.pickup_coords_lat || -26.2041;
+  const startLng = load.pickup_coords_lng || 28.0473;
+  const endLat = load.delivery_coords_lat || -25.7479;
+  const endLng = load.delivery_coords_lng || 28.2292;
+
+  // Current positions
+  const currentLat = telemetry?.latitude || startLat;
+  const currentLng = telemetry?.longitude || startLng;
+
+  // Calculate percentage progress along the direct line for the custom SVG map
+  const totalLatDiff = endLat - startLat;
+  const totalLngDiff = endLng - startLng;
+  const currentLatDiff = currentLat - startLat;
+  const currentLngDiff = currentLng - startLng;
+
+  let progressPct = 0;
+  if (Math.abs(totalLatDiff) > 0.0001 || Math.abs(totalLngDiff) > 0.0001) {
+    const totalDistSq = totalLatDiff * totalLatDiff + totalLngDiff * totalLngDiff;
+    const currentDistSq = currentLatDiff * currentLatDiff + currentLngDiff * currentLngDiff;
+    progressPct = Math.min(100, Math.max(0, Math.round((Math.sqrt(currentDistSq) / Math.sqrt(totalDistSq)) * 100)));
+  }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 text-left animate-fadeIn">
@@ -68,7 +138,7 @@ export default function Tracking() {
           <div className="px-6 py-4 bg-slate-900 border-b border-slate-800 text-white flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Compass className="h-5 w-5 text-amber-500 animate-spin" />
-              <span className="font-bold text-sm">Escort Telemetry - {load.id}</span>
+              <span className="font-bold text-sm">Escort Telemetry - {load.id.slice(0,8)}...</span>
             </div>
             <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-semibold bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping" />
@@ -95,12 +165,12 @@ export default function Tracking() {
                 stroke="#f59e0b" 
                 strokeWidth="4" 
                 strokeDasharray="500" 
-                strokeDashoffset={500 - (500 * (simProgress / 100))}
+                strokeDashoffset={500 - (500 * (progressPct / 100))}
                 className="transition-all duration-1000"
               />
 
               {(() => {
-                const t = simProgress / 100;
+                const t = progressPct / 100;
                 const x = (1 - t) * (1 - t) * 100 + 2 * (1 - t) * t * 250 + t * t * 400;
                 const y = (1 - t) * (1 - t) * 150 + 2 * (1 - t) * t * 80 + t * t * 150;
                 return (
@@ -114,21 +184,21 @@ export default function Tracking() {
               })()}
             </svg>
 
-            {/* Telementry readings */}
+            {/* Telemetry readings */}
             <div className="absolute bottom-4 left-4 bg-slate-900/90 border border-slate-800 p-3.5 rounded-2xl text-[10px] text-slate-300 font-mono space-y-1 backdrop-blur z-20">
               <p className="font-semibold text-white">TELEMETRY STREAM</p>
               <div className="grid grid-cols-2 gap-x-4">
                 <span>LATITUDE:</span>
-                <span className="text-amber-550 text-amber-500">{currentLat}° S</span>
+                <span className="text-amber-500">{parseFloat(currentLat).toFixed(4)}° S</span>
                 <span>LONGITUDE:</span>
-                <span className="text-amber-550 text-amber-500">{currentLng}° E</span>
-                <span>SPEED:</span>
-                <span className="text-white">72 km/h</span>
+                <span className="text-amber-500">{parseFloat(currentLng).toFixed(4)}° E</span>
+                <span>COMPLETED:</span>
+                <span className="text-white">{telemetry?.completed_distance || 0} km</span>
               </div>
             </div>
 
             <div className="absolute bottom-4 right-4 bg-slate-900/90 border border-slate-800 p-3 rounded-xl text-[10px] text-amber-500 font-bold backdrop-blur z-20">
-              ETA: ~3.5h remaining
+              {telemetry?.eta ? `ETA: ${new Date(telemetry.eta).toLocaleTimeString()}` : 'ETA: Recalculating...'}
             </div>
           </div>
         </div>
@@ -140,12 +210,14 @@ export default function Tracking() {
           <h3 className="text-lg font-bold text-slate-800">Assigned Driver</h3>
           
           <div className="flex items-center gap-4">
-            <img src={driver.avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80'} alt={driver.name} className="h-16 w-16 rounded-full border border-slate-200 object-cover" />
+            <div className="h-16 w-16 bg-slate-100 rounded-full flex items-center justify-center font-bold text-slate-500 text-xl border border-slate-200">
+              {driver.user?.first_name?.[0] || 'D'}
+            </div>
             <div className="space-y-1">
-              <h4 className="font-bold text-slate-800 text-base">{driver.name}</h4>
+              <h4 className="font-bold text-slate-800 text-base">{driver.user?.first_name} {driver.user?.last_name || ''}</h4>
               <div className="flex items-center gap-1">
                 <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
-                <span className="text-xs font-semibold text-slate-650">{driver.rating}</span>
+                <span className="text-xs font-semibold text-slate-600">4.9</span>
               </div>
               <span className="inline-block text-[9px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 uppercase">VERIFIED</span>
             </div>
@@ -154,20 +226,18 @@ export default function Tracking() {
           <div className="border-t border-slate-100 pt-4 space-y-3.5 text-xs text-slate-500">
             <div className="flex justify-between">
               <span>Phone Contact:</span>
-              <span className="text-slate-850 font-bold">{driver.phone}</span>
+              <span className="text-slate-800 font-bold">{driver.user?.phone || 'N/A'}</span>
             </div>
             <div className="flex justify-between">
               <span>Vehicle Registry:</span>
-              <span className="text-slate-850 font-mono font-bold bg-slate-50 border px-1.5 py-0.5 rounded">{getMockData('vehicles')?.find(v => v.driverName === driver.name)?.numberPlate || 'GP 82 DF GP'}</span>
-            </div>
-            <div className="flex justify-between border-t border-slate-100 pt-3">
-              <span>Broker:</span>
-              <span className="text-slate-850 font-bold text-slate-800">Global Logistics Coordinator</span>
+              <span className="text-slate-800 font-mono font-bold bg-slate-50 border px-1.5 py-0.5 rounded">
+                {load.assignments?.[0]?.vehicle?.registration_number || 'GP 82 DF GP'}
+              </span>
             </div>
           </div>
 
           <a 
-            href={`tel:${driver.phone}`} 
+            href={`tel:${driver.user?.phone}`} 
             className="w-full flex items-center justify-center gap-2 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
           >
             Call Driver Support
@@ -183,8 +253,8 @@ export default function Tracking() {
                 <CheckCircle2 className="h-3 w-3" />
               </div>
               <div>
-                <p className="text-xs font-bold text-slate-800">Driver Assigned</p>
-                <p className="text-[10px] text-slate-500">12 Jun, 09:15</p>
+                <p className="text-xs font-bold text-slate-800 font-extrabold">Driver Assigned</p>
+                <p className="text-[10px] text-slate-500">Dispatch accepted by Transporter</p>
               </div>
             </div>
             <div className="relative flex items-start gap-4">
@@ -192,8 +262,8 @@ export default function Tracking() {
                 <Compass className="h-3 w-3 animate-spin" />
               </div>
               <div>
-                <p className="text-xs font-bold text-slate-800">In Transit</p>
-                <p className="text-[10px] text-slate-500">ETA: ~3.5h remaining</p>
+                <p className="text-xs font-bold text-slate-800 font-extrabold">{load.status.replace(/_/g, ' ')}</p>
+                <p className="text-[10px] text-slate-500">Live GPS tracking active</p>
               </div>
             </div>
             <div className="relative flex items-start gap-4">
@@ -202,7 +272,7 @@ export default function Tracking() {
               </div>
               <div>
                 <p className="text-xs font-bold text-slate-400">Delivery Destination</p>
-                <p className="text-[10px] text-slate-400">Pending</p>
+                <p className="text-[10px] text-slate-400">ETA: {telemetry?.eta ? new Date(telemetry.eta).toLocaleTimeString() : 'Recalculating...'}</p>
               </div>
             </div>
           </div>

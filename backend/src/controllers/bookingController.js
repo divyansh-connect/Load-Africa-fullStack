@@ -38,25 +38,24 @@ const createBooking = async (req, res, next) => {
  */
 const getCustomerBookingsHistory = async (req, res, next) => {
   try {
-    const customer_id = req.user?.customer?.id;
-    if (!customer_id) {
-      // For testing without auth, fallback to the first customer if in dev
-      // Or just return empty. We will fetch all bookings where customer_id matches.
-      // Wait, let's ensure we just query for the logged in user's customer ID.
-      // If none, we'll try to find any customer for testing, or return error.
-    }
+    // Get the customer ID from the authenticated user
+    let customer_id = req.user?.customer?.id;
     
-    // For demo purposes if customer_id isn't populated properly by auth middleware yet, 
-    // we'll just fetch all bookings or use a dummy customer id.
-    const actualCustomerId = customer_id || (await prisma.customer.findFirst())?.id;
+    // If not directly attached by middleware, look it up from user ID
+    if (!customer_id && req.user?.id) {
+      const customer = await prisma.customer.findUnique({
+        where: { user_id: req.user.id }
+      });
+      customer_id = customer?.id;
+    }
 
-    if (!actualCustomerId) {
-      return res.status(404).json({ success: false, message: 'No customer profile found.' });
+    if (!customer_id) {
+      return res.status(401).json({ success: false, message: 'Customer profile not found for this account.' });
     }
 
     const { status, search, vehicleType } = req.query;
 
-    const whereClause = { customer_id: actualCustomerId, is_deleted: false };
+    const whereClause = { customer_id, is_deleted: false };
     
     if (status && status !== 'all') {
       whereClause.status = status;
@@ -65,7 +64,7 @@ const getCustomerBookingsHistory = async (req, res, next) => {
     if (search) {
       whereClause.OR = [
         { id: { contains: search } },
-        { cargo_name: { contains: search } }
+        { cargo_name: { contains: search, mode: 'insensitive' } }
       ];
     }
 
@@ -78,7 +77,12 @@ const getCustomerBookingsHistory = async (req, res, next) => {
       include: {
         quotes: { orderBy: { created_at: 'desc' }, take: 1 },
         assignments: {
-          include: { driver: true, fleet_owner: true, broker: true }
+          include: { 
+            driver: { include: { user: true } }, 
+            fleet_owner: { include: { user: true } }, 
+            broker: true,
+            vehicle: true
+          }
         }
       },
       orderBy: { created_at: 'desc' }
@@ -104,6 +108,7 @@ const getBookingDetails = async (req, res, next) => {
         requirements: true,
         documents: true,
         invoices: true,
+        telemetry: true,
         assignments: {
           include: { 
             driver: { include: { user: true } }, 
@@ -144,6 +149,13 @@ const updateBookingStatus = async (req, res, next) => {
         data: { status }
       });
 
+      if (status === 'CUSTOMER_ACCEPTED' || status === 'BOOKING_CONFIRMED') {
+        await tx.quote.updateMany({
+          where: { booking_id: id },
+          data: { status: 'ACCEPTED' }
+        });
+      }
+
       // Tracking History
       await tx.trackingHistory.create({
         data: {
@@ -163,27 +175,95 @@ const updateBookingStatus = async (req, res, next) => {
         }
       });
 
-      // Auto-generate invoice if DELIVERED
-      if (status === 'DELIVERED' && booking.customer_id) {
-        // Check if an invoice already exists to avoid duplicates
+      // Auto-generate invoice and pay split if status becomes COMPLETED
+      if (status === 'COMPLETED') {
         const existingInvoice = await tx.invoice.findFirst({
           where: { booking_id: id }
         });
         
         if (!existingInvoice) {
-          const amount = booking.quotes.length > 0 ? booking.quotes[0].grand_total : 0;
-          await tx.invoice.create({
+          const grandTotal = booking.quotes.length > 0 ? Number(booking.quotes[0].grand_total) : 0;
+          const platformComm = grandTotal * 0.10;
+          const payoutAmount = grandTotal * 0.90;
+
+          const invoice = await tx.invoice.create({
             data: {
               invoice_no: `INV-${Math.floor(100000 + Math.random() * 900000)}`,
               booking_id: id,
               customer_id: booking.customer_id,
-              amount: amount,
+              amount: grandTotal - platformComm,
               tax_amount: 0,
-              total_amount: amount,
+              total_amount: grandTotal,
+              platform_commission: platformComm,
+              payout_amount: payoutAmount,
               due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Due in 7 days
-              status: 'ISSUED'
+              status: 'PAID'
             }
           });
+
+          // Create mock Payment confirmation
+          await tx.payment.create({
+            data: {
+              invoice_id: invoice.id,
+              amount: grandTotal,
+              payment_method: 'CARD',
+              transaction_id: `TXN-${Math.floor(100000 + Math.random() * 900000)}`,
+              status: 'PAID'
+            }
+          });
+
+          // Resolve Transporter to credit payout to their Wallet!
+          const assignment = await tx.bookingAssignment.findFirst({
+            where: { booking_id: id, status: 'ACTIVE' }
+          });
+
+          let payeeUserId = null;
+          if (assignment) {
+            if (assignment.fleet_owner_id) {
+              const fleetOwner = await tx.fleetOwner.findUnique({
+                where: { id: assignment.fleet_owner_id }
+              });
+              if (fleetOwner) payeeUserId = fleetOwner.user_id;
+            } else if (assignment.driver_id) {
+              const driver = await tx.driver.findUnique({
+                where: { id: assignment.driver_id }
+              });
+              if (driver) payeeUserId = driver.user_id;
+            }
+          }
+
+          if (payeeUserId) {
+            let wallet = await tx.wallet.findFirst({
+              where: { user_id: payeeUserId }
+            });
+
+            if (!wallet) {
+              wallet = await tx.wallet.create({
+                data: {
+                  user_id: payeeUserId,
+                  balance: 0,
+                  pending_balance: 0
+                }
+              });
+            }
+
+            await tx.wallet.update({
+              where: { id: wallet.id },
+              data: {
+                balance: { increment: payoutAmount }
+              }
+            });
+
+            await tx.walletTransaction.create({
+              data: {
+                wallet_id: wallet.id,
+                type: 'CREDIT',
+                amount: payoutAmount,
+                description: `Payout for load delivery (Booking ID: ${id.slice(0, 8)})`,
+                reference_id: id
+              }
+            });
+          }
         }
       }
 

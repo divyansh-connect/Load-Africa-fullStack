@@ -51,13 +51,14 @@ export default function CustomerDashboard() {
   const walletBalance = dashboardData?.walletBalance || 0;
   const recentBookings = dashboardData?.recentBookings || [];
 
+  // pendingQuotesCount counts bookings in QUOTE_PREPARED status specifically
   const pendingQuotesCount = dashboardData?.pendingQuotesCount || 0;
 
   const stats = [
-    { label: 'Total Bookings', value: totalBookings.toString(), icon: Package, color: 'text-amber-500', bg: 'bg-amber-500/10' },
-    { label: 'Pending Quotes', value: pendingQuotesCount.toString(), icon: Clock, color: 'text-blue-500', bg: 'bg-blue-500/10' },
-    { label: 'Active Deliveries', value: activeBookingsCount.toString(), icon: Truck, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
-    { label: 'Wallet Balance', value: `R ${walletBalance}`, icon: DollarSign, color: 'text-indigo-500', bg: 'bg-indigo-500/10' },
+    { label: 'Total Bookings', value: totalBookings.toString(), icon: Package, color: 'text-amber-500', bg: 'bg-amber-500/10', onClick: null },
+    { label: 'Pending Quotes', value: pendingQuotesCount.toString(), icon: Clock, color: 'text-blue-500', bg: 'bg-blue-500/10', onClick: () => navigate('/customer/my-quotations'), badge: pendingQuotesCount > 0 },
+    { label: 'Active Deliveries', value: activeBookingsCount.toString(), icon: Truck, color: 'text-emerald-500', bg: 'bg-emerald-500/10', onClick: () => navigate('/customer/active-deliveries') },
+    { label: 'Wallet Balance', value: `R ${walletBalance}`, icon: DollarSign, color: 'text-indigo-500', bg: 'bg-indigo-500/10', onClick: null },
   ];
 
   return (
@@ -83,7 +84,14 @@ export default function CustomerDashboard() {
         {stats.map((stat) => {
           const Icon = stat.icon;
           return (
-            <div key={stat.label} className="bg-white rounded-2xl border border-slate-200 p-4 flex items-center gap-3 shadow-sm">
+            <div
+              key={stat.label}
+              onClick={stat.onClick}
+              className={`bg-white rounded-2xl border border-slate-200 p-4 flex items-center gap-3 shadow-sm relative overflow-hidden ${stat.onClick ? 'cursor-pointer hover:border-amber-300 hover:shadow-md transition-all' : ''}`}
+            >
+              {stat.badge && (
+                <div className="absolute top-2 right-2 h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+              )}
               <div className={`h-10 w-10 rounded-xl ${stat.bg} flex items-center justify-center shrink-0`}>
                 <Icon className={`h-5 w-5 ${stat.color}`} />
               </div>
@@ -95,6 +103,29 @@ export default function CustomerDashboard() {
           );
         })}
       </div>
+
+      {/* Pending Quotes alert banner */}
+      {pendingQuotesCount > 0 && (
+        <div
+          onClick={() => navigate('/customer/my-quotations')}
+          className="flex items-center justify-between gap-4 bg-amber-50 border border-amber-300 rounded-2xl px-5 py-4 cursor-pointer hover:bg-amber-100 transition-colors shadow-sm"
+        >
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-amber-500 flex items-center justify-center shrink-0">
+              <Star className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <p className="text-sm font-black text-amber-900">
+                {pendingQuotesCount} Quotation{pendingQuotesCount > 1 ? 's' : ''} Ready for Review
+              </p>
+              <p className="text-xs text-amber-700 font-medium">
+                A broker has prepared your quote. Accept to confirm your booking.
+              </p>
+            </div>
+          </div>
+          <ChevronRight className="h-5 w-5 text-amber-600 shrink-0" />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
@@ -125,15 +156,15 @@ export default function CustomerDashboard() {
                     <div className="space-y-1">
                       <div className="flex items-center gap-1.5 text-xs text-slate-500">
                         <MapPin className="h-3 w-3 text-amber-500" />
-                        <span className="font-semibold">{booking.pickup}</span>
-                        <ArrowRight className="h-3 w-3" />
-                        <span className="font-semibold">{booking.dropoff}</span>
+                        <span className="font-semibold truncate max-w-[120px]">{booking.pickup_address?.split(',')[0] || 'Pickup'}</span>
+                        <ArrowRight className="h-3 w-3 shrink-0" />
+                        <span className="font-semibold truncate max-w-[120px]">{booking.delivery_address?.split(',')[0] || 'Delivery'}</span>
                       </div>
-                      <p className="text-[10px] text-slate-400 font-medium">{booking.vehicle_type}</p>
+                      <p className="text-[10px] text-slate-400 font-medium">{booking.requested_vehicle || 'Any Vehicle'} · {booking.cargo_name}</p>
                     </div>
                     <div className="flex flex-col items-end gap-1 shrink-0">
                       <span className="text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide bg-blue-100 text-blue-700">
-                        {booking.status}
+                        {booking.status?.replace(/_/g, ' ')}
                       </span>
                     </div>
                   </div>
@@ -211,13 +242,13 @@ export default function CustomerDashboard() {
               onClick={() => navigate(`/customer/booking-details/${b.id}`)}
               className="flex items-center justify-between px-3 py-2.5 hover:bg-slate-50 transition-colors cursor-pointer"
             >
-              <div className="space-y-0.5">
-                <p className="text-xs font-bold text-slate-800">{b.pickup} → {b.dropoff}</p>
-                <p className="text-[10px] text-slate-400">{b.vehicle_type} · {new Date(b.created_at).toLocaleDateString()}</p>
+              <div className="space-y-0.5 min-w-0 flex-1 mr-3">
+                <p className="text-xs font-bold text-slate-800 truncate">{b.pickup_address?.split(',')[0] || 'Pickup'} → {b.delivery_address?.split(',')[0] || 'Delivery'}</p>
+                <p className="text-[10px] text-slate-400">{b.requested_vehicle || 'Any Vehicle'} · {new Date(b.created_at).toLocaleDateString()}</p>
               </div>
-              <div className="text-right">
-                <p className="text-xs font-extrabold text-slate-800">R {b.estimated_price || 0}</p>
-                <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">{b.status}</span>
+              <div className="text-right shrink-0">
+                <p className="text-xs font-extrabold text-slate-800">R {b.quotes?.[0]?.grand_total || '—'}</p>
+                <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">{b.status?.replace(/_/g, ' ')}</span>
               </div>
             </div>
           )))}
