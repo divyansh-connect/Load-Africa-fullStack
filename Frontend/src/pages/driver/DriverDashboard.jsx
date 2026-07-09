@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Truck, MapPin, DollarSign, Clock, ArrowRight, Star, ToggleLeft, ToggleRight,
-  ChevronRight, AlertCircle, Shield, CheckCircle2, User, Phone, Clipboard, Video, Info, Lock
+  ChevronRight, AlertCircle, Shield, CheckCircle2, User, Phone, Clipboard, Video, Info, Lock, RefreshCw
 } from 'lucide-react';
 import { driverService } from '../../services/driverService';
 
