@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Truck, Info, CheckCircle2, Upload, FileText, ArrowRight, ChevronDown } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import { authService } from '../services/authService';
 
 export default function ListFleet() {
   const navigate = useNavigate();
@@ -24,6 +25,7 @@ export default function ListFleet() {
   const [companyName, setCompanyName] = useState('');
   const [contactName, setContactName] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('');
   const [vatNumber, setVatNumber] = useState('');
   const [numVehicles, setNumVehicles] = useState('');
@@ -38,21 +40,69 @@ export default function ListFleet() {
   const [companyRegDoc, setCompanyRegDoc] = useState(null);
   const [vatDoc, setVatDoc] = useState(null);
   
-  const handleStep1Submit = (e) => {
+  const handleStep1Submit = async (e) => {
     e.preventDefault();
-    if (!companyName || !contactName || !email || !phone || !numVehicles || !address) {
+    if (!companyName || !contactName || !email || !password || !phone || !numVehicles || !address) {
       setError('Please fill in all required fields.');
       return;
     }
     setError('');
-    setStep(2);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    try {
+      await authService.register({
+        email,
+        password,
+        role: 'FLEET_OWNER',
+        firstName: contactName.split(' ')[0],
+        lastName: contactName.split(' ').slice(1).join(' '),
+        phone,
+        companyName,
+        vatNumber,
+        numVehicles: parseInt(numVehicles, 10),
+        fleetTier,
+        operatingAreas,
+        servicesOffered,
+        notes,
+        address
+      });
+      // Auto login to get token for subsequent API calls
+      await authService.login(email, password);
+      
+      setStep(2);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err) {
+      setError(err.response?.data?.message || 'Registration failed.');
+    }
   };
   
-  const handleStep2Submit = (e) => {
+  const handleStep2Submit = async (e) => {
     e.preventDefault();
-    setStep(3);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (!companyRegDoc) {
+      setError('CIPC document is required');
+      return;
+    }
+    setError('');
+
+    try {
+      const formData = new FormData();
+      formData.append('files', companyRegDoc);
+      if (vatDoc) formData.append('files', vatDoc);
+
+      const uploadRes = await authService.uploadFile(formData);
+      const urls = uploadRes.data.urls;
+
+      const documents = {
+        cipc: urls[0],
+        vat: vatDoc ? urls[1] : null
+      };
+
+      await authService.submitCompliance(documents);
+
+      setStep(3);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to upload documents.');
+    }
   };
 
   const STEPS = [
@@ -194,6 +244,17 @@ export default function ListFleet() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
+                  <label className="block text-[12px] font-black uppercase tracking-wide text-slate-700 mb-1">Password *</label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="Create a password"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 bg-slate-55 focus:bg-white text-[13px] font-semibold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#f99c00]/30 focus:border-[#f99c00] transition-all shadow-sm"
+                  />
+                </div>
+                <div>
                   <label className="block text-[12px] font-black uppercase tracking-wide text-slate-700 mb-1">VAT Number</label>
                   <input
                     type="text"
@@ -203,17 +264,18 @@ export default function ListFleet() {
                     className="w-full border border-slate-200 rounded-lg px-3 py-2 bg-slate-55 focus:bg-white text-[13px] font-semibold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#f99c00]/30 focus:border-[#f99c00] transition-all shadow-sm"
                   />
                 </div>
-                <div>
-                  <label className="block text-[12px] font-black uppercase tracking-wide text-slate-700 mb-1">Number of Vehicles *</label>
-                  <input
-                    type="number"
-                    required
-                    placeholder="Number of Vehicles"
-                    value={numVehicles}
-                    onChange={e => setNumVehicles(e.target.value)}
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 bg-slate-55 focus:bg-white text-[13px] font-semibold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#f99c00]/30 focus:border-[#f99c00] transition-all shadow-sm"
-                  />
-                </div>
+              </div>
+
+              <div>
+                <label className="block text-[12px] font-black uppercase tracking-wide text-slate-700 mb-1">Number of Vehicles *</label>
+                <input
+                  type="number"
+                  required
+                  placeholder="Number of Vehicles"
+                  value={numVehicles}
+                  onChange={e => setNumVehicles(e.target.value)}
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 bg-slate-55 focus:bg-white text-[13px] font-semibold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#f99c00]/30 focus:border-[#f99c00] transition-all shadow-sm"
+                />
               </div>
 
               {/* Full width dropdown (CUSTOM SELECT DROPDOWN) */}

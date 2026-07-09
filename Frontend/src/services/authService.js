@@ -15,6 +15,11 @@ export const authService = {
     return response.data;
   },
 
+  registerDriver: async (driverData) => {
+    const response = await api.post('/auth/register/driver', driverData);
+    return response.data;
+  },
+
   logout: () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -24,5 +29,17 @@ export const authService = {
   getCurrentUser: () => {
     const userStr = localStorage.getItem('user');
     return userStr ? JSON.parse(userStr) : null;
+  },
+
+  uploadFile: async (formData) => {
+    const response = await api.post('/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data;
+  },
+
+  submitCompliance: async (documents) => {
+    const response = await api.post('/fleet/compliance/submit', { company_documents: documents });
+    return response.data;
   }
 };

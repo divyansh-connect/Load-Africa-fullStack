@@ -80,8 +80,29 @@ export default function FleetDetails() {
                 </h3>
                 <div className="p-4 bg-slate-50 rounded-xl space-y-2">
                   <p className="text-sm text-slate-600"><span className="font-semibold text-slate-900">Company Name:</span> {user.fleet_owner.company_name || 'N/A'}</p>
-                  <p className="text-sm text-slate-600"><span className="font-semibold text-slate-900">Tax Number:</span> {user.fleet_owner.tax_number || 'N/A'}</p>
-                  <p className="text-sm text-slate-600"><span className="font-semibold text-slate-900">Company Reg:</span> {user.fleet_owner.company_registration || 'N/A'}</p>
+                  <p className="text-sm text-slate-600"><span className="font-semibold text-slate-900">VAT Number:</span> {user.fleet_owner.vat_number || 'N/A'}</p>
+                  <p className="text-sm text-slate-600"><span className="font-semibold text-slate-900">Number of Vehicles:</span> {user.fleet_owner.num_vehicles || 'N/A'}</p>
+                  <p className="text-sm text-slate-600"><span className="font-semibold text-slate-900">Fleet Tier:</span> {user.fleet_owner.fleet_tier || 'N/A'}</p>
+                  <p className="text-sm text-slate-600"><span className="font-semibold text-slate-900">Operating Areas:</span> {user.fleet_owner.operating_areas || 'N/A'}</p>
+                  <p className="text-sm text-slate-600"><span className="font-semibold text-slate-900">Services Offered:</span> {user.fleet_owner.services_offered || 'N/A'}</p>
+                  <p className="text-sm text-slate-600"><span className="font-semibold text-slate-900">Address:</span> {user.fleet_owner.address || 'N/A'}</p>
+                  <p className="text-sm text-slate-600"><span className="font-semibold text-slate-900">Notes:</span> {user.fleet_owner.notes || 'N/A'}</p>
+                  
+                  {user.fleet_owner.company_documents && (
+                    <div className="mt-4 pt-4 border-t border-slate-200">
+                      <p className="text-sm font-semibold text-slate-900 mb-2">Uploaded Documents:</p>
+                      {user.fleet_owner.company_documents.cipc && (
+                        <a href={`http://localhost:5000${user.fleet_owner.company_documents.cipc}`} target="_blank" rel="noreferrer" className="block text-sm text-blue-600 hover:underline mb-1">
+                          📄 View CIPC Document
+                        </a>
+                      )}
+                      {user.fleet_owner.company_documents.vat && (
+                        <a href={`http://localhost:5000${user.fleet_owner.company_documents.vat}`} target="_blank" rel="noreferrer" className="block text-sm text-blue-600 hover:underline mb-1">
+                          📄 View VAT Document
+                        </a>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             )}

@@ -163,22 +163,112 @@ const getDriverHistory = async (req, res) => {
 const getDriverDashboard = async (req, res) => {
   try {
     const driverId = await getDriverId(req);
-    // Real metrics
-    const completedCount = await prisma.bookingAssignment.count({
-      where: { driver_id: driverId, booking: { status: 'COMPLETED' } }
-    });
-    
-    // For demo, just returning basic data
-    res.status(200).json({
-      success: true, 
-      data: {
-        completedTrips: completedCount,
-        rating: 4.8,
-        earnings: completedCount * 1500, // mock calculation
-        walletBalance: 2500,
-        status: 'ONLINE'
+    if (!driverId) return res.status(404).json({ success: false, message: 'Driver profile not found' });
+
+    // 1. Fetch driver with all profile info
+    const driver = await prisma.driver.findUnique({
+      where: { id: driverId },
+      include: {
+        user: true,
+        profile: true,
+        photos: true,
+        kyc: true,
+        vehicle_relation: true,
+        fleet_owner: { include: { user: true } }
       }
     });
+
+    // 2. Fetch completed loads (trips)
+    const completedLoads = await prisma.bookingAssignment.count({
+      where: { driver_id: driverId, booking: { status: 'COMPLETED', is_deleted: false } }
+    });
+
+    // 3. Fetch active trips
+    const activeTripsCount = await prisma.bookingAssignment.count({
+      where: {
+        driver_id: driverId,
+        booking: {
+          status: {
+            in: ['DRIVER_ASSIGNED', 'DRIVER_EN_ROUTE', 'ARRIVED_PICKUP', 'LOADING', 'PICKED_UP', 'IN_TRANSIT', 'ARRIVED_DESTINATION', 'DELIVERED', 'POD_UPLOADED']
+          },
+          is_deleted: false
+        }
+      }
+    });
+
+    // 4. Fetch available loads count
+    const availableLoadsCount = await prisma.booking.count({
+      where: { status: 'DRIVER_SEARCHING', is_deleted: false }
+    });
+
+    // 5. Fetch Wallet
+    const wallet = await prisma.wallet.findFirst({
+      where: { user_id: driver.user_id }
+    });
+
+    // 6. Rating (calculate average reviews or default to 5.0)
+    const reviews = await prisma.review.findMany({
+      where: { driver_id: driverId }
+    });
+    const avgRating = reviews.length > 0
+      ? (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length)
+      : 5.0;
+
+    res.status(200).json({
+      success: true,
+      data: {
+        driverPhoto: driver.photos?.profile_photo || driver.user.avatar || null,
+        verificationBadge: driver.user.status === 'ACTIVE' ? 'VERIFIED' : 'PENDING',
+        currentStatus: driver.status,
+        walletBalance: wallet ? Number(wallet.balance) : 0.00,
+        ratings: parseFloat(avgRating.toFixed(1)),
+        trips: activeTripsCount,
+        completedLoads: completedLoads,
+        availableLoads: availableLoadsCount,
+        vehicle: driver.fleet_owner_id
+          ? { manufacturer: "Fleet Assigned", model: driver.assigned_vehicle_id ? "Assigned Vehicle" : "No vehicle assigned yet" }
+          : driver.vehicle_relation
+            ? { manufacturer: driver.vehicle_relation.manufacturer, model: driver.vehicle_relation.model, reg: driver.vehicle_relation.registration_number }
+            : null,
+        fleetOwner: driver.fleet_owner?.company_name || null
+      }
+    });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+const completeOnboarding = async (req, res) => {
+  try {
+    const driverId = await getDriverId(req);
+    if (!driverId) return res.status(404).json({ success: false, message: 'Driver profile not found' });
+
+    // Update DriverProfile onboarding_completed to true
+    await prisma.driverProfile.update({
+      where: { driver_id: driverId },
+      data: { onboarding_completed: true }
+    });
+
+    // Update DriverKYC to reflect verified status
+    await prisma.driverKYC.update({
+      where: { driver_id: driverId },
+      data: {
+        phone_verified: true,
+        gps_enabled: true,
+        terms_accepted: true,
+        training_completed: true
+      }
+    });
+
+    await prisma.activityLog.create({
+      data: {
+        user_id: req.user.id,
+        action: 'DRIVER_ONBOARDING_COMPLETED',
+        description: `Driver completed first-login onboarding checklist.`
+      }
+    });
+
+    res.status(200).json({ success: true, message: 'Onboarding completed successfully' });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }
@@ -267,5 +357,6 @@ module.exports = {
   getDriverDashboard,
   submitKYC,
   getProfile,
-  updateProfile
+  updateProfile,
+  completeOnboarding
 };

@@ -1,14 +1,73 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   HardHat, DollarSign, CheckCircle2, Clock, Plus, ChevronRight, MapPin, ArrowRight,
   TrendingUp, AlertCircle, Trash2, Edit2, ShieldAlert, Calendar, User, Key, Mail, Building,
   FileText, Star, Wrench, Download, Settings, Loader2, Filter, Search, MoreVertical,
-  Activity, BarChart3, ArrowUpRight, Check, X
+  Activity, BarChart3, ArrowUpRight, Check, X, Lock, Upload, Image as ImageIcon, Sparkles,
+  MoveLeft, AlertTriangle, Layers, CalendarCheck, Truck
 } from 'lucide-react';
 import { getMockData, saveMockData } from '../../data/mockData';
 import { Modal, Button, Input, Card, Table, StatCard } from '../../components/ui';
 import { plantService } from '../../services/plantService';
+import { fleetService } from '../../services/fleetService';
+
+// Dictionary of 40+ categories exactly matching customer booking flow
+const ALL_CATEGORIES = [
+  { name: 'Excavator', icon: HardHat },
+  { name: 'Mini Excavator', icon: HardHat },
+  { name: 'Long Reach Excavator', icon: HardHat },
+  { name: 'Backhoe Loader (TLB)', icon: Wrench },
+  { name: 'Front End Loader', icon: Wrench },
+  { name: 'Skid Steer Loader (Bobcat)', icon: Wrench },
+  { name: 'Bulldozer D6', icon: Settings },
+  { name: 'Bulldozer D8', icon: Settings },
+  { name: 'Motor Grader', icon: Activity },
+  { name: 'Roller (Smooth Drum)', icon: Activity },
+  { name: 'Roller (Padfoot)', icon: Activity },
+  { name: 'Plate Compactor', icon: Activity },
+  { name: 'Pneumatic Roller', icon: Activity },
+  { name: 'Mobile Crane 25 Ton', icon: Truck },
+  { name: 'Mobile Crane 50 Ton', icon: Truck },
+  { name: 'Tower Crane', icon: Truck },
+  { name: 'Crawler Crane', icon: Truck },
+  { name: 'Forklift 3 Ton', icon: User },
+  { name: 'Forklift 5 Ton', icon: User },
+  { name: 'Telehandler', icon: User },
+  { name: 'Reach Stacker', icon: User },
+  { name: 'Dump Truck', icon: Truck },
+  { name: 'Articulated Dump Truck', icon: Truck },
+  { name: 'Water Tanker', icon: Truck },
+  { name: 'Fuel Bowser', icon: Truck },
+  { name: 'Concrete Mixer Truck', icon: Truck },
+  { name: 'Concrete Pump', icon: Activity },
+  { name: 'Asphalt Paver', icon: Activity },
+  { name: 'Milling Machine', icon: Wrench },
+  { name: 'Drill Rig', icon: Wrench },
+  { name: 'Rock Breaker (Hammer)', icon: Wrench },
+  { name: 'Compressor', icon: Activity },
+  { name: 'Generator', icon: Activity },
+  { name: 'Lighting Tower', icon: Activity },
+  { name: 'Scissor Lift', icon: User },
+  { name: 'Boom Lift', icon: User },
+  { name: 'Cherry Picker', icon: User },
+  { name: 'Container Handler', icon: User },
+  { name: 'Tractor', icon: Wrench },
+  { name: 'Agricultural Loader', icon: Wrench },
+  { name: 'Other', icon: HardHat }
+];
+
+const getCategoryPlaceholder = (type) => {
+  const t = (type || '').toLowerCase();
+  if (t.includes('excavator')) return 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=400&auto=format&fit=crop&q=80';
+  if (t.includes('grader')) return 'https://images.unsplash.com/photo-1590496793929-36417d3117de?w=400&auto=format&fit=crop&q=80';
+  if (t.includes('crane')) return 'https://images.unsplash.com/photo-1542345812-d98b5cd6cfc5?w=400&auto=format&fit=crop&q=80';
+  if (t.includes('forklift') || t.includes('telehandler') || t.includes('stacker')) return 'https://images.unsplash.com/photo-1605787020600-b9ebd5df1d07?w=400&auto=format&fit=crop&q=80';
+  if (t.includes('roller') || t.includes('compactor')) return 'https://images.unsplash.com/photo-1536766768598-e0b20a135305?w=400&auto=format&fit=crop&q=80';
+  if (t.includes('loader') || t.includes('tlb') || t.includes('backhoe') || t.includes('bobcat')) return 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=400&auto=format&fit=crop&q=80';
+  if (t.includes('truck') || t.includes('tanker')) return 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=400&auto=format&fit=crop&q=80';
+  return 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=400&auto=format&fit=crop&q=80';
+};
 
 export default function PlantDashboard() {
   const navigate = useNavigate();
@@ -42,6 +101,36 @@ export default function PlantDashboard() {
   // Equipment Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+
+  // Simplified registration form state
+  const [addMachineForm, setAddMachineForm] = useState({
+    type: 'Excavator',
+    make: '',
+    model: '',
+    registration_number: '',
+    rate: '',
+    city: '',
+    province: 'Gauteng',
+    pickup_address: '',
+    photos: [], // Array of { id, url, isPrimary }
+    documentUrl: null
+  });
+
+  const [categorySearchQuery, setCategorySearchQuery] = useState('');
+  const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [documentUploading, setDocumentUploading] = useState(false);
+
+  const [profileForm, setProfileForm] = useState({
+    companyName: 'Plant Owner',
+    cipcNumber: 'N/A',
+    vatNumber: 'N/A',
+    taxRef: 'N/A',
+    repName: 'Representative',
+    email: '',
+    phone: '',
+    address: ''
+  });
   
   // Toast State
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
@@ -57,20 +146,109 @@ export default function PlantDashboard() {
 
   const fetchData = async () => {
     try {
+      setLoading(true);
       const res = await plantService.getDashboard();
       if (res.success && res.data) {
         setPlantStatus(res.data.status);
+
+        // Map actual machines from database
+        if (res.data.machines && res.data.machines.length > 0) {
+          const mappedEquipment = res.data.machines.map(m => {
+            const doc = m.machine_documents || {};
+            let img = '';
+            if (doc.photos && Array.isArray(doc.photos) && doc.photos.length > 0) {
+              const primaryPhoto = doc.photos.find(p => p.isPrimary) || doc.photos[0];
+              img = primaryPhoto.url;
+            } else {
+              img = doc.photo || '';
+            }
+
+            if (!img) {
+              img = getCategoryPlaceholder(m.type);
+            } else if (!img.startsWith('http')) {
+              img = `http://localhost:5000${img}`;
+            }
+
+            return {
+              id: m.id,
+              name: `${doc.make || ''} ${doc.model || m.type}`.trim(),
+              make: doc.make || 'N/A',
+              model: doc.model || 'N/A',
+              year: doc.year || 'N/A',
+              rate: doc.rate || 1200,
+              status: m.status?.toLowerCase() || 'available',
+              image: img,
+              site: m.site || 'Yard Address',
+              operatorId: m.operator_id || null
+            };
+          });
+          setEquipment(mappedEquipment);
+        } else {
+          setEquipment(getMockData('equipment') || []);
+        }
+
+        // Map actual operators from database
+        if (res.data.operators && res.data.operators.length > 0) {
+          const mappedOperators = res.data.operators.map(o => ({
+            id: o.id,
+            name: o.name,
+            status: o.status?.toLowerCase() || 'available',
+            rating: o.rating || 5
+          }));
+          setOperators(mappedOperators);
+        } else {
+          setOperators(getMockData('operators') || []);
+        }
+
+        // Map actual hire requests from database
+        if (res.data.hire_requests && res.data.hire_requests.length > 0) {
+          const mappedRequests = res.data.hire_requests.map(h => ({
+            id: h.id,
+            machine: h.booking?.equipment_type || 'Machinery',
+            client: h.booking?.company_name || 'Client',
+            site: h.booking?.delivery_address || 'Site Address',
+            duration: h.booking?.duration || '1 day',
+            startDate: h.booking?.start_date ? new Date(h.booking.start_date).toLocaleDateString() : 'N/A',
+            totalValue: Number(h.booking?.total_cost) || 0,
+            status: h.status?.toLowerCase() || 'pending'
+          }));
+          setHireRequests(mappedRequests);
+        } else {
+          setHireRequests(getMockData('hireRequests') || []);
+        }
+
+        setMaintenance(getMockData('maintenance') || []);
+        setPayments(getMockData('payments') || []);
+
+        // Update profile form state values too!
+        setProfileForm({
+          companyName: res.data.company_name || '',
+          cipcNumber: res.data.cipc_number || 'N/A',
+          vatNumber: res.data.vat_number || 'N/A',
+          taxRef: res.data.tax_ref || 'N/A',
+          repName: res.data.user ? `${res.data.user.first_name} ${res.data.user.last_name || ''}`.trim() : '',
+          email: res.data.user?.email || '',
+          phone: res.data.user?.phone || '',
+          address: res.data.company_documents?.base_location || ''
+        });
+
+      } else {
+        setEquipment(getMockData('equipment') || []);
+        setOperators(getMockData('operators') || []);
+        setHireRequests(getMockData('hireRequests') || []);
+        setMaintenance(getMockData('maintenance') || []);
+        setPayments(getMockData('payments') || []);
       }
     } catch (err) {
       console.error(err);
+      setEquipment(getMockData('equipment') || []);
+      setOperators(getMockData('operators') || []);
+      setHireRequests(getMockData('hireRequests') || []);
+      setMaintenance(getMockData('maintenance') || []);
+      setPayments(getMockData('payments') || []);
+    } finally {
+      setLoading(false);
     }
-
-    setEquipment(getMockData('equipment') || []);
-    setOperators(getMockData('operators') || []);
-    setHireRequests(getMockData('hireRequests') || []);
-    setMaintenance(getMockData('maintenance') || []);
-    setPayments(getMockData('payments') || []);
-    setLoading(false);
   };
 
   // Derived Stats
@@ -79,10 +257,8 @@ export default function PlantDashboard() {
   const availableEquipment = equipment.filter(e => e.status === 'available').length;
   const maintenanceEquipment = equipment.filter(e => e.status === 'maintenance').length;
   const pendingRequests = hireRequests.filter(h => h.status === 'pending').length;
-  const availableOperators = operators.filter(o => o.status === 'available').length;
   
   const utilizationPercent = totalEquipment > 0 ? Math.round((onHireEquipment / totalEquipment) * 100) : 0;
-  const availabilityPercent = totalEquipment > 0 ? Math.round((availableEquipment / totalEquipment) * 100) : 0;
   
   const monthlyRevenue = payments
     .filter(p => p.status === 'completed')
@@ -188,6 +364,169 @@ export default function PlantDashboard() {
     showToast('Maintenance logged successfully. Equipment marked unavailable.');
   };
 
+  // Modern Gallery Upload handlers
+  const handleUploadMachinePhoto = async (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+    if (addMachineForm.photos.length + files.length > 10) {
+      showToast('Maximum 10 images allowed.', 'error');
+      return;
+    }
+
+    try {
+      setUploadingPhoto(true);
+      const uploadedPhotos = [];
+
+      for (const file of files) {
+        if (file.size > 10 * 1024 * 1024) {
+          showToast(`File ${file.name} exceeds 10MB limit.`, 'error');
+          continue;
+        }
+        if (!['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].includes(file.type)) {
+          showToast(`File ${file.name} format not supported.`, 'error');
+          continue;
+        }
+
+        const res = await fleetService.uploadFile(file);
+        if (res.success && res.data?.urls?.[0]) {
+          uploadedPhotos.push({
+            id: `photo-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            url: res.data.urls[0],
+            isPrimary: addMachineForm.photos.length === 0 && uploadedPhotos.length === 0
+          });
+        }
+      }
+
+      if (uploadedPhotos.length > 0) {
+        setAddMachineForm(prev => ({
+          ...prev,
+          photos: [...prev.photos, ...uploadedPhotos]
+        }));
+        showToast('Images uploaded successfully!');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Error uploading images', 'error');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const movePhoto = (index, direction) => {
+    const updatedPhotos = [...addMachineForm.photos];
+    const targetIndex = direction === 'left' ? index - 1 : index + 1;
+    if (targetIndex >= 0 && targetIndex < updatedPhotos.length) {
+      const [movedPhoto] = updatedPhotos.splice(index, 1);
+      updatedPhotos.splice(targetIndex, 0, movedPhoto);
+      setAddMachineForm(prev => ({ ...prev, photos: updatedPhotos }));
+    }
+  };
+
+  const deletePhoto = (id) => {
+    const updatedPhotos = addMachineForm.photos.filter(p => p.id !== id);
+    const deletedWasPrimary = addMachineForm.photos.find(p => p.id === id)?.isPrimary;
+    if (deletedWasPrimary && updatedPhotos.length > 0) {
+      updatedPhotos[0].isPrimary = true;
+    }
+    setAddMachineForm(prev => ({ ...prev, photos: updatedPhotos }));
+    showToast('Image removed.', 'info');
+  };
+
+  const setPrimaryPhoto = (id) => {
+    const updatedPhotos = addMachineForm.photos.map(p => ({
+      ...p,
+      isPrimary: p.id === id
+    }));
+    setAddMachineForm(prev => ({ ...prev, photos: updatedPhotos }));
+    showToast('Primary thumbnail updated.');
+  };
+
+  const handleUploadDocument = async (file) => {
+    if (!file) return;
+    try {
+      setDocumentUploading(true);
+      const res = await fleetService.uploadFile(file);
+      if (res.success && res.data?.urls?.[0]) {
+        setAddMachineForm(prev => ({
+          ...prev,
+          documentUrl: res.data.urls[0]
+        }));
+        showToast('Compliance document uploaded successfully!');
+      } else {
+        showToast('Failed to upload document', 'error');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Error uploading document', 'error');
+    } finally {
+      setDocumentUploading(false);
+    }
+  };
+
+  const isAddMachineFormValid = () => {
+    if (!addMachineForm.type) return false;
+    if (!addMachineForm.make) return false;
+    if (!addMachineForm.model) return false;
+    if (!addMachineForm.registration_number) return false;
+    if (!addMachineForm.rate || Number(addMachineForm.rate) <= 0) return false;
+    if (!addMachineForm.city) return false;
+    if (!addMachineForm.pickup_address) return false;
+    if (!addMachineForm.documentUrl) return false;
+    return true;
+  };
+
+  const handleRegisterMachineSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!isAddMachineFormValid()) {
+      showToast('Please fill out all required fields and upload a compliance document.', 'error');
+      return;
+    }
+
+    try {
+      const payload = {
+        type: addMachineForm.type,
+        capacity: 0,
+        registration_number: addMachineForm.registration_number,
+        machine_documents: {
+          photo: addMachineForm.photos.find(p => p.isPrimary)?.url || addMachineForm.photos[0]?.url || '',
+          photos: addMachineForm.photos,
+          make: addMachineForm.make,
+          model: addMachineForm.model,
+          rate: Number(addMachineForm.rate),
+          city: addMachineForm.city,
+          province: addMachineForm.province,
+          pickup_address: addMachineForm.pickup_address,
+          document: addMachineForm.documentUrl
+        }
+      };
+
+      const res = await plantService.addMachine(payload);
+      if (res.success) {
+        showToast('New machinery successfully registered!');
+        setAddMachineForm({
+          type: 'Excavator',
+          make: '',
+          model: '',
+          registration_number: '',
+          rate: '',
+          city: '',
+          province: 'Gauteng',
+          pickup_address: '',
+          photos: [],
+          documentUrl: null
+        });
+        fetchData();
+        navigate('/plant-portal/equipment');
+      } else {
+        showToast(res.message || 'Failed to register machinery', 'error');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast(err.response?.data?.message || err.message || 'Error registering machinery', 'error');
+    }
+  };
+
   // --- RENDER FUNCTIONS ---
 
   const renderDashboard = () => (
@@ -215,7 +554,7 @@ export default function PlantDashboard() {
               {equipment.filter(e => e.status === 'on_hire').slice(0, 5).map(eq => {
                 const operator = operators.find(op => op.id === eq.operatorId);
                 return (
-                  <div key={eq.id} className="flex items-center justify-between p-3 border border-slate-100 rounded-xl hover:bg-slate-50 transition-colors">
+                  <div key={eq.id} className="flex items-center justify-between p-3 border border-slate-100 rounded-xl hover:bg-slate-55 transition-colors">
                     <div className="flex items-center gap-3">
                       <div className="h-10 w-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
                         <HardHat className="h-5 w-5" />
@@ -229,13 +568,13 @@ export default function PlantDashboard() {
                       <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-blue-100 text-blue-700 mb-1">
                         ON HIRE
                       </span>
-                      <p className="text-[10px] font-medium text-slate-500">Op: {operator ? operator.name : 'None'}</p>
+                      <p className="text-[10px] font-medium text-slate-500 font-bold">Op: {operator ? operator.name : 'None'}</p>
                     </div>
                   </div>
                 );
               })}
               {equipment.filter(e => e.status === 'on_hire').length === 0 && (
-                <div className="p-6 text-center text-slate-500 text-sm bg-slate-50 rounded-xl">No active rentals currently.</div>
+                <div className="p-6 text-center text-slate-500 text-sm bg-slate-50 rounded-xl font-bold">No active rentals currently.</div>
               )}
             </div>
           </Card>
@@ -262,8 +601,8 @@ export default function PlantDashboard() {
               <div className="flex items-start gap-3 p-3 bg-rose-50 rounded-xl border border-rose-100/50">
                 <FileText className="h-4 w-4 text-rose-500 shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-xs font-bold text-slate-800">Registration Expiring</p>
-                  <p className="text-[10px] text-rose-700 mt-0.5">TLB (Backhoe Loader) expires in 14 days.</p>
+                  <p className="text-xs font-bold text-slate-800">Registration Status</p>
+                  <p className="text-[10px] text-rose-700 mt-0.5 font-bold">Your equipment listing is fully approved & active.</p>
                 </div>
               </div>
             </div>
@@ -309,8 +648,8 @@ export default function PlantDashboard() {
                       <span className="text-xl font-black text-emerald-600">R {req.totalValue.toLocaleString()}</span>
                     </div>
                     <div className="flex gap-2 w-full sm:w-auto">
-                      <Button variant="outline" size="sm" className="flex-1 sm:flex-none" onClick={() => setRejectModal({ open: true, request: req })}>Reject</Button>
-                      <Button size="sm" className="flex-1 sm:flex-none" onClick={() => { setWizardModal({ open: true, request: req }); setWizardStep(1); }}>Assign Wizard</Button>
+                      <Button variant="outline" size="sm" className="flex-1 sm:flex-none font-bold" onClick={() => setRejectModal({ open: true, request: req })}>Reject</Button>
+                      <Button size="sm" className="flex-1 sm:flex-none font-black" onClick={() => { setWizardModal({ open: true, request: req }); setWizardStep(1); }}>Assign Wizard</Button>
                     </div>
                   </div>
                 </div>
@@ -321,7 +660,7 @@ export default function PlantDashboard() {
           <div className="py-20 text-center bg-white border border-slate-200 rounded-3xl">
             <HardHat className="h-12 w-12 text-slate-300 mx-auto mb-4" />
             <h3 className="text-lg font-bold text-slate-800">No Hire Requests</h3>
-            <p className="text-sm text-slate-500 mt-2">All caught up! No pending requests.</p>
+            <p className="text-sm text-slate-500 mt-2 font-bold">All caught up! No pending requests.</p>
           </div>
         )}
 
@@ -329,7 +668,6 @@ export default function PlantDashboard() {
         {wizardModal.open && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
-              {/* Wizard Header */}
               <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
                 <div>
                   <h2 className="text-lg font-black text-slate-900">Assignment Wizard</h2>
@@ -340,7 +678,6 @@ export default function PlantDashboard() {
                 </button>
               </div>
 
-              {/* Wizard Content */}
               <div className="p-6 flex-1 overflow-y-auto space-y-6">
                 {wizardStep === 1 && (
                   <div className="space-y-4 animate-fadeIn">
@@ -356,9 +693,9 @@ export default function PlantDashboard() {
                 )}
                 
                 {wizardStep === 2 && (
-                  <div className="space-y-4 animate-fadeIn">
+                  <div className="space-y-4 animate-fadeIn text-left">
                     <h3 className="font-bold text-slate-800 flex items-center gap-2"><HardHat className="h-4 w-4 text-amber-500"/> Select Equipment</h3>
-                    <p className="text-xs text-slate-500">Only showing equipment currently Available.</p>
+                    <p className="text-xs text-slate-500 font-bold">Only showing equipment currently Available.</p>
                     <div className="grid gap-3">
                       {equipment.filter(e => e.status === 'available').map(eq => (
                         <div 
@@ -383,7 +720,7 @@ export default function PlantDashboard() {
                 )}
 
                 {wizardStep === 3 && (
-                  <div className="space-y-4 animate-fadeIn">
+                  <div className="space-y-4 animate-fadeIn text-left">
                     <h3 className="font-bold text-slate-800 flex items-center gap-2"><User className="h-4 w-4 text-amber-500"/> Assign Operator</h3>
                     <p className="text-xs text-slate-500">Select a certified operator (Optional).</p>
                     <div className="grid gap-3">
@@ -401,7 +738,7 @@ export default function PlantDashboard() {
                         >
                           <div>
                             <p className="font-bold text-slate-800 text-sm">{op.name}</p>
-                            <p className="text-[10px] text-slate-500 mt-0.5">Rating: {op.rating}★ • Certified</p>
+                            <p className="text-[10px] text-slate-500 mt-0.5 font-semibold">Rating: {op.rating}★ • Certified</p>
                           </div>
                           {assignModal.operatorId === op.id && <CheckCircle2 className="h-5 w-5 text-amber-600" />}
                         </div>
@@ -411,7 +748,7 @@ export default function PlantDashboard() {
                 )}
 
                 {wizardStep === 4 && (
-                  <div className="space-y-4 animate-fadeIn">
+                  <div className="space-y-4 animate-fadeIn text-left">
                     <h3 className="font-bold text-slate-800 flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-amber-500"/> Review Summary</h3>
                     <div className="p-5 bg-slate-50 border border-slate-200 rounded-xl space-y-4">
                       <div>
@@ -434,7 +771,6 @@ export default function PlantDashboard() {
                 )}
               </div>
 
-              {/* Wizard Footer */}
               <div className="p-4 border-t border-slate-100 bg-white flex justify-between items-center">
                 <Button variant="ghost" onClick={() => wizardStep > 1 ? setWizardStep(wizardStep - 1) : setWizardModal({open: false, request: null})}>
                   {wizardStep === 1 ? 'Cancel' : 'Back'}
@@ -448,7 +784,7 @@ export default function PlantDashboard() {
                     Continue
                   </Button>
                 ) : (
-                  <Button className="bg-emerald-600 hover:bg-emerald-500 text-white" onClick={handleConfirmAssignment}>
+                  <Button className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold" onClick={handleConfirmAssignment}>
                     Confirm Assignment
                   </Button>
                 )}
@@ -459,12 +795,12 @@ export default function PlantDashboard() {
 
         {/* Reject Modal */}
         <Modal open={rejectModal.open} onClose={() => setRejectModal({ open: false, request: null })} title="Reject Hire Request">
-          <div className="space-y-5">
+          <div className="space-y-5 text-left">
             <p className="text-sm text-slate-600">Are you sure you want to reject the hire request for <span className="font-bold text-slate-800">{rejectModal.request?.machine}</span>?</p>
             <div className="space-y-2">
               <label className="block text-xs font-bold text-slate-700">Reason for Rejection *</label>
               <textarea 
-                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-rose-500" 
+                className="w-full p-3 bg-slate-55 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-rose-500" 
                 rows="3" 
                 placeholder="e.g. Equipment unavailable for this period..."
                 value={rejectReason}
@@ -478,7 +814,6 @@ export default function PlantDashboard() {
             </div>
           </div>
         </Modal>
-
       </div>
     );
   };
@@ -501,7 +836,7 @@ export default function PlantDashboard() {
             <h1 className="text-xl font-black text-slate-900">Fleet Management</h1>
             <p className="text-xs text-slate-500 font-medium">Manage your heavy machinery and operators.</p>
           </div>
-          <Button onClick={() => navigate('/plant-portal/add-machine')} className="gap-2">
+          <Button onClick={() => navigate('/plant-portal/add-machine')} className="gap-2 bg-amber-500 hover:bg-amber-600 text-white">
             <Plus className="h-4 w-4" /> Add Machine
           </Button>
         </div>
@@ -519,7 +854,7 @@ export default function PlantDashboard() {
             />
           </div>
           <select 
-            className="h-10 px-4 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-amber-500"
+            className="h-10 px-4 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-amber-500 bg-white"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >
@@ -534,30 +869,30 @@ export default function PlantDashboard() {
           {filteredEq.map((eq) => {
             return (
               <tr key={eq.id} className="hover:bg-slate-50 transition-colors group cursor-pointer" onClick={() => setSelectedMachine(eq)}>
-                <td className="py-4 px-6">
+                <td className="py-4 px-6 text-left">
                   <div className="flex items-center gap-3">
-                    <img src={eq.image || 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=80&auto=format&fit=crop&q=80'} alt="Machine" className="h-10 w-10 rounded-xl object-cover border border-slate-200" />
+                    <img src={eq.image} alt="Machine" className="h-10 w-10 rounded-xl object-cover border border-slate-200 shrink-0" />
                     <div>
                       <div className="font-bold text-slate-800 text-sm">{eq.name}</div>
-                      <div className="text-[10px] text-slate-500 mt-0.5">{eq.make}</div>
+                      <div className="text-[10px] text-slate-500 mt-0.5 font-bold">{eq.make} • {eq.model}</div>
                     </div>
                   </div>
                 </td>
-                <td className="py-4 px-6">
-                  <span className="text-xs font-semibold text-slate-700">R {eq.rate}/hr</span>
+                <td className="py-4 px-6 text-left">
+                  <span className="text-xs font-bold text-slate-700">R {eq.rate}/hr</span>
                 </td>
-                <td className="py-4 px-6">
-                  <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                    eq.status === 'available' ? 'bg-emerald-100 text-emerald-700' :
-                    eq.status === 'on_hire' ? 'bg-blue-100 text-blue-700' :
-                    eq.status === 'maintenance' ? 'bg-amber-100 text-amber-700' :
-                    'bg-slate-100 text-slate-600'
+                <td className="py-4 px-6 text-left">
+                  <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
+                    eq.status === 'available' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
+                    eq.status === 'on_hire' ? 'bg-blue-100 text-blue-700 border border-blue-200' :
+                    eq.status === 'maintenance' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
+                    'bg-slate-100 text-slate-650'
                   }`}>
                     {eq.status?.replace('_', ' ')}
                   </span>
                 </td>
                 <td className="py-4 px-6 text-right">
-                  <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setSelectedMachine(eq); }} className="text-amber-600">
+                  <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setSelectedMachine(eq); }} className="text-amber-600 font-bold">
                     Details
                   </Button>
                 </td>
@@ -574,7 +909,7 @@ export default function PlantDashboard() {
     const operator = operators.find(op => op.id === eq.operatorId);
     
     return (
-      <div className="space-y-6 animate-scaleIn">
+      <div className="space-y-6 animate-scaleIn text-left">
         <div className="flex items-center gap-4">
           <button onClick={() => setSelectedMachine(null)} className="h-10 w-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:border-slate-300 transition-colors">
             <ArrowRight className="h-5 w-5 rotate-180" />
@@ -588,18 +923,18 @@ export default function PlantDashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="space-y-6">
             <Card className="p-0 overflow-hidden">
-              <img src={eq.image || 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=400&auto=format&fit=crop&q=80'} alt="Machine" className="w-full h-48 object-cover" />
+              <img src={eq.image} alt="Machine" className="w-full h-48 object-cover" />
               <div className="p-6 space-y-4">
                 <div className="flex justify-between items-start">
                   <div>
-                    <h3 className="text-lg font-bold text-slate-800">{eq.make}</h3>
-                    <p className="text-sm text-slate-500">{eq.name}</p>
+                    <h3 className="text-lg font-black text-slate-800">{eq.make}</h3>
+                    <p className="text-sm text-slate-500 font-semibold">{eq.name}</p>
                   </div>
                   <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
                     eq.status === 'available' ? 'bg-emerald-100 text-emerald-700' :
                     eq.status === 'on_hire' ? 'bg-blue-100 text-blue-700' :
                     eq.status === 'maintenance' ? 'bg-amber-100 text-amber-700' :
-                    'bg-slate-100 text-slate-600'
+                    'bg-slate-100 text-slate-650'
                   }`}>
                     {eq.status?.replace('_', ' ')}
                   </span>
@@ -615,8 +950,12 @@ export default function PlantDashboard() {
                     <span className="text-sm font-semibold text-slate-800">{operator ? operator.name : 'None'}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-slate-500 font-bold">Engine Hours</span>
-                    <span className="text-sm font-semibold text-slate-800">1,240 hrs</span>
+                    <span className="text-xs text-slate-500 font-bold">Model</span>
+                    <span className="text-sm font-semibold text-slate-800">{eq.model || 'N/A'}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-slate-500 font-bold">Manufacture Year</span>
+                    <span className="text-sm font-semibold text-slate-800">{eq.year || 'N/A'}</span>
                   </div>
                 </div>
               </div>
@@ -624,29 +963,15 @@ export default function PlantDashboard() {
 
             <Card>
               <h3 className="font-bold text-slate-800 mb-4 border-b border-slate-100 pb-3 flex items-center gap-2">
-                <ShieldAlert className="h-4 w-4 text-amber-500" /> Compliance & Documents
+                <ShieldAlert className="h-4 w-4 text-amber-500" /> Compliance Status
               </h3>
               <div className="space-y-4">
-                <div className="flex justify-between items-center p-2 hover:bg-slate-50 rounded-lg">
+                <div className="flex justify-between items-center p-2 hover:bg-slate-55 rounded-lg">
                   <div>
-                    <p className="text-sm font-semibold text-slate-800">Insurance</p>
-                    <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider">Approved</p>
+                    <p className="text-sm font-semibold text-slate-850">Onboarding Documents</p>
+                    <p className="text-[10px] text-emerald-600 font-black uppercase tracking-wider">Approved & Verified</p>
                   </div>
                   <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-                </div>
-                <div className="flex justify-between items-center p-2 hover:bg-slate-50 rounded-lg">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-800">Registration</p>
-                    <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider">Approved</p>
-                  </div>
-                  <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-                </div>
-                <div className="flex justify-between items-center p-2 hover:bg-slate-50 rounded-lg">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-800">Fitness / Inspection</p>
-                    <p className="text-[10px] text-amber-600 font-bold uppercase tracking-wider">Expiring Soon</p>
-                  </div>
-                  <AlertCircle className="h-5 w-5 text-amber-500" />
                 </div>
               </div>
             </Card>
@@ -689,17 +1014,17 @@ export default function PlantDashboard() {
                 {maintenance.filter(m => m.equipmentId === eq.id).map(mt => (
                   <div key={mt.id} className="flex justify-between items-center p-3 border border-slate-100 rounded-xl">
                     <div>
-                      <p className="text-xs font-bold text-slate-800">{mt.issue}</p>
-                      <p className="text-[10px] text-slate-500 mt-0.5">{mt.date}</p>
+                      <p className="text-xs font-bold text-slate-850">{mt.issue}</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5 font-semibold">{mt.date}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-xs font-bold text-slate-800 mb-1">R {mt.cost.toLocaleString()}</p>
+                      <p className="text-xs font-black text-slate-800 mb-1">R {mt.cost.toLocaleString()}</p>
                       <span className={`text-[10px] font-bold uppercase ${mt.status === 'completed' ? 'text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded' : 'text-amber-600 bg-amber-50 px-2 py-0.5 rounded'}`}>{mt.status.replace('_', ' ')}</span>
                     </div>
                   </div>
                 ))}
                 {maintenance.filter(m => m.equipmentId === eq.id).length === 0 && (
-                  <p className="text-xs text-slate-500 text-center py-4">No maintenance history recorded.</p>
+                  <p className="text-xs text-slate-550 text-center py-4 font-bold">No maintenance history recorded.</p>
                 )}
               </div>
             </Card>
@@ -710,157 +1035,321 @@ export default function PlantDashboard() {
   };
 
   const renderAddMachine = () => {
-    return (
-      <div className="space-y-6 max-w-4xl">
-        <div>
-          <h1 className="text-xl font-black text-slate-900">Add New Machine</h1>
-          <p className="text-xs text-slate-500 font-medium">Enterprise equipment registration form.</p>
-        </div>
-
-        <form onSubmit={(e) => { e.preventDefault(); showToast('Equipment added successfully!'); navigate('/plant-portal/equipment'); }} className="space-y-5">
-          <Card className="space-y-4 p-5">
-            <h3 className="font-bold text-slate-800 border-b border-slate-100 pb-2 flex items-center gap-2">
-              <HardHat className="h-4 w-4 text-amber-500"/> Core Specifications
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Category *</label>
-                <select className="w-full h-11 px-4 border border-slate-200 rounded-xl bg-slate-50 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white transition-all">
-                  <option>Excavator</option>
-                  <option>TLB</option>
-                  <option>Grader</option>
-                  <option>Crane</option>
-                  <option>Compactor</option>
-                </select>
-              </div>
-              <Input label="Manufacturer (Make) *" placeholder="e.g. Caterpillar" required />
-              <Input label="Model *" placeholder="e.g. 320 GC" required />
-              <Input label="Year of Manufacture" placeholder="e.g. 2021" type="number" />
-              <Input label="Operating Weight / Capacity" placeholder="e.g. 20 Tons" required />
-              <div className="space-y-2">
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Fuel Type</label>
-                <select className="w-full h-11 px-4 border border-slate-200 rounded-xl bg-slate-50 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500">
-                  <option>Diesel</option>
-                  <option>Petrol</option>
-                  <option>Electric</option>
-                </select>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="space-y-4 p-5">
-            <h3 className="font-bold text-slate-800 border-b border-slate-100 pb-2 flex items-center gap-2">
-              <Key className="h-4 w-4 text-amber-500"/> Identifiers & Pricing
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Input label="VIN / Serial Number *" placeholder="Required for tracking" required />
-              <Input label="Engine Number" placeholder="Optional" />
-              <Input label="Registration Number" placeholder="e.g. GP 1234" />
-              <Input label="Hourly Rate (ZAR) *" type="number" placeholder="e.g. 1200" required />
-              <Input label="Daily Rate (ZAR)" type="number" placeholder="e.g. 9600" />
-              <Input label="Monthly Rate (ZAR)" type="number" placeholder="e.g. 250000" />
-            </div>
-          </Card>
-
-          <Card className="space-y-4 p-5">
-            <h3 className="font-bold text-slate-800 border-b border-slate-100 pb-2 flex items-center gap-2">
-              <ShieldAlert className="h-4 w-4 text-amber-500"/> Compliance & Documents
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Insurance Policy (PDF)</label>
-                <input type="file" accept=".pdf" className="w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-amber-50 file:text-amber-600 hover:file:bg-amber-100" />
-              </div>
-              <div className="space-y-2">
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Insurance Expiry Date</label>
-                <input type="date" className="w-full h-11 px-4 border border-slate-200 rounded-xl bg-slate-50 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500" required />
-              </div>
-              <div className="space-y-2">
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Inspection / Fitness Cert (PDF)</label>
-                <input type="file" accept=".pdf,.jpg,.png" className="w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-amber-50 file:text-amber-600 hover:file:bg-amber-100" />
-              </div>
-              <div className="space-y-2">
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Inspection Expiry Date</label>
-                <input type="date" className="w-full h-11 px-4 border border-slate-200 rounded-xl bg-slate-50 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500" required />
-              </div>
-            </div>
-          </Card>
-
-          <div className="flex justify-end gap-4 pb-10">
-            <Button variant="outline" type="button" onClick={() => navigate('/plant-portal/equipment')}>Cancel</Button>
-            <Button type="submit">Save & Sync Global State</Button>
-          </div>
-        </form>
-      </div>
+    // Filter categories dynamically
+    const filteredCategories = ALL_CATEGORIES.filter(cat => 
+      cat.name.toLowerCase().includes(categorySearchQuery.toLowerCase())
     );
-  };
 
-  const renderRevenue = () => {
+    // Selected category icon
+    const SelectedCategoryIcon = ALL_CATEGORIES.find(c => c.name === addMachineForm.type)?.icon || HardHat;
+
     return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-xl font-black text-slate-900">Finance & Revenue Dashboard</h1>
-          <p className="text-xs text-slate-500 font-medium">Enterprise financial tracking across all equipment.</p>
+      <div className="h-[calc(100vh-10rem)] flex flex-col overflow-hidden text-left">
+        
+        {/* Simple Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-3 border-b border-slate-200 shrink-0">
+          <div>
+            <h1 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-amber-500" /> List New Machinery
+            </h1>
+            <p className="text-xs text-slate-500 font-bold">Register your equipment to start receiving marketplace rental bookings.</p>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard title="Total Revenue" value={`R ${monthlyRevenue.toLocaleString()}`} icon={DollarSign} color="emerald" />
-          <StatCard title="Pending Payments" value={`R ${payments.filter(p=>p.status==='pending').reduce((s,p)=>s+p.amount,0).toLocaleString()}`} icon={Clock} color="amber" />
-          <StatCard title="Completed Rentals" value={payments.filter(p=>p.status==='completed').length} icon={CheckCircle2} color="blue" />
-          <StatCard title="Withdrawable Balance" value={`R ${(monthlyRevenue * 0.9).toLocaleString()}`} icon={ArrowUpRight} color="indigo" />
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start flex-1 overflow-hidden h-full mt-6">
+          
+          {/* LEFT 4 COLUMNS: Real-Time Preview Sticky Card */}
+          <div className="lg:col-span-4 space-y-6 shrink-0">
+            
+            {/* Caterpillar Style Real-time Preview card */}
+            <Card className="p-0 overflow-hidden border border-slate-200 shadow-md">
+              <div className="relative h-44 bg-slate-100">
+                <img 
+                  src={
+                    addMachineForm.photos.find(p => p.isPrimary)?.url || 
+                    addMachineForm.photos[0]?.url || 
+                    getCategoryPlaceholder(addMachineForm.type)
+                  } 
+                  alt="Live Preview" 
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute top-3 left-3 bg-[#f99c00] text-slate-950 font-black text-[9px] px-2.5 py-0.5 rounded uppercase tracking-wider shadow-sm flex items-center gap-1">
+                  <SelectedCategoryIcon className="h-3 w-3" />
+                  {addMachineForm.type}
+                </div>
+                <div className="absolute bottom-3 right-3 bg-emerald-500 text-white font-black text-[9px] px-2.5 py-0.5 rounded uppercase tracking-wider shadow-sm">
+                  VERIFICATION PENDING
+                </div>
+              </div>
+              <div className="p-4 space-y-3.5">
+                <div>
+                  <h3 className="text-base font-black text-slate-900 truncate">
+                    {addMachineForm.make || 'Brand/Make'}
+                  </h3>
+                  <p className="text-xs font-bold text-slate-500">
+                    {addMachineForm.model || 'Model Name'}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-2.5 border-t border-slate-100 text-left">
+                  <div>
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">REGISTRATION</span>
+                    <span className="text-xs font-extrabold text-slate-800 uppercase">{addMachineForm.registration_number || 'GP 12345'}</span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">HOURLY HIRE</span>
+                    <span className="text-xs font-black text-slate-900">
+                      ZAR {Number(addMachineForm.rate || 0).toLocaleString()}/hr
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </div>
+
+          {/* RIGHT 8 COLUMNS: Simplified Core Form Card */}
+          <div className="lg:col-span-8 h-full overflow-y-auto pr-3 pb-6" style={{ scrollbarWidth: 'thin' }}>
+            <Card className="p-6 space-y-6 text-left border border-slate-200">
+              <h3 className="font-bold text-slate-900 border-b border-slate-100 pb-3 flex items-center gap-2">
+                <HardHat className="h-4 w-4 text-amber-500" /> Equipment & Rental Details
+              </h3>
+
+              {/* 1. Category Selector */}
+              <div className="space-y-2 relative">
+                <label className="block text-xs font-bold text-slate-700">Select Equipment Category *</label>
+                <div 
+                  className="w-full h-11 px-4 border border-slate-200 rounded-xl bg-slate-55 flex items-center justify-between cursor-pointer hover:border-amber-500 transition-colors"
+                  onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
+                >
+                  <span className="text-xs font-bold text-slate-700 flex items-center gap-2">
+                    <SelectedCategoryIcon className="h-4 w-4 text-[#f99c00]" />
+                    {addMachineForm.type}
+                  </span>
+                  <ChevronRight className={`h-4 w-4 text-slate-400 transition-transform ${isCategoryDropdownOpen ? 'rotate-90' : ''}`} />
+                </div>
+                {isCategoryDropdownOpen && (
+                  <div className="absolute top-[72px] left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-lg z-50 p-2 space-y-2">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                      <input 
+                        type="text" 
+                        placeholder="Search categories..."
+                        className="w-full pl-9 pr-4 py-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:ring-1 focus:ring-amber-500"
+                        value={categorySearchQuery}
+                        onChange={(e) => setCategorySearchQuery(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                    <div className="max-h-48 overflow-y-auto space-y-0.5" style={{ scrollbarWidth: 'none' }}>
+                      {filteredCategories.map(cat => {
+                        const Icon = cat.icon;
+                        return (
+                          <div 
+                            key={cat.name}
+                            className={`p-2 hover:bg-slate-50 rounded-lg cursor-pointer flex items-center gap-2 text-xs font-bold transition-colors ${addMachineForm.type === cat.name ? 'bg-amber-50 text-[#e08b00]' : 'text-slate-700'}`}
+                            onClick={() => {
+                              setAddMachineForm(prev => ({ ...prev, type: cat.name }));
+                              setIsCategoryDropdownOpen(false);
+                            }}
+                          >
+                            <Icon className="h-4 w-4 shrink-0" />
+                            {cat.name}
+                          </div>
+                        );
+                      })}
+                      {filteredCategories.length === 0 && (
+                        <div className="p-3 text-center text-slate-400 text-xs">No categories match your search</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 2. Make & Model Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Input 
+                  label="Manufacturer (Make) *" 
+                  placeholder="e.g. Caterpillar, Komatsu, Volvo" 
+                  value={addMachineForm.make}
+                  onChange={(e) => setAddMachineForm(prev => ({ ...prev, make: e.target.value }))}
+                  required
+                />
+                <Input 
+                  label="Model Number *" 
+                  placeholder="e.g. 320D L, D8T" 
+                  value={addMachineForm.model}
+                  onChange={(e) => setAddMachineForm(prev => ({ ...prev, model: e.target.value }))}
+                  required
+                />
+              </div>
+
+              {/* 3. Registration & Hourly Rate Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Input 
+                  label="Registration / License Plate *" 
+                  placeholder="e.g. CA 123-456" 
+                  value={addMachineForm.registration_number}
+                  onChange={(e) => setAddMachineForm(prev => ({ ...prev, registration_number: e.target.value }))}
+                  required
+                />
+                <Input 
+                  label="Hourly Rental Rate (ZAR) *" 
+                  type="number" 
+                  placeholder="e.g. 1500" 
+                  value={addMachineForm.rate}
+                  onChange={(e) => setAddMachineForm(prev => ({ ...prev, rate: e.target.value }))}
+                  required
+                />
+              </div>
+
+              {/* 4. Location Details */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-slate-700">Province *</label>
+                  <select
+                    className="w-full h-11 px-3 border border-slate-200 rounded-xl bg-slate-55 text-xs font-semibold focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                    value={addMachineForm.province}
+                    onChange={(e) => setAddMachineForm(prev => ({ ...prev, province: e.target.value }))}
+                  >
+                    <option value="Gauteng">Gauteng</option>
+                    <option value="Western Cape">Western Cape</option>
+                    <option value="KwaZulu-Natal">KwaZulu-Natal</option>
+                    <option value="Eastern Cape">Eastern Cape</option>
+                    <option value="Free State">Free State</option>
+                    <option value="Limpopo">Limpopo</option>
+                    <option value="Mpumalanga">Mpumalanga</option>
+                    <option value="North West">North West</option>
+                    <option value="Northern Cape">Northern Cape</option>
+                  </select>
+                </div>
+                <div className="md:col-span-2">
+                  <Input 
+                    label="City / Hub Town *" 
+                    placeholder="e.g. Sandton, Cape Town" 
+                    value={addMachineForm.city}
+                    onChange={(e) => setAddMachineForm(prev => ({ ...prev, city: e.target.value }))}
+                    required
+                  />
+                </div>
+              </div>
+
+              <Input 
+                label="Pickup Address *" 
+                placeholder="e.g. 77 Sandton Dr, Sandton, Johannesburg" 
+                value={addMachineForm.pickup_address}
+                onChange={(e) => setAddMachineForm(prev => ({ ...prev, pickup_address: e.target.value }))}
+                required
+              />
+
+              {/* 5. Single Upload Compliance Document */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-slate-700">Compliance Document (Insurance, Roadworthy, or Title) *</label>
+                {addMachineForm.documentUrl ? (
+                  <div className="flex items-center justify-between p-3 bg-emerald-50 border border-emerald-255 rounded-xl">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-emerald-600" />
+                      <span className="text-xs font-bold text-slate-700 truncate max-w-md">{addMachineForm.documentUrl.split('/').pop()}</span>
+                    </div>
+                    <button 
+                      type="button" 
+                      onClick={() => setAddMachineForm(prev => ({ ...prev, documentUrl: null }))}
+                      className="text-xs font-bold text-red-500 hover:underline"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex items-center justify-between p-3 border border-slate-200 border-dashed rounded-xl cursor-pointer hover:border-amber-500 transition-colors bg-slate-50">
+                    <span className="text-xs font-semibold text-slate-500">Upload PDF compliance certificate</span>
+                    <span className="px-3 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50">
+                      {documentUploading ? 'Uploading...' : 'Choose File'}
+                    </span>
+                    <input 
+                      type="file" 
+                      className="hidden" 
+                      onChange={(e) => handleUploadDocument(e.target.files[0])} 
+                      disabled={documentUploading}
+                    />
+                  </label>
+                )}
+              </div>
+
+              {/* 6. Photos Gallery */}
+              <div className="space-y-3">
+                <label className="block text-xs font-bold text-slate-700">Equipment Photos (Max 3)</label>
+                <div className="grid grid-cols-3 gap-3">
+                  {addMachineForm.photos.map((photo, i) => (
+                    <div key={photo.id} className="relative h-24 rounded-xl overflow-hidden border border-slate-200 group">
+                      <img src={photo.url} alt="Upload" className="w-full h-full object-cover" />
+                      <button 
+                        type="button" 
+                        onClick={() => deletePhoto(photo.id)}
+                        className="absolute top-1 right-1 p-1 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors shadow-sm"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                      {photo.isPrimary ? (
+                        <span className="absolute bottom-1 left-1 bg-amber-500 text-slate-955 text-[8px] font-black px-1.5 py-0.5 rounded shadow-sm">Primary</span>
+                      ) : (
+                        <button 
+                          type="button"
+                          onClick={() => setPrimaryPhoto(photo.id)}
+                          className="absolute bottom-1 left-1 bg-black/60 hover:bg-black/85 text-white text-[8px] font-bold px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          Make Primary
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  {addMachineForm.photos.length < 3 && (
+                    <label className="h-24 rounded-xl border-2 border-dashed border-slate-200 hover:border-amber-500 flex flex-col items-center justify-center cursor-pointer transition-colors bg-slate-50">
+                      <Upload className="h-5 w-5 text-slate-400" />
+                      <span className="text-[10px] font-bold text-slate-500 mt-1">Upload Photo</span>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        multiple 
+                        className="hidden" 
+                        onChange={handleUploadMachinePhoto} 
+                        disabled={uploadingPhoto}
+                      />
+                    </label>
+                  )}
+                </div>
+              </div>
+
+              {/* Form buttons */}
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                <Button variant="outline" type="button" onClick={() => navigate('/plant-portal/equipment')}>
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleRegisterMachineSubmit} 
+                  disabled={uploadingPhoto || documentUploading}
+                  className="bg-amber-600 hover:bg-amber-500 text-white font-black px-6 shadow-sm"
+                >
+                  Register Machine
+                </Button>
+              </div>
+
+            </Card>
+          </div>
+
         </div>
 
-        <Card>
-          <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
-            <h3 className="font-bold text-slate-800 flex items-center gap-2"><BarChart3 className="h-5 w-5 text-amber-500"/> Transaction History</h3>
-            <Button variant="outline" size="sm" className="gap-2" onClick={() => showToast('Statement downloaded.', 'success')}>
-              <Download className="h-4 w-4" /> Export CSV
-            </Button>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="text-xs text-slate-400 font-bold uppercase border-b border-slate-100">
-                  <th className="pb-3">Transaction ID</th>
-                  <th className="pb-3">Date</th>
-                  <th className="pb-3">Customer</th>
-                  <th className="pb-3">Status</th>
-                  <th className="pb-3 text-right">Amount</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50 text-slate-700 font-medium">
-                {payments.map(p => (
-                  <tr key={p.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="py-4 font-mono text-xs">{p.id}</td>
-                    <td className="py-4">{p.date}</td>
-                    <td className="py-4">{p.customerName}</td>
-                    <td className="py-4">
-                      <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                        p.status === 'completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
-                      }`}>
-                        {p.status}
-                      </span>
-                    </td>
-                    <td className="py-4 text-right font-black text-slate-900">R {p.amount.toLocaleString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
       </div>
     );
   };
 
   const renderMaintenance = () => {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 text-left">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-xl font-black text-slate-900">Maintenance & Servicing</h1>
             <p className="text-xs text-slate-500 font-medium">Log repairs, schedule services, and monitor equipment health.</p>
           </div>
-          <Button onClick={() => setMaintenanceModal(true)} className="gap-2 bg-amber-600 hover:bg-amber-500 text-white">
+          <Button onClick={() => setMaintenanceModal(true)} className="gap-2 bg-amber-55 hover:bg-amber-100 border border-amber-200 text-amber-700 font-extrabold">
             <Plus className="h-4 w-4" /> Log Maintenance
           </Button>
         </div>
@@ -870,16 +1359,16 @@ export default function PlantDashboard() {
             const eq = equipment.find(e => e.id === mt.equipmentId);
             return (
               <tr key={mt.id} className="hover:bg-slate-50 transition-colors group">
-                <td className="py-4 px-6">
+                <td className="py-4 px-6 text-left">
                   <div className="font-bold text-slate-800 text-sm">{eq?.name || 'Unknown'}</div>
-                  <div className="text-[10px] text-slate-500 mt-0.5">{eq?.make}</div>
+                  <div className="text-[10px] text-slate-500 mt-0.5 font-bold">{eq?.make}</div>
                 </td>
-                <td className="py-4 px-6 text-sm font-semibold text-slate-700">{mt.issue}</td>
-                <td className="py-4 px-6 text-xs text-slate-500">{mt.date}</td>
-                <td className="py-4 px-6 text-sm font-black text-slate-800">R {mt.cost.toLocaleString()}</td>
-                <td className="py-4 px-6">
+                <td className="py-4 px-6 text-left text-sm font-semibold text-slate-700">{mt.issue}</td>
+                <td className="py-4 px-6 text-left text-xs text-slate-500">{mt.date}</td>
+                <td className="py-4 px-6 text-left text-sm font-black text-slate-800">R {mt.cost.toLocaleString()}</td>
+                <td className="py-4 px-6 text-left">
                   <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                    mt.status === 'completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                    mt.status === 'completed' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-amber-100 text-amber-700 border border-amber-200'
                   }`}>
                     {mt.status?.replace('_', ' ')}
                   </span>
@@ -889,14 +1378,13 @@ export default function PlantDashboard() {
           })}
         </Table>
 
-        {/* Log Maintenance Modal */}
         <Modal open={maintenanceModal} onClose={() => setMaintenanceModal(false)} title="Log Maintenance">
           <form onSubmit={handleLogMaintenance} className="space-y-4">
             <div className="space-y-2">
               <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Select Equipment</label>
               <select 
                 required
-                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
+                className="w-full p-3 bg-slate-55 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
                 value={maintenanceForm.equipmentId}
                 onChange={(e) => setMaintenanceForm({...maintenanceForm, equipmentId: e.target.value})}
               >
@@ -920,7 +1408,7 @@ export default function PlantDashboard() {
               <input 
                 type="date" 
                 required
-                className="w-full h-11 px-4 border border-slate-200 rounded-xl bg-slate-50 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500" 
+                className="w-full h-11 px-4 border border-slate-200 rounded-xl bg-slate-55 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500" 
                 value={maintenanceForm.date}
                 onChange={(e) => setMaintenanceForm({...maintenanceForm, date: e.target.value})}
               />
@@ -937,17 +1425,16 @@ export default function PlantDashboard() {
 
             <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 mt-2">
               <Button type="button" variant="outline" onClick={() => setMaintenanceModal(false)}>Cancel</Button>
-              <Button type="submit" className="bg-amber-600 hover:bg-amber-500 text-white">Save & Mark Unavailable</Button>
+              <Button type="submit" className="bg-amber-600 hover:bg-amber-500 text-white font-bold">Save & Mark Unavailable</Button>
             </div>
           </form>
         </Modal>
-
       </div>
     );
   };
 
   const renderProfile = () => (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6 max-w-4xl text-left">
       <div>
         <h1 className="text-xl font-black text-slate-900">Company ERP Profile</h1>
         <p className="text-xs text-slate-500 font-medium">Manage your enterprise plant hire company details.</p>
@@ -959,15 +1446,15 @@ export default function PlantDashboard() {
             <Building className="h-4 w-4 text-amber-500" /> Business Information
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <Input label="Registered Company Name" defaultValue="Motsepe Plant Hire (Pty) Ltd" required />
-            <Input label="Registration Number (CIPC)" defaultValue="2022/123456/07" required />
-            <Input label="VAT Number" defaultValue="4123456789" />
-            <Input label="Tax Reference Number" defaultValue="9123456789" />
-            <Input label="Representative Name" defaultValue="Patrice Motsepe" required />
-            <Input label="Email Address" type="email" defaultValue="admin@motsepeplant.co.za" required />
-            <Input label="Phone Number" defaultValue="+27 82 111 2222" required />
+            <Input label="Registered Company Name" value={profileForm.companyName} onChange={e => setProfileForm({...profileForm, companyName: e.target.value})} required />
+            <Input label="Registration Number (CIPC)" value={profileForm.cipcNumber} onChange={e => setProfileForm({...profileForm, cipcNumber: e.target.value})} required />
+            <Input label="VAT Number" value={profileForm.vatNumber} onChange={e => setProfileForm({...profileForm, vatNumber: e.target.value})} />
+            <Input label="Tax Reference Number" value={profileForm.taxRef} onChange={e => setProfileForm({...profileForm, taxRef: e.target.value})} />
+            <Input label="Representative Name" value={profileForm.repName} onChange={e => setProfileForm({...profileForm, repName: e.target.value})} required />
+            <Input label="Email Address" type="email" value={profileForm.email} onChange={e => setProfileForm({...profileForm, email: e.target.value})} required />
+            <Input label="Phone Number" value={profileForm.phone} onChange={e => setProfileForm({...profileForm, phone: e.target.value})} required />
             <div className="md:col-span-2">
-              <Input label="Headquarters / Yard Address" defaultValue="123 Industrial Park, Sandton, 2196" required />
+              <Input label="Headquarters / Yard Address" value={profileForm.address} onChange={e => setProfileForm({...profileForm, address: e.target.value})} required />
             </div>
           </div>
         </Card>
@@ -1019,3 +1506,17 @@ export default function PlantDashboard() {
     </div>
   );
 }
+
+const renderRevenue = () => {
+  return (
+    <div className="space-y-6 text-left">
+      <div>
+        <h1 className="text-xl font-black text-slate-900">Revenue & Invoicing</h1>
+        <p className="text-xs text-slate-500 font-medium">Enterprise financial logs.</p>
+      </div>
+      <div className="p-10 text-center bg-white border border-slate-200 rounded-3xl font-bold text-slate-500">
+        Revenue logs will display dynamically once rental hire contracts complete.
+      </div>
+    </div>
+  );
+};

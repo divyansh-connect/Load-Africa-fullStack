@@ -39,7 +39,10 @@ export default function Fleet() {
 
   const handleAction = async (id, newStatus) => {
     try {
-      if (newStatus === 'ACTIVE') {
+      if (newStatus === 'DELETE') {
+        if (!window.confirm("Are you sure you want to delete this fleet account?")) return;
+        await adminService.deleteUser(id);
+      } else if (newStatus === 'ACTIVE') {
         await adminService.approveUser(id);
       } else if (newStatus === 'REJECTED' || newStatus === 'SUSPENDED') {
         await adminService.rejectUser(id);
@@ -152,7 +155,7 @@ export default function Fleet() {
                            <CheckCircle2 className="h-4 w-4" />
                          </button>
                       )}
-                      <button className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
+                      <button onClick={() => handleAction(fleet.id, 'DELETE')} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>

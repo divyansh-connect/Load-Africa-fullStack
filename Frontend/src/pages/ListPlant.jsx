@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Truck, Info, CheckCircle2, Upload, FileText, ArrowRight, Wrench, ChevronDown } from 'lucide-react';
+import { Truck, Info, CheckCircle2, Upload, FileText, ArrowRight, Wrench, ChevronDown, Loader } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import { fleetService } from '../services/fleetService';
 
 const EQUIPMENT_TYPES = [
   'Excavator',
@@ -50,7 +51,9 @@ export default function ListPlant() {
   const [regSerial, setRegSerial]       = useState('');
   const [year, setYear]                 = useState('');
   const [baseLocation, setBaseLocation] = useState('');
-  const [error, setError]               = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState('');
 
   // Step 2 state
   const [companyRegDoc, setCompanyRegDoc] = useState(null);
@@ -58,8 +61,16 @@ export default function ListPlant() {
 
   const handleStep1Submit = (e) => {
     e.preventDefault();
-    if (!companyName || !contactName || !email || !phone || !idNumber || !equipmentType || !regSerial || !baseLocation) {
+    if (!companyName || !contactName || !email || !phone || !idNumber || !equipmentType || !regSerial || !baseLocation || !password || !confirmPassword) {
       setError('Please fill in all required fields.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters.');
       return;
     }
     setError('');
@@ -67,10 +78,67 @@ export default function ListPlant() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleStep2Submit = (e) => {
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleStep2Submit = async (e) => {
     e.preventDefault();
-    setStep(3);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setError('');
+
+    if (!companyRegDoc || !machinePhoto) {
+      setError('Please upload all required documents.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      // 1. Upload COR document
+      let corUrl = '';
+      const corRes = await fleetService.uploadFile(companyRegDoc);
+      if (corRes.success && corRes.data?.urls?.[0]) {
+        corUrl = corRes.data.urls[0];
+      } else {
+        throw new Error('Company registration document upload failed.');
+      }
+
+      // 2. Upload Machine Photo
+      let photoUrl = '';
+      const photoRes = await fleetService.uploadFile(machinePhoto);
+      if (photoRes.success && photoRes.data?.urls?.[0]) {
+        photoUrl = photoRes.data.urls[0];
+      } else {
+        throw new Error('Machine photo upload failed.');
+      }
+
+      // 3. Post application payload to backend
+      const payload = {
+        company_name: companyName,
+        contact_name: contactName,
+        email,
+        phone,
+        password,
+        national_id: idNumber,
+        equipment_type: equipmentType,
+        make,
+        model,
+        registration_number: regSerial,
+        year: year ? parseInt(year) : null,
+        base_location: baseLocation,
+        company_reg_doc: corUrl,
+        machine_photo: photoUrl
+      };
+
+      const res = await fleetService.submitPlantApplication(payload);
+      if (!res.success) {
+        throw new Error(res.message || 'Failed to submit application.');
+      }
+
+      setStep(3);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err) {
+      setError(err.message || 'An error occurred during submission.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   // Step indicator
@@ -180,6 +248,22 @@ export default function ListPlant() {
                   <label className="block text-[12px] font-black uppercase tracking-wide text-slate-700 mb-1">Phone *</label>
                   <input type="tel" required value={phone} onChange={e => setPhone(e.target.value)}
                     placeholder="+27 ..."
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 bg-slate-55 focus:bg-white text-[13px] font-semibold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#f99c00]/30 focus:border-[#f99c00] transition-all shadow-sm" />
+                </div>
+              </div>
+
+              {/* Password & Confirm Password */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[12px] font-black uppercase tracking-wide text-slate-700 mb-1">Password *</label>
+                  <input type="password" required value={password} onChange={e => setPassword(e.target.value)}
+                    placeholder="Min 6 characters"
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 bg-slate-55 focus:bg-white text-[13px] font-semibold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#f99c00]/30 focus:border-[#f99c00] transition-all shadow-sm" />
+                </div>
+                <div>
+                  <label className="block text-[12px] font-black uppercase tracking-wide text-slate-700 mb-1">Confirm Password *</label>
+                  <input type="password" required value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
+                    placeholder="Confirm password"
                     className="w-full border border-slate-200 rounded-lg px-3 py-2 bg-slate-55 focus:bg-white text-[13px] font-semibold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#f99c00]/30 focus:border-[#f99c00] transition-all shadow-sm" />
                 </div>
               </div>
@@ -296,6 +380,10 @@ export default function ListPlant() {
             </div>
 
             <form onSubmit={handleStep2Submit} className="space-y-5">
+              {error && (
+                <div className="p-3 bg-red-50 border border-red-200 text-red-600 text-xs rounded-xl font-bold">{error}</div>
+              )}
+
               {/* Company Reg Doc */}
               <div>
                 <label className="block text-[12px] font-bold text-slate-700 mb-2">Company Registration / COR *</label>
@@ -333,13 +421,20 @@ export default function ListPlant() {
               </div>
 
               <div className="flex gap-3 pt-1">
-                <button type="button" onClick={() => setStep(1)}
-                  className="flex-1 py-2.5 border border-slate-200 text-slate-600 hover:bg-slate-55 font-bold rounded-lg text-sm transition-colors bg-white">
+                <button type="button" onClick={() => setStep(1)} disabled={submitting}
+                  className="flex-1 py-2.5 border border-slate-200 text-slate-600 hover:bg-slate-55 font-bold rounded-lg text-sm transition-colors bg-white disabled:opacity-50">
                   Back
                 </button>
-                <button type="submit"
-                  className="flex-1 py-2.5 bg-[#f99c00] hover:bg-[#e08b00] text-slate-955 font-black rounded-lg text-sm tracking-widest transition-colors uppercase">
-                  Submit Application
+                <button type="submit" disabled={submitting}
+                  className="flex-1 py-2.5 bg-[#f99c00] hover:bg-[#e08b00] text-slate-955 font-black rounded-lg text-sm tracking-widest transition-colors uppercase disabled:opacity-50 flex items-center justify-center gap-2">
+                  {submitting ? (
+                    <>
+                      <Loader className="w-4 h-4 animate-spin text-slate-955" />
+                      Submitting...
+                    </>
+                  ) : (
+                    'Submit Application'
+                  )}
                 </button>
               </div>
             </form>

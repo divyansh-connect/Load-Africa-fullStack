@@ -1,17 +1,25 @@
 const { prisma } = require('../config/db');
 
-// Helper to get plant owner ID
+// Helper to get plant owner ID (auto-creates PlantOwner if missing)
 const getPlantOwnerId = async (req) => {
   if (req.user && req.user.role === 'PLANT_OWNER') {
-    const plantOwner = await prisma.plantOwner.findUnique({
+    let plantOwner = await prisma.plantOwner.findUnique({
       where: { user_id: req.user.id }
     });
     if (plantOwner) return plantOwner.id;
+
+    // Auto-create PlantOwner record if user has PLANT_OWNER role but no profile yet
+    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+    plantOwner = await prisma.plantOwner.create({
+      data: {
+        user_id: req.user.id,
+        company_name: user ? `${user.first_name || 'Plant'} ${user.last_name || 'Owner'}` : 'Plant Owner',
+        status: 'ACTIVE'
+      }
+    });
+    return plantOwner.id;
   }
-  // Fallback for mock/dev
-  const fallback = await prisma.plantOwner.findFirst();
-  if (fallback) return fallback.id;
-  throw new Error('Plant Owner not found');
+  throw new Error('Plant Owner not found or unauthorized');
 };
 
 const getDashboard = async (req, res) => {
@@ -80,13 +88,16 @@ const addMachine = async (req, res) => {
     const plantOwnerId = await getPlantOwnerId(req);
     const { type, capacity, registration_number, machine_documents } = req.body;
 
+    const plantOwner = await prisma.plantOwner.findUnique({ where: { id: plantOwnerId } });
+    const initialStatus = plantOwner?.status === 'ACTIVE' ? 'AVAILABLE' : 'CREATED';
+
     const machine = await prisma.machine.create({
       data: {
         plant_owner_id: plantOwnerId,
         type,
         capacity: parseFloat(capacity) || 0,
         registration_number,
-        status: 'CREATED',
+        status: initialStatus,
         machine_documents
       }
     });
@@ -134,9 +145,31 @@ const acceptHireRequest = async (req, res) => {
   }
 };
 
+const getPublicMachines = async (req, res) => {
+  try {
+    const machines = await prisma.machine.findMany({
+      where: {
+        status: { in: ['AVAILABLE', 'APPROVED', 'ACTIVE'] }
+      },
+      include: {
+        plant_owner: {
+          select: {
+            company_name: true,
+            status: true
+          }
+        }
+      }
+    });
+    res.status(200).json({ success: true, data: machines });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   getDashboard,
   submitCompliance,
   addMachine,
-  acceptHireRequest
+  acceptHireRequest,
+  getPublicMachines
 };

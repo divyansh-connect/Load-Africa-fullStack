@@ -1,7 +1,7 @@
 import React from 'react';
 import { CheckCircle, MapPin, Calendar, User, Phone, CreditCard, Edit } from 'lucide-react';
 
-export default function Step3Quotation({ selectedMachine, bookingDetails, onBack }) {
+export default function Step3Quotation({ selectedMachine, bookingDetails, onBack, onConfirm }) {
   if (!selectedMachine) return null;
 
   const duration = parseInt(bookingDetails.durationDays || 4);
@@ -137,6 +137,7 @@ export default function Step3Quotation({ selectedMachine, bookingDetails, onBack
           EDIT DETAILS
         </button>
         <button
+          onClick={onConfirm}
           className="flex-1 py-2.5 bg-[#f99c00] hover:bg-[#e08b00] text-slate-950 font-black rounded-lg text-[12px] tracking-widest transition-colors flex items-center justify-center gap-1.5 uppercase shadow-md"
         >
           <CheckCircle className="w-3.5 h-3.5" />

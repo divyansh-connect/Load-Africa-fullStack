@@ -74,5 +74,40 @@ export const adminService = {
   approveMachine: async (machineId) => {
     const response = await api.post(`/admin/machine/approve/${machineId}`);
     return response.data;
+  },
+
+  deleteUser: async (userId) => {
+    const response = await api.delete(`/admin/users/${userId}`);
+    return response.data;
+  },
+
+  approveDriverProfile: async (id) => {
+    const response = await api.post(`/admin/drivers/${id}/approve`);
+    return response.data;
+  },
+
+  rejectDriverProfile: async (id, reason) => {
+    const response = await api.post(`/admin/drivers/${id}/reject`, { reason });
+    return response.data;
+  },
+
+  suspendDriverProfile: async (id, reason) => {
+    const response = await api.post(`/admin/drivers/${id}/suspend`, { reason });
+    return response.data;
+  },
+
+  requestMoreDocs: async (id, requestedDocs) => {
+    const response = await api.post(`/admin/drivers/${id}/request-docs`, { requestedDocs });
+    return response.data;
+  },
+
+  assignDriverFleet: async (id, fleetOwnerId) => {
+    const response = await api.post(`/admin/drivers/${id}/assign-fleet`, { fleetOwnerId });
+    return response.data;
+  },
+
+  getApprovedFleetOwners: async () => {
+    const response = await api.get('/admin/fleet-owners/approved');
+    return response.data;
   }
 };

@@ -137,6 +137,8 @@ model User {
   admin       Admin?
   wallets     Wallet[]
   audit_logs  ActivityLog[]
+  approved_drivers  DriverApproval[] @relation("ApprovedByUser")
+  driver_status_history DriverStatusHistory[] @relation("StatusChangedByUser")
 
   @@map("users")
 }
@@ -170,7 +172,14 @@ model Driver {
   id_document String?
   fleet_owner_id String?
   fleet_owner FleetOwner? @relation(fields: [fleet_owner_id], references: [id])
-
+  assigned_vehicle_id String?
+  assigned_vehicle Vehicle? @relation(fields: [assigned_vehicle_id], references: [id])
+  license_expiry DateTime?
+  driving_category String?
+  national_id String?
+  address String?
+  emergency_contact Json?
+  documents Json?
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
   is_deleted  Boolean  @default(false)
@@ -179,6 +188,13 @@ model Driver {
 
   applications DriverApplication[]
   assignments BookingAssignment[]
+  profile            DriverProfile?
+  photos             DriverPhoto?
+  documents_relation DriverDocuments?
+  vehicle_relation   DriverVehicle?
+  kyc                DriverKYC?
+  approval           DriverApproval?
+  status_history     DriverStatusHistory[]
 
   @@map("drivers")
 }
@@ -190,6 +206,15 @@ model FleetOwner {
   company_name String?
   status       String   @default("REGISTERED")
   company_documents Json?
+  
+  // Additional fleet details
+  vat_number   String?
+  num_vehicles Int?
+  fleet_tier   String?
+  operating_areas String?
+  services_offered String?
+  notes        String?
+  address      String?
 
   created_at   DateTime @default(now())
   updated_at   DateTime @updatedAt
@@ -342,25 +367,44 @@ model VehicleCategory {
 }
 
 model Vehicle {
-  id                  String          @id @default(uuid())
-  fleet_owner_id      String
-  fleet_owner         FleetOwner      @relation(fields: [fleet_owner_id], references: [id])
-  category_id         String
-  category            VehicleCategory @relation(fields: [category_id], references: [id])
+  id                      String           @id @default(uuid())
+  fleet_owner_id          String
+  fleet_owner             FleetOwner       @relation(fields: [fleet_owner_id], references: [id])
+  category_id             String?
+  category                VehicleCategory? @relation(fields: [category_id], references: [id])
   
-  registration_number String          @unique
-  vehicle_type        String
-  capacity            Float?
-  status              String          @default("REGISTERED")
-  vehicle_documents   Json?
+  registration_number     String          @unique
+  vehicle_type            String
+  capacity                Float?
+  status                  String          @default("REGISTERED")
 
-  created_at          DateTime        @default(now())
-  updated_at          DateTime        @updatedAt
-  is_deleted          Boolean         @default(false)
-  deleted_at          DateTime?
-  deleted_by          String?
+  // Photo & identity
+  photo_url               String?
+  brand                   String?
+  model                   String?
+  year                    Int?
+  vin                     String?         @unique
 
-  assignments         BookingAssignment[]
+  // Compliance dates
+  insurance_expiry        DateTime?
+  fitness_expiry          DateTime?
+
+  // Document URLs
+  insurance_document      String?
+  registration_document   String?
+  fitness_document        String?
+
+  // Legacy JSON docs field (kept for backward compat)
+  vehicle_documents       Json?
+
+  created_at              DateTime        @default(now())
+  updated_at              DateTime        @updatedAt
+  is_deleted              Boolean         @default(false)
+  deleted_at              DateTime?
+  deleted_by              String?
+
+  assignments             BookingAssignment[]
+  assigned_drivers        Driver[]
 
   @@map("vehicles")
 }
@@ -706,4 +750,153 @@ model SystemSetting {
   description String?
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
+}
+
+model PlantOwnerApplication {
+  id                    String   @id @default(uuid())
+  company_name          String
+  contact_name          String
+  email                 String
+  phone                 String
+  password              String?
+  national_id           String
+  equipment_type        String
+  make                  String?
+  model                 String?
+  registration_number   String
+  year                  Int?
+  base_location         String
+  company_reg_doc       String?
+  machine_photo         String?
+  status                String   @default("PENDING") // PENDING, APPROVED, REJECTED, CHANGES_REQUESTED
+  rejection_reason      String?
+  created_at            DateTime @default(now())
+  updated_at            DateTime @updatedAt
+
+  @@map("plant_owner_applications")
+}
+
+model DriverProfile {
+  id                String    @id @default(uuid())
+  driver_id         String    @unique
+  driver            Driver    @relation(fields: [driver_id], references: [id], onDelete: Cascade)
+  date_of_birth     DateTime?
+  gender            String?
+  emergency_contact Json?
+  address           String?
+  province          String?
+  city              String?
+  gps_lat           Float?
+  gps_lng           Float?
+  onboarding_completed Boolean @default(false)
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+
+  @@map("driver_profiles")
+}
+
+model DriverPhoto {
+  id                String    @id @default(uuid())
+  driver_id         String    @unique
+  driver            Driver    @relation(fields: [driver_id], references: [id], onDelete: Cascade)
+  profile_photo     String?
+  selfie            String?
+  vehicle_front     String?
+  vehicle_back      String?
+  vehicle_left      String?
+  vehicle_right     String?
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+
+  @@map("driver_photos")
+}
+
+model DriverDocuments {
+  id                    String    @id @default(uuid())
+  driver_id             String    @unique
+  driver                Driver    @relation(fields: [driver_id], references: [id], onDelete: Cascade)
+  govt_id               String?
+  license_front         String?
+  license_back          String?
+  police_clearance      String?
+  medical_certificate   String?
+  proof_of_address      String?
+  vehicle_registration  String?
+  insurance             String?
+  roadworthy_certificate String?
+  created_at            DateTime  @default(now())
+  updated_at            DateTime  @updatedAt
+
+  @@map("driver_documents")
+}
+
+model DriverVehicle {
+  id                  String    @id @default(uuid())
+  driver_id           String    @unique
+  driver              Driver    @relation(fields: [driver_id], references: [id], onDelete: Cascade)
+  vehicle_type        String?
+  registration_number String?
+  vin                 String?
+  capacity            Float?
+  manufacturer        String?
+  model               String?
+  year                Int?
+  insurance           String?
+  roadworthy          String?
+  license_disc        String?
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @updatedAt
+
+  @@map("driver_vehicles")
+}
+
+model DriverKYC {
+  id                      String    @id @default(uuid())
+  driver_id               String    @unique
+  driver                  Driver    @relation(fields: [driver_id], references: [id], onDelete: Cascade)
+  national_id             String?
+  license_number          String?
+  license_expiry          DateTime?
+  selfie_verified         Boolean   @default(false)
+  phone_verified          Boolean   @default(false)
+  gps_enabled             Boolean   @default(false)
+  terms_accepted          Boolean   @default(false)
+  training_completed      Boolean   @default(false)
+  created_at              DateTime  @default(now())
+  updated_at              DateTime  @updatedAt
+
+  @@map("driver_kyc")
+}
+
+model DriverApproval {
+  id                    String    @id @default(uuid())
+  driver_id             String    @unique
+  driver                Driver    @relation(fields: [driver_id], references: [id], onDelete: Cascade)
+  status                String    @default("PENDING") // PENDING, APPROVED, REJECTED, SUSPENDED
+  approved_by_id        String?
+  approved_by           User?     @relation("ApprovedByUser", fields: [approved_by_id], references: [id])
+  rejection_reason      String?
+  suspension_reason     String?
+  requested_documents   String?   @db.Text
+  approved_at           DateTime?
+  rejected_at           DateTime?
+  suspended_at          DateTime?
+  created_at            DateTime  @default(now())
+  updated_at            DateTime  @updatedAt
+
+  @@map("driver_approvals")
+}
+
+model DriverStatusHistory {
+  id              String    @id @default(uuid())
+  driver_id       String
+  driver          Driver    @relation(fields: [driver_id], references: [id], onDelete: Cascade)
+  old_status      String?
+  new_status      String
+  changed_by_id   String?
+  changed_by      User?     @relation("StatusChangedByUser", fields: [changed_by_id], references: [id])
+  change_reason   String?
+  created_at      DateTime  @default(now())
+
+  @@map("driver_status_history")
 }

@@ -19,6 +19,10 @@ export default function PlantLayout({ children }) {
   const navigate = useNavigate();
 
   const [plantStatus, setPlantStatus] = useState('REGISTERED');
+  const [companyName, setCompanyName] = useState('Plant Owner');
+  const [machinesCount, setMachinesCount] = useState(0);
+  const [ownerEmail, setOwnerEmail] = useState('plant@loadafrica.co.za');
+  const [userFullName, setUserFullName] = useState('Plant Owner');
 
   useEffect(() => {
     const fetchStatus = async () => {
@@ -26,6 +30,10 @@ export default function PlantLayout({ children }) {
         const res = await plantService.getDashboard();
         if (res.success && res.data) {
           setPlantStatus(res.data.status);
+          setCompanyName(res.data.company_name || 'Plant Owner');
+          setMachinesCount(res.data.machines?.length || 0);
+          setOwnerEmail(res.data.user?.email || 'plant@loadafrica.co.za');
+          setUserFullName(res.data.user?.first_name ? `${res.data.user.first_name} ${res.data.user.last_name || ''}`.trim() : 'Plant Owner');
         }
       } catch (err) {
         console.error(err);
@@ -85,10 +93,10 @@ export default function PlantLayout({ children }) {
 
       <div className="p-4 border-t border-slate-800">
         <div className="flex items-center gap-3 px-2 py-3 rounded-xl bg-slate-800/40 border border-slate-800">
-          <img src={plantOwner.avatar} alt={plantOwner.name} className="h-10 w-10 rounded-full border border-slate-700 object-cover" />
+          <img src={plantOwner.avatar} alt={companyName} className="h-10 w-10 rounded-full border border-slate-700 object-cover" />
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-white truncate">{plantOwner.name}</p>
-            <p className="text-xs text-slate-400 truncate">{plantOwner.sub}</p>
+            <p className="text-sm font-semibold text-white truncate">{companyName}</p>
+            <p className="text-xs text-slate-400 truncate">{machinesCount} {machinesCount === 1 ? 'Machine' : 'Machines'} Listed</p>
           </div>
         </div>
         <button
@@ -143,16 +151,16 @@ export default function PlantLayout({ children }) {
             </button>
             <div className="relative">
               <button onClick={() => setIsUserMenuOpen(!isUserMenuOpen)} className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-slate-100">
-                <img src={plantOwner.avatar} alt={plantOwner.name} className="h-8 w-8 rounded-full border border-slate-200 object-cover" />
-                <span className="hidden md:block text-sm font-semibold text-slate-700">Plant</span>
+                <img src={plantOwner.avatar} alt={companyName} className="h-8 w-8 rounded-full border border-slate-200 object-cover" />
+                <span className="hidden md:block text-sm font-semibold text-slate-700">{userFullName.split(' ')[0]}</span>
               </button>
               {isUserMenuOpen && (
                 <>
                   <div className="fixed inset-0 z-20" onClick={() => setIsUserMenuOpen(false)} />
                   <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-150 py-2 z-30">
                     <div className="px-4 py-3 border-b border-slate-100">
-                      <p className="text-sm font-bold text-slate-800">{plantOwner.name}</p>
-                      <p className="text-xs text-slate-500">plant@loadafrica.co.za</p>
+                      <p className="text-sm font-bold text-slate-800">{userFullName}</p>
+                      <p className="text-xs text-slate-500">{ownerEmail}</p>
                     </div>
                     <Link to="/plant-portal/profile" onClick={() => setIsUserMenuOpen(false)} className="flex items-center px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50">
                       <User className="h-4 w-4 mr-3 text-slate-400" /> My Profile

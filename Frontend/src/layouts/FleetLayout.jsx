@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate, Outlet } from 'react-router-dom';
 import {
   LayoutDashboard, Truck, DollarSign, PlusCircle, Bell,
-  Menu, X, LogOut, User, FileText, Settings, ShieldAlert
+  Menu, X, LogOut, User, Users, FileText, Settings, ShieldAlert
 } from 'lucide-react';
 import { fleetService } from '../services/fleetService';
 
@@ -38,17 +38,17 @@ export default function FleetLayout({ children }) {
     { name: 'Dashboard', path: '/fleet-portal/dashboard', icon: LayoutDashboard },
     ...(fleetStatus === 'ACTIVE' ? [
       { name: 'My Fleet', path: '/fleet-portal/vehicles', icon: Truck },
+      { name: 'My Drivers', path: '/fleet-portal/drivers', icon: Users },
       { name: 'Booking Requests', path: '/fleet-portal/requests', icon: FileText },
       { name: 'Revenue', path: '/fleet-portal/revenue', icon: DollarSign },
-      { name: 'Add Vehicle', path: '/fleet-portal/add-vehicle', icon: PlusCircle },
     ] : [
       { name: 'Compliance', path: '/fleet-portal/compliance', icon: ShieldAlert },
     ]),
-    { name: 'Profile & Settings', path: '/fleet-portal/profile', icon: User },
+    { name: 'Profile', path: '/fleet-portal/profile', icon: User },
   ];
 
   const handleLogout = () => navigate('/login');
-  const isActive = (path) => location.pathname === path;
+  const isActive = (path) => location.pathname === path || location.pathname.startsWith(path + '/');
 
   const SidebarContent = () => (
     <>

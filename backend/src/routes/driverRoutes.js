@@ -9,7 +9,8 @@ const {
   getDriverDashboard,
   submitKYC,
   getProfile,
-  updateProfile
+  updateProfile,
+  completeOnboarding
 } = require('../controllers/driverController');
 
 const router = express.Router();
@@ -23,5 +24,6 @@ router.get('/dashboard', requireAuth, getDriverDashboard);
 router.post('/kyc/submit', requireAuth, submitKYC);
 router.get('/profile', requireAuth, getProfile);
 router.put('/profile', requireAuth, updateProfile);
+router.post('/onboarding/complete', requireAuth, completeOnboarding);
 
 module.exports = router;

@@ -1,17 +1,15 @@
 const { prisma } = require('../config/db');
 
-// Helper to get fleet owner ID
+// Helper to get fleet owner ID STRICTLY
 const getFleetOwnerId = async (req) => {
-  if (req.user && req.user.role === 'FLEET_OWNER') {
-    const fleetOwner = await prisma.fleetOwner.findUnique({
-      where: { user_id: req.user.id }
-    });
-    if (fleetOwner) return fleetOwner.id;
+  if (!req.user || req.user.role !== 'FLEET_OWNER') {
+    throw new Error('Unauthorized. Fleet Owner access required.');
   }
-  // Mock fallback for development if auth isn't fully wired
-  const fallback = await prisma.fleetOwner.findFirst();
-  if (fallback) return fallback.id;
-  throw new Error('Fleet Owner not found');
+  const fleetOwner = await prisma.fleetOwner.findUnique({
+    where: { user_id: req.user.id }
+  });
+  if (!fleetOwner) throw new Error('Fleet Owner profile not found');
+  return fleetOwner.id;
 };
 
 const getDashboard = async (req, res) => {
@@ -22,15 +20,37 @@ const getDashboard = async (req, res) => {
       include: {
         user: true,
         vehicles: true,
-        drivers: true
+        drivers: {
+          include: {
+            user: true,
+            assigned_vehicle: true
+          }
+        },
+        assignments: true
       }
     });
 
     if (!fleetOwner) return res.status(404).json({ success: false, message: 'Fleet Owner not found' });
 
+    // Compute live values
+    const totalDrivers = fleetOwner.drivers.length;
+    const availableDrivers = fleetOwner.drivers.filter(d => d.status === 'AVAILABLE').length;
+    const driversOnTrip = fleetOwner.drivers.filter(d => d.status === 'ON_TRIP').length;
+    const inactiveDrivers = fleetOwner.drivers.filter(d => d.status === 'INACTIVE' || d.user.status === 'SUSPENDED').length;
+    
+    const now = new Date();
+    const expiredLicenses = fleetOwner.drivers.filter(d => d.license_expiry && new Date(d.license_expiry) < now).length;
+
     res.status(200).json({
       success: true,
-      data: fleetOwner
+      data: fleetOwner,
+      stats: {
+        totalDrivers,
+        availableDrivers,
+        driversOnTrip,
+        inactiveDrivers,
+        expiredLicenses
+      }
     });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
@@ -63,29 +83,157 @@ const submitCompliance = async (req, res) => {
 const addVehicle = async (req, res) => {
   try {
     const fleetOwnerId = await getFleetOwnerId(req);
-    const { registration_number, vehicle_type, capacity, vehicle_documents, category_id } = req.body;
+    const {
+      registration_number, vehicle_type, capacity,
+      photo_url, brand, model, year, vin,
+      insurance_expiry, fitness_expiry,
+      insurance_document, registration_document, fitness_document,
+      category_id
+    } = req.body;
 
-    // Use a default category if none provided for mockup
-    let finalCategoryId = category_id;
+    // category_id is optional — try to resolve one if not provided, but don't block
+    let finalCategoryId = category_id || null;
     if (!finalCategoryId) {
       const category = await prisma.vehicleCategory.findFirst();
-      if (!category) throw new Error('No vehicle categories available');
-      finalCategoryId = category.id;
+      if (category) finalCategoryId = category.id;
     }
 
     const vehicle = await prisma.vehicle.create({
       data: {
         fleet_owner_id: fleetOwnerId,
-        category_id: finalCategoryId,
+        category_id: finalCategoryId,          // nullable — no categories is fine
         registration_number,
         vehicle_type,
-        capacity: parseFloat(capacity) || 0,
-        status: 'UNDER_REVIEW',
-        vehicle_documents
+        capacity: capacity ? parseFloat(capacity) : null,
+        status: 'REGISTERED',
+        photo_url: photo_url || null,
+        brand: brand || null,
+        model: model || null,
+        year: year ? parseInt(year) : null,
+        vin: vin || null,
+        insurance_expiry: insurance_expiry ? new Date(insurance_expiry) : null,
+        fitness_expiry: fitness_expiry ? new Date(fitness_expiry) : null,
+        insurance_document: insurance_document || null,
+        registration_document: registration_document || null,
+        fitness_document: fitness_document || null,
       }
     });
 
     res.status(201).json({ success: true, data: vehicle });
+  } catch (error) {
+    const code = error.code === 'P2002' ? 409 : 400;
+    res.status(code).json({ success: false, message: error.message });
+  }
+};
+
+const getVehicles = async (req, res) => {
+  try {
+    const fleetOwnerId = await getFleetOwnerId(req);
+    const vehicles = await prisma.vehicle.findMany({
+      where: { fleet_owner_id: fleetOwnerId, is_deleted: false },
+      include: {
+        assigned_drivers: { include: { user: true } },
+        assignments: {
+          where: {
+            status: { in: ['DRIVER_ASSIGNED', 'DRIVER_EN_ROUTE', 'IN_TRANSIT', 'ARRIVED_PICKUP', 'LOADING'] }
+          },
+          take: 1,
+          include: { booking: true }
+        }
+      },
+      orderBy: { created_at: 'desc' }
+    });
+    res.status(200).json({ success: true, data: vehicles });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+const updateVehicle = async (req, res) => {
+  try {
+    const fleetOwnerId = await getFleetOwnerId(req);
+    const { id } = req.params;
+    const {
+      registration_number, vehicle_type, capacity,
+      photo_url, brand, model, year, vin,
+      insurance_expiry, fitness_expiry,
+      insurance_document, registration_document, fitness_document
+    } = req.body;
+
+    // Verify ownership
+    const existing = await prisma.vehicle.findFirst({ where: { id, fleet_owner_id: fleetOwnerId, is_deleted: false } });
+    if (!existing) throw new Error('Vehicle not found');
+
+    const vehicle = await prisma.vehicle.update({
+      where: { id },
+      data: {
+        registration_number,
+        vehicle_type,
+        capacity: capacity ? parseFloat(capacity) : null,
+        photo_url: photo_url !== undefined ? photo_url : existing.photo_url,
+        brand: brand || null,
+        model: model || null,
+        year: year ? parseInt(year) : null,
+        vin: vin || null,
+        insurance_expiry: insurance_expiry ? new Date(insurance_expiry) : null,
+        fitness_expiry: fitness_expiry ? new Date(fitness_expiry) : null,
+        insurance_document: insurance_document || null,
+        registration_document: registration_document || null,
+        fitness_document: fitness_document || null,
+      }
+    });
+
+    res.status(200).json({ success: true, data: vehicle });
+  } catch (error) {
+    const code = error.code === 'P2002' ? 409 : 400;
+    res.status(code).json({ success: false, message: error.message });
+  }
+};
+
+const deleteVehicle = async (req, res) => {
+  try {
+    const fleetOwnerId = await getFleetOwnerId(req);
+    const { id } = req.params;
+
+    const vehicle = await prisma.vehicle.findFirst({
+      where: { id, fleet_owner_id: fleetOwnerId, is_deleted: false },
+      include: {
+        assignments: {
+          where: { status: { in: ['DRIVER_ASSIGNED', 'DRIVER_EN_ROUTE', 'IN_TRANSIT', 'ARRIVED_PICKUP', 'LOADING'] } }
+        }
+      }
+    });
+
+    if (!vehicle) throw new Error('Vehicle not found');
+    if (vehicle.assignments.length > 0) {
+      return res.status(400).json({ success: false, message: 'Cannot delete: vehicle has an active booking assignment.' });
+    }
+
+    // Soft delete
+    await prisma.vehicle.update({
+      where: { id },
+      data: { is_deleted: true, deleted_at: new Date() }
+    });
+
+    res.status(200).json({ success: true, message: 'Vehicle deleted successfully' });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+const bcrypt = require('bcrypt');
+
+const getDrivers = async (req, res) => {
+  try {
+    const fleetOwnerId = await getFleetOwnerId(req);
+    const drivers = await prisma.driver.findMany({
+      where: { fleet_owner_id: fleetOwnerId, is_deleted: false },
+      include: {
+        user: true,
+        assigned_vehicle: true
+      }
+    });
+    res.status(200).json({ success: true, data: drivers });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }
@@ -94,32 +242,149 @@ const addVehicle = async (req, res) => {
 const addDriver = async (req, res) => {
   try {
     const fleetOwnerId = await getFleetOwnerId(req);
-    const { first_name, last_name, email, phone, license, pdp, id_document } = req.body;
+    const { first_name, last_name, email, phone, password, license, license_expiry, driving_category, national_id, address, emergency_contact, documents, status, avatar } = req.body;
 
-    // Create user and driver
-    const user = await prisma.user.create({
-      data: {
-        email,
-        password: 'password123', // mockup password
-        role: 'DRIVER',
-        first_name,
-        last_name,
-        phone
-      }
+    const existingUser = await prisma.user.findUnique({ where: { email } });
+    if (existingUser) throw new Error('Email is already registered');
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const result = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          email,
+          password: hashedPassword,
+          role: 'DRIVER',
+          status: status === 'ACTIVE' ? 'ACTIVE' : 'PENDING',
+          first_name,
+          last_name,
+          phone,
+          avatar: avatar || documents?.photo || null
+        }
+      });
+
+      const driver = await tx.driver.create({
+        data: {
+          user_id: user.id,
+          fleet_owner_id: fleetOwnerId,
+          license,
+          license_expiry: license_expiry ? new Date(license_expiry) : null,
+          driving_category,
+          national_id,
+          address,
+          emergency_contact,
+          documents,
+          status: 'AVAILABLE'
+        }
+      });
+      return driver;
     });
 
-    const driver = await prisma.driver.create({
-      data: {
-        user_id: user.id,
-        fleet_owner_id: fleetOwnerId,
-        license,
-        pdp,
-        id_document,
-        status: 'UNDER_REVIEW'
-      }
+    res.status(201).json({ success: true, data: result });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+const updateDriver = async (req, res) => {
+  try {
+    const fleetOwnerId = await getFleetOwnerId(req);
+    const { id } = req.params;
+    const { first_name, last_name, email, phone, license, license_expiry, driving_category, national_id, address, status, avatar } = req.body;
+
+    const driver = await prisma.driver.findFirst({
+      where: { id, fleet_owner_id: fleetOwnerId }
     });
 
-    res.status(201).json({ success: true, data: driver });
+    if (!driver) throw new Error('Driver not found');
+
+    if (email) {
+      const existingUser = await prisma.user.findFirst({
+        where: { email, NOT: { id: driver.user_id } }
+      });
+      if (existingUser) throw new Error('Email is already in use');
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: driver.user_id },
+        data: {
+          first_name,
+          last_name,
+          email,
+          phone,
+          avatar: avatar !== undefined ? avatar : undefined,
+          status: status
+        }
+      });
+
+      const updatedDriver = await tx.driver.update({
+        where: { id: driver.id },
+        data: {
+          license,
+          license_expiry: license_expiry ? new Date(license_expiry) : null,
+          driving_category,
+          national_id,
+          address
+        }
+      });
+
+      return updatedDriver;
+    });
+
+    res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+const updateDriverStatus = async (req, res) => {
+  try {
+    const fleetOwnerId = await getFleetOwnerId(req);
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const driver = await prisma.driver.findFirst({
+      where: { id, fleet_owner_id: fleetOwnerId },
+      include: { user: true }
+    });
+
+    if (!driver) throw new Error('Driver not found');
+
+    const updatedUser = await prisma.user.update({
+      where: { id: driver.user_id },
+      data: { status }
+    });
+
+    res.status(200).json({ success: true, data: updatedUser });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+const deleteDriver = async (req, res) => {
+  try {
+    const fleetOwnerId = await getFleetOwnerId(req);
+    const { id } = req.params;
+
+    const driver = await prisma.driver.findFirst({
+      where: { id, fleet_owner_id: fleetOwnerId },
+      include: { assignments: true }
+    });
+
+    if (!driver) throw new Error('Driver not found');
+
+    const activeAssignment = driver.assignments.find(a => ['DRIVER_ASSIGNED', 'DRIVER_EN_ROUTE', 'ARRIVED_PICKUP', 'LOADING', 'IN_TRANSIT'].includes(a.status));
+    if (activeAssignment) {
+      return res.status(400).json({ success: false, message: 'This driver cannot be deleted because an active booking is assigned.' });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.driver.delete({ where: { id: driver.id } });
+      await tx.user.delete({ where: { id: driver.user_id } });
+    });
+
+    res.status(200).json({ success: true, message: 'Driver deleted successfully' });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }
@@ -129,5 +394,12 @@ module.exports = {
   getDashboard,
   submitCompliance,
   addVehicle,
-  addDriver
+  getVehicles,
+  updateVehicle,
+  deleteVehicle,
+  getDrivers,
+  addDriver,
+  updateDriver,
+  updateDriverStatus,
+  deleteDriver
 };

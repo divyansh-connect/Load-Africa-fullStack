@@ -74,12 +74,12 @@ export default function YellowPlantBooking() {
                 </svg>
               </div>
               <h2 className="text-xl font-black text-slate-955 uppercase tracking-wider">
-                {step === 1 ? 'BOOK YELLOW PLANT' : step === 2 ? 'BOOKING DETAILS' : 'YOUR QUOTATION'}
+                {step === 1 ? 'BOOK YELLOW PLANT' : step === 2 ? 'BOOKING DETAILS' : step === 3 ? 'YOUR QUOTATION' : 'BOOKING CONFIRMED'}
               </h2>
             </div>
 
             {/* Stepper */}
-            <ProgressStepper currentStep={step} />
+            {step <= 3 && <ProgressStepper currentStep={step} />}
           </div>
 
           {/* Non-Scrollable Content Area Wrapper (Scrolling handled inside components) */}
@@ -107,7 +107,42 @@ export default function YellowPlantBooking() {
                 selectedMachine={selectedMachine}
                 bookingDetails={bookingDetails}
                 onBack={() => setStep(2)}
+                onConfirm={() => setStep(4)}
               />
+            )}
+
+            {step === 4 && (
+              <div className="animate-in zoom-in duration-300 flex flex-col items-center justify-center text-center p-6 space-y-5 h-full">
+                <div className="h-16 w-16 bg-emerald-55 border border-emerald-250 text-emerald-600 rounded-full flex items-center justify-center animate-pulse">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Booking Submitted!</h3>
+                  <p className="text-xs text-slate-500 font-bold max-w-sm mt-2 leading-relaxed">
+                    Your hire request has been sent to the Yellow Plant owner. They will review compliance requirements and verify dispatch scheduling shortly.
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setSelectedMachine(null);
+                    setBookingDetails({
+                      startDate: '',
+                      durationDays: '',
+                      companyName: '',
+                      contactPerson: '',
+                      phone: '',
+                      email: '',
+                      address: '',
+                      city: '',
+                      province: ''
+                    });
+                    setStep(1);
+                  }}
+                  className="px-6 py-2.5 bg-[#f99c00] hover:bg-[#e08b00] text-slate-950 font-black rounded-lg text-xs uppercase tracking-widest transition-colors shadow-md"
+                >
+                  Book Another Machine
+                </button>
+              </div>
             )}
           </div>
         </div>

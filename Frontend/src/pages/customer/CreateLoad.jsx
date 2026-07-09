@@ -72,7 +72,6 @@ export default function CreateLoad() {
   };
 
   return (
-    {/* Main Grid Layout */}
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start pb-0">
         
       {/* Left Form - Independently Scrollable */}

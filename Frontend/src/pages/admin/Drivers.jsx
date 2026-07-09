@@ -1,28 +1,46 @@
 import React, { useState, useEffect } from 'react';
-import { Users, AlertCircle, CheckCircle2, XCircle, Eye, Check, X, Search, ChevronLeft, ChevronRight, Loader2, PauseCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import {
+  Users, AlertCircle, CheckCircle2, XCircle, Eye, Check, X, Search,
+  ChevronLeft, ChevronRight, Loader2, PauseCircle, RefreshCw, Star, Info,
+  MapPin, Shield, Truck, FileText
+} from 'lucide-react';
 import { adminService } from '../../services/adminService';
+import { socket } from '../../utils/socket';
 
 export default function Drivers() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
-  
   const [drivers, setDrivers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalDrivers, setTotalDrivers] = useState(0);
   const [error, setError] = useState(null);
+  const [statusFilter, setStatusFilter] = useState('ALL'); // ALL, PENDING, APPROVED, REJECTED, SUSPENDED
+  const [stats, setStats] = useState({ ALL: 0, PENDING: 0, ACTIVE: 0, REJECTED: 0, SUSPENDED: 0 });
+  
+  // Real-time toast alert state
+  const [liveAlert, setLiveAlert] = useState(null);
 
   const fetchDrivers = async () => {
     try {
       setIsLoading(true);
       setError(null);
-      const res = await adminService.getUsersByRole({ role: 'DRIVER', page, search });
+      
+      const roleParams = { role: 'DRIVER', page, search };
+      if (statusFilter !== 'ALL') {
+        roleParams.status = statusFilter;
+      }
+      
+      const res = await adminService.getUsersByRole(roleParams);
       if (res.success) {
         setDrivers(res.data);
         setTotalPages(res.meta.totalPages);
         setTotalDrivers(res.meta.total);
+        if (res.meta.stats) {
+          setStats(res.meta.stats);
+        }
       } else {
         setError(res.message);
       }
@@ -35,143 +53,297 @@ export default function Drivers() {
 
   useEffect(() => {
     fetchDrivers();
-  }, [page, search]);
+  }, [page, search, statusFilter]);
 
-  const handleAction = async (id, newStatus) => {
+  // Real-time WebSocket handlers
+  useEffect(() => {
+    // Make sure we connect
+    socket.connect();
+
+    socket.on('driver_registered', (newDriver) => {
+      setLiveAlert(`New driver registered: ${newDriver.fullName} (${newDriver.email})`);
+      fetchDrivers();
+      // Clear alert after 5s
+      setTimeout(() => setLiveAlert(null), 5000);
+    });
+
+    socket.on('driver_status_changed', (data) => {
+      setDrivers(prev => prev.map(d => {
+        if (d.id === data.id) {
+          return { ...d, status: data.status };
+        }
+        return d;
+      }));
+    });
+
+    return () => {
+      socket.off('driver_registered');
+      socket.off('driver_status_changed');
+    };
+  }, [statusFilter, page, search]);
+
+  const handleAction = async (id, actionType) => {
     try {
-      if (newStatus === 'ACTIVE') {
-        await adminService.approveUser(id);
-      } else if (newStatus === 'REJECTED' || newStatus === 'SUSPENDED') {
-        await adminService.rejectUser(id);
+      if (actionType === 'APPROVE') {
+        const confirmApprove = window.confirm("Approve this driver profile?");
+        if (!confirmApprove) return;
+        await adminService.approveDriverProfile(id);
+      } else if (actionType === 'REJECT') {
+        const reason = prompt("Enter rejection reason:");
+        if (reason === null) return;
+        await adminService.rejectDriverProfile(id, reason);
+      } else if (actionType === 'SUSPEND') {
+        const reason = prompt("Enter suspension reason:");
+        if (reason === null) return;
+        await adminService.suspendDriverProfile(id, reason);
       }
       fetchDrivers();
     } catch (err) {
-      alert("Failed to update status");
+      alert("Failed to update status: " + (err.response?.data?.message || err.message));
     }
   };
+
+  const statusTabs = [
+    { key: 'ALL', label: 'All' },
+    { key: 'PENDING', label: 'Pending Review' },
+    { key: 'ACTIVE', label: 'Approved' },
+    { key: 'REJECTED', label: 'Rejected' },
+    { key: 'SUSPENDED', label: 'Suspended' }
+  ];
 
   return (
     <div className="space-y-6">
       {/* Title */}
-      <div>
-        <h1 className="text-2xl font-black text-slate-900 tracking-tight">Drivers</h1>
-        <p className="text-sm font-semibold text-slate-500">Manage and review driver accounts and applications. Total: {totalDrivers}</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Driver Verification Module</h1>
+          <p className="text-sm font-semibold text-slate-500">Perform profile checks, compliance validation, and fleet owner assignment.</p>
+        </div>
+        <button
+          onClick={fetchDrivers}
+          className="flex items-center justify-center gap-2 px-4 py-2 border border-slate-200 bg-white rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors shadow-sm select-none"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} /> Sync Records
+        </button>
       </div>
 
-      {/* Toolbar & Data Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        {/* Toolbar */}
-        <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row gap-4 justify-between items-center bg-slate-50">
+      {/* Real-time Toast Alert */}
+      {liveAlert && (
+        <div className="bg-amber-500 text-slate-950 p-4 rounded-xl shadow-lg font-black text-xs tracking-wide animate-bounce flex items-center justify-between">
+          <span>🔔 {liveAlert}</span>
+          <button onClick={() => setLiveAlert(null)}><X className="h-4 w-4" /></button>
+        </div>
+      )}
+
+      {/* Stats Counter Overview */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        {statusTabs.map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => { setStatusFilter(tab.key); setPage(1); }}
+            className={`p-4 rounded-xl border text-left transition-all ${
+              statusFilter === tab.key
+                ? 'bg-amber-500 border-amber-600 text-slate-950 shadow-md font-black'
+                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-800'
+            }`}
+          >
+            <span className="block text-[10px] font-black uppercase tracking-wider opacity-85">{tab.label}</span>
+            <span className="block text-xl font-black mt-1">
+              {stats[tab.key] ?? 0}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {/* Filter and Table Container */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+        {/* Search */}
+        <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row gap-4 justify-between items-center bg-slate-50/50">
           <div className="relative w-full sm:w-96">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <input 
-              type="text" 
-              placeholder="Search by name, email or phone..." 
+            <input
+              type="text"
+              placeholder="Search by name, email, phone, province..."
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-amber-500 text-sm font-medium"
+              className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:border-amber-500 text-xs font-semibold bg-white"
             />
           </div>
-          <button onClick={fetchDrivers} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors w-full sm:w-auto justify-center">
-            Refresh
-          </button>
         </div>
 
-        <div className="overflow-x-auto relative">
+        {/* Data Table */}
+        <div className="overflow-x-auto relative min-h-[250px]">
           {isLoading && (
-             <div className="absolute inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center z-10">
-                <Loader2 className="h-8 w-8 text-amber-500 animate-spin" />
-             </div>
+            <div className="absolute inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center z-10">
+              <Loader2 className="h-8 w-8 text-amber-500 animate-spin" />
+            </div>
           )}
-          <table className="w-full min-w-[800px] text-left text-xs sm:text-sm">
+
+          <table className="w-full min-w-[900px] text-left text-xs sm:text-sm">
             <thead>
-              <tr className="border-b border-slate-100 bg-slate-50">
-                <th className="px-5 py-4 font-bold text-slate-500">Name</th>
-                <th className="px-5 py-4 font-bold text-slate-500">Email</th>
-                <th className="px-5 py-4 font-bold text-slate-500">License</th>
-                <th className="px-5 py-4 font-bold text-slate-500">Status</th>
-                <th className="px-5 py-4 font-bold text-slate-500 text-right">Actions</th>
+              <tr className="border-b border-slate-100 bg-slate-55/20 text-slate-500 uppercase text-[10px] font-black tracking-wider">
+                <th className="px-5 py-4">Driver</th>
+                <th className="px-5 py-4">Affiliation Type</th>
+                <th className="px-5 py-4">Verification Specs</th>
+                <th className="px-5 py-4">Base Location</th>
+                <th className="px-5 py-4">Current Status</th>
+                <th className="px-5 py-4 text-right">Verification Center</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
               {error && (
                 <tr>
-                  <td colSpan="5" className="px-5 py-8 text-center text-red-500 font-medium">{error}</td>
+                  <td colSpan="6" className="px-5 py-8 text-center text-red-500 font-bold">{error}</td>
                 </tr>
               )}
               {!isLoading && !error && drivers.length === 0 && (
                 <tr>
-                  <td colSpan="5" className="px-5 py-8 text-center text-slate-400 font-medium">No drivers found.</td>
+                  <td colSpan="6" className="px-5 py-8 text-center text-slate-400 font-bold">No registered drivers found matching criteria.</td>
                 </tr>
               )}
-              {drivers.map((driver) => (
-                <tr key={driver.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-5 py-4 font-semibold text-slate-900 whitespace-nowrap">
-                    {driver.first_name ? `${driver.first_name} ${driver.last_name || ''}` : 'Driver'}
-                  </td>
-                  <td className="px-5 py-4 text-slate-600 whitespace-nowrap">
-                    {driver.email}
-                    <div className="text-[10px] text-slate-400 mt-1">{driver.phone || 'No phone'}</div>
-                  </td>
-                  <td className="px-5 py-4 text-slate-600 whitespace-nowrap">
-                    {driver.driver?.license || 'Not provided'}
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className={`inline-flex px-3 py-1 text-[10px] font-bold rounded-full uppercase tracking-wider ${
-                      driver.status === 'REJECTED' || driver.status === 'SUSPENDED' ? 'bg-red-100 text-red-700' :
-                      driver.status === 'PENDING' ? 'bg-amber-100 text-amber-700' :
-                      'bg-green-100 text-green-700'
-                    }`}>
-                      {driver.status}
-                    </span>
-                  </td>
-                  <td className="px-5 py-4 text-right">
-                    <div className="flex items-center justify-end gap-3">
-                      {driver.status === 'PENDING' && (
-                        <>
-                          <button onClick={() => handleAction(driver.id, 'ACTIVE')} className="text-green-500 hover:text-green-600 transition-colors" title="Approve">
+
+              {drivers.map((user) => {
+                const driverData = user.driver || {};
+                const profile = driverData.profile || {};
+                const vehicle = driverData.vehicle_relation || {};
+                const photos = driverData.photos || {};
+
+                return (
+                  <tr key={user.id} className="hover:bg-slate-50/50 transition-colors">
+                    {/* Driver main column */}
+                    <td className="px-5 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-slate-200 border border-slate-300 overflow-hidden shrink-0">
+                          {photos.profile_photo ? (
+                            <img src={`${import.meta.env.VITE_API_URL}${photos.profile_photo}`} alt="avatar" className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="h-full w-full flex items-center justify-center text-slate-500"><Users className="h-5 w-5" /></div>
+                          )}
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-slate-900">{user.first_name} {user.last_name || ''}</h4>
+                          <p className="text-[10px] text-slate-400 font-bold leading-normal">{user.email}</p>
+                          <p className="text-[10px] text-slate-400 font-bold leading-normal">{user.phone || 'No phone number'}</p>
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Affiliation Type */}
+                    <td className="px-5 py-4 whitespace-nowrap">
+                      <div>
+                        <span className={`inline-flex px-2 py-0.5 text-[9px] font-black tracking-wide uppercase rounded-md ${
+                          driverData.fleet_owner_id ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
+                        }`}>
+                          {driverData.fleet_owner_id ? 'Fleet Driver' : 'Independent'}
+                        </span>
+                        {driverData.fleet_owner && (
+                          <p className="text-[10px] text-slate-500 font-bold mt-1 max-w-[150px] truncate">{driverData.fleet_owner.company_name}</p>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* Verification Specs */}
+                    <td className="px-5 py-4 whitespace-nowrap">
+                      <div className="space-y-0.5">
+                        <p className="text-xs text-slate-900"><span className="text-[10px] text-slate-450 uppercase font-black">Lic:</span> {driverData.license || 'N/A'}</p>
+                        {vehicle.registration_number && (
+                          <p className="text-[10px] text-slate-500"><span className="uppercase font-black text-[9px]">Veh Reg:</span> {vehicle.registration_number}</p>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* Base Location */}
+                    <td className="px-5 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-1 text-xs text-slate-600">
+                        <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                        <div>
+                          <span>{profile.city || user.driver?.address || 'N/A'}</span>
+                          {profile.province && <span className="block text-[9px] font-black text-slate-450 uppercase">{profile.province}</span>}
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Status */}
+                    <td className="px-5 py-4 whitespace-nowrap">
+                      <span className={`inline-flex px-3 py-1 text-[10px] font-black rounded-full uppercase tracking-wider ${
+                        user.status === 'REJECTED' ? 'bg-red-50 text-red-700 border border-red-200' :
+                        user.status === 'SUSPENDED' ? 'bg-orange-50 text-orange-700 border border-orange-200' :
+                        user.status === 'PENDING' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+                        'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                      }`}>
+                        {user.status === 'ACTIVE' ? 'APPROVED' : user.status}
+                      </span>
+                    </td>
+
+                    {/* Actions */}
+                    <td className="px-5 py-4 whitespace-nowrap text-right">
+                      <div className="flex items-center justify-end gap-2.5">
+                        {user.status === 'PENDING' && (
+                          <>
+                            <button
+                              onClick={() => handleAction(user.id, 'APPROVE')}
+                              className="h-7 w-7 rounded-lg border border-emerald-200 text-emerald-600 hover:bg-emerald-50 flex items-center justify-center transition-colors"
+                              title="Approve Driver"
+                            >
+                              <Check className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleAction(user.id, 'REJECT')}
+                              className="h-7 w-7 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 flex items-center justify-center transition-colors"
+                              title="Reject Driver"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </>
+                        )}
+                        {user.status === 'ACTIVE' && (
+                          <button
+                            onClick={() => handleAction(user.id, 'SUSPEND')}
+                            className="h-7 w-7 rounded-lg border border-orange-200 text-orange-600 hover:bg-orange-50 flex items-center justify-center transition-colors"
+                            title="Suspend Account"
+                          >
+                            <PauseCircle className="h-4 w-4" />
+                          </button>
+                        )}
+                        {user.status === 'SUSPENDED' && (
+                          <button
+                            onClick={() => handleAction(user.id, 'APPROVE')}
+                            className="h-7 w-7 rounded-lg border border-emerald-200 text-emerald-600 hover:bg-emerald-50 flex items-center justify-center transition-colors"
+                            title="Reactivate Account"
+                          >
                             <Check className="h-4 w-4" />
                           </button>
-                          <button onClick={() => handleAction(driver.id, 'REJECTED')} className="text-red-500 hover:text-red-600 transition-colors" title="Reject">
-                            <X className="h-4 w-4" />
-                          </button>
-                        </>
-                      )}
-                      {driver.status === 'ACTIVE' && (
-                         <button onClick={() => handleAction(driver.id, 'SUSPENDED')} className="text-amber-500 hover:text-amber-600 transition-colors" title="Suspend">
-                           <PauseCircle className="h-4 w-4" />
-                         </button>
-                      )}
-                      {driver.status === 'SUSPENDED' && (
-                         <button onClick={() => handleAction(driver.id, 'ACTIVE')} className="text-green-500 hover:text-green-600 transition-colors" title="Reactivate">
-                           <CheckCircle2 className="h-4 w-4" />
-                         </button>
-                      )}
-                      <button onClick={() => navigate(`/admin-portal/drivers/${driver.id}`)} className="text-slate-600 hover:text-slate-900 transition-colors" title="View Profile">
-                        <Eye className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                        )}
+                        <button
+                          onClick={() => navigate(`/admin-portal/drivers/${user.id}`)}
+                          className="h-7 w-7 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center justify-center transition-colors"
+                          title="View Profile Details"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
 
         {/* Pagination */}
-        <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
-          <p className="text-xs text-slate-500 font-medium">
-            Page {page} of {totalPages}
+        <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
+          <p className="text-xs text-slate-500 font-bold">
+            Showing Page {page} of {totalPages}
           </p>
           <div className="flex gap-2">
-            <button 
+            <button
               disabled={page === 1}
               onClick={() => setPage(p => Math.max(1, p - 1))}
               className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-white disabled:opacity-50 disabled:hover:bg-transparent transition-colors"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <button 
+            <button
               disabled={page === totalPages || totalPages === 0}
               onClick={() => setPage(p => Math.min(totalPages, p + 1))}
               className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-white disabled:opacity-50 disabled:hover:bg-transparent transition-colors"

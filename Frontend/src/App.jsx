@@ -44,6 +44,13 @@ import FleetAuth from './pages/fleet/FleetAuth';
 import FleetLayout from './layouts/FleetLayout';
 import FleetDashboard from './pages/fleet/FleetDashboard';
 import FleetCompliance from './pages/fleet/FleetCompliance';
+import FleetDrivers from './pages/fleet/FleetDrivers';
+import AddDriver from './pages/fleet/AddDriver';
+import FleetVehicles from './pages/fleet/FleetVehicles';
+import AddVehicle from './pages/fleet/AddVehicle';
+import VehicleDetails from './pages/fleet/VehicleDetails';
+import EditVehicle from './pages/fleet/EditVehicle';
+import EditDriver from './pages/fleet/EditDriver';
 
 // ── Yellow Plant Auth + Dashboard ──
 import PlantAuth from './pages/plant/PlantAuth';
@@ -145,10 +152,16 @@ export default function App() {
         <Route path="/fleet-portal" element={<FleetLayout />}>
           <Route path="compliance" element={<FleetCompliance />} />
           <Route path="dashboard" element={<FleetDashboard />} />
-          <Route path="vehicles" element={<FleetDashboard />} />
+          <Route path="vehicles" element={<FleetVehicles />} />
+          <Route path="vehicles/add" element={<AddVehicle />} />
+          <Route path="vehicles/:id" element={<VehicleDetails />} />
+          <Route path="vehicles/:id/edit" element={<EditVehicle />} />
+          <Route path="drivers" element={<FleetDrivers />} />
+          <Route path="drivers/add" element={<AddDriver />} />
+          <Route path="drivers/:id/edit" element={<EditDriver />} />
           <Route path="requests" element={<FleetDashboard />} />
           <Route path="revenue" element={<FleetDashboard />} />
-          <Route path="add-vehicle" element={<FleetDashboard />} />
+          <Route path="add-vehicle" element={<Navigate to="/fleet-portal/vehicles/add" replace />} />
           <Route path="profile" element={<FleetDashboard />} />
           <Route index element={<Navigate to="dashboard" replace />} />
         </Route>

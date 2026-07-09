@@ -6,7 +6,7 @@ import {
 import { Card, Input, Select, GooglePlacesInput } from '../components/ui';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
-
+import { authService } from '../services/authService';
 
 const VEHICLE_TYPES = [
   'LDV',
@@ -71,6 +71,8 @@ export default function Drivers() {
   const [licenceUploaded, setLicenceUploaded] = useState(false);
   const [prdpUploaded, setPrdpUploaded] = useState(false);
   const [vehicleDocUploaded, setVehicleDocUploaded] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   const handleCreateAccount = (e) => {
     e.preventDefault();
@@ -83,9 +85,40 @@ export default function Drivers() {
     setStep(2);
   };
 
-  const handleDocumentsSubmit = (e) => {
+  const handleDocumentsSubmit = async (e) => {
     e.preventDefault();
-    setStep(3);
+    if (!licenceUploaded || !prdpUploaded || !vehicleDocUploaded) return;
+
+    try {
+      setSubmitting(true);
+      setSubmitError('');
+
+      const res = await authService.register({
+        email,
+        password,
+        role: 'DRIVER',
+        firstName: fullName.split(' ')[0],
+        lastName: fullName.split(' ').slice(1).join(' ') || '',
+        phone,
+        address: baseAddress,
+        license: licenseNumber,
+        pdp: 'Verified',
+        idDocument: idNumber,
+        vehicleType,
+        vehicleReg
+      });
+
+      if (res.success) {
+        setStep(3);
+      } else {
+        setSubmitError(res.message || 'Failed to submit driver application');
+      }
+    } catch (err) {
+      console.error(err);
+      setSubmitError(err.response?.data?.message || err.message || 'Error submitting application');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -470,20 +503,28 @@ export default function Drivers() {
                 </button>
               </div>
 
+               {submitError && (
+                <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 shrink-0 text-red-500" />
+                  <span className="font-semibold">{submitError}</span>
+                </div>
+              )}
+
               <div className="flex gap-4 pt-2">
                 <button 
                   type="button" 
                   onClick={() => setStep(1)}
+                  disabled={submitting}
                   className="flex-1 py-3.5 border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-bold rounded-lg uppercase"
                 >
                   Back to Personal
                 </button>
                 <button 
                   type="submit"
-                  disabled={!licenceUploaded || !prdpUploaded || !vehicleDocUploaded}
-                  className={`flex-1 py-3.5 text-xs font-black rounded-lg uppercase tracking-wider transition-colors ${(!licenceUploaded || !prdpUploaded || !vehicleDocUploaded) ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-[#f99c00] hover:bg-[#e08b00] text-slate-950'}`}
+                  disabled={submitting || !licenceUploaded || !prdpUploaded || !vehicleDocUploaded}
+                  className={`flex-1 py-3.5 text-xs font-black rounded-lg uppercase tracking-wider transition-colors ${(submitting || !licenceUploaded || !prdpUploaded || !vehicleDocUploaded) ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-[#f99c00] hover:bg-[#e08b00] text-slate-950'}`}
                 >
-                  SUBMIT DOCUMENTS
+                  {submitting ? 'SUBMITTING APPLICATION...' : 'SUBMIT DOCUMENTS'}
                 </button>
               </div>
             </form>

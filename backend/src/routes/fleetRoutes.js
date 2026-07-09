@@ -3,19 +3,52 @@ const {
   getDashboard,
   submitCompliance,
   addVehicle,
-  addDriver
+  getVehicles,
+  updateVehicle,
+  deleteVehicle,
+  getDrivers,
+  addDriver,
+  updateDriver,
+  updateDriverStatus,
+  deleteDriver
 } = require('../controllers/fleetController');
 
 const router = express.Router();
 
-// Mock auth middleware for now
-const softProtect = (req, res, next) => {
-  next();
+const { verifyToken } = require('../utils/jwt');
+const { prisma } = require('../config/db');
+
+// Extracts user if token exists, but doesn't strictly enforce ACTIVE status
+const softProtect = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      const decoded = verifyToken(token);
+      if (decoded) {
+        req.user = await prisma.user.findUnique({ where: { id: decoded.id } });
+      }
+    }
+    next();
+  } catch (error) {
+    next();
+  }
 };
 
 router.get('/dashboard', softProtect, getDashboard);
 router.post('/compliance/submit', softProtect, submitCompliance);
+
+// Vehicle CRUD
+router.get('/vehicles', softProtect, getVehicles);
 router.post('/vehicles', softProtect, addVehicle);
+router.put('/vehicles/:id', softProtect, updateVehicle);
+router.delete('/vehicles/:id', softProtect, deleteVehicle);
+
+// Driver CRUD
+router.get('/drivers', softProtect, getDrivers);
 router.post('/drivers', softProtect, addDriver);
+router.put('/drivers/:id', softProtect, updateDriver);
+router.put('/drivers/:id/status', softProtect, updateDriverStatus);
+router.delete('/drivers/:id', softProtect, deleteDriver);
 
 module.exports = router;

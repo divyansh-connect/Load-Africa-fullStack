@@ -16,6 +16,11 @@ export const plantService = {
     return response.data;
   },
 
+  getPublicMachines: async () => {
+    const response = await api.get('/plant/machines/public');
+    return response.data;
+  },
+
   acceptHireRequest: async (requestId, data) => {
     const response = await api.post(`/plant/hire-requests/${requestId}/accept`, data);
     return response.data;

@@ -113,7 +113,15 @@ const approveUser = async (req, res) => {
       } else if (user.role === 'FLEET_OWNER') {
         await tx.fleetOwner.update({ where: { user_id: userId }, data: { status: 'ACTIVE' }});
       } else if (user.role === 'PLANT_OWNER') {
-        await tx.plantOwner.update({ where: { user_id: userId }, data: { status: 'ACTIVE' }});
+        await tx.plantOwner.upsert({
+          where: { user_id: userId },
+          update: { status: 'ACTIVE' },
+          create: {
+            user_id: userId,
+            company_name: `${user.first_name || 'Plant'} ${user.last_name || 'Owner'}`,
+            status: 'ACTIVE'
+          }
+        });
       }
 
       await tx.activityLog.create({
@@ -192,7 +200,9 @@ const getDashboardStats = async (req, res) => {
     const driversCount = await prisma.user.count({ where: { role: 'DRIVER', is_deleted: false } });
     const fleetCount = await prisma.user.count({ where: { role: 'FLEET_OWNER', is_deleted: false } });
     const plantCount = await prisma.user.count({ where: { role: 'PLANT_OWNER', is_deleted: false } });
-    const pendingCount = await prisma.user.count({ where: { status: 'PENDING', is_deleted: false } });
+    const pendingUsersCount = await prisma.user.count({ where: { status: 'PENDING', is_deleted: false } });
+    const pendingPlantAppsCount = await prisma.plantOwnerApplication.count({ where: { status: 'PENDING' } });
+    const pendingCount = pendingUsersCount + pendingPlantAppsCount;
     
     // For today's bookings:
     const startOfDay = new Date();
@@ -271,7 +281,18 @@ const getUsersByRole = async (req, res) => {
         take: limitNum,
         include: {
           customer: true,
-          driver: true,
+          driver: {
+            include: {
+              fleet_owner: true,
+              profile: true,
+              photos: true,
+              documents_relation: true,
+              vehicle_relation: true,
+              kyc: true,
+              approval: true,
+              status_history: true
+            }
+          },
           fleet_owner: true,
           plant_owner: true,
           broker: true,
@@ -283,6 +304,24 @@ const getUsersByRole = async (req, res) => {
       prisma.user.count({ where: whereCondition })
     ]);
 
+    let stats = null;
+    if (role && role.toUpperCase().includes('DRIVER')) {
+      const [allCount, pendingCount, activeCount, rejectedCount, suspendedCount] = await Promise.all([
+        prisma.user.count({ where: { role: 'DRIVER', is_deleted: false } }),
+        prisma.user.count({ where: { role: 'DRIVER', status: 'PENDING', is_deleted: false } }),
+        prisma.user.count({ where: { role: 'DRIVER', status: 'ACTIVE', is_deleted: false } }),
+        prisma.user.count({ where: { role: 'DRIVER', status: 'REJECTED', is_deleted: false } }),
+        prisma.user.count({ where: { role: 'DRIVER', status: 'SUSPENDED', is_deleted: false } })
+      ]);
+      stats = {
+        ALL: allCount,
+        PENDING: pendingCount,
+        ACTIVE: activeCount,
+        REJECTED: rejectedCount,
+        SUSPENDED: suspendedCount
+      };
+    }
+
     res.status(200).json({
       success: true,
       data: users,
@@ -290,7 +329,8 @@ const getUsersByRole = async (req, res) => {
         total,
         page: pageNum,
         limit: limitNum,
-        totalPages: Math.ceil(total / limitNum)
+        totalPages: Math.ceil(total / limitNum),
+        stats
       }
     });
   } catch (error) {
@@ -567,7 +607,23 @@ const getUserById = async (req, res, next) => {
       where: { id },
       include: {
         customer: true,
-        driver: { include: { applications: true, assignments: true } },
+        driver: {
+          include: {
+            applications: true,
+            assignments: true,
+            profile: true,
+            photos: true,
+            documents_relation: true,
+            vehicle_relation: true,
+            kyc: true,
+            approval: true,
+            status_history: {
+              include: { changed_by: true },
+              orderBy: { created_at: 'desc' }
+            },
+            fleet_owner: true
+          }
+        },
         fleet_owner: { include: { vehicles: true, drivers: true } },
         broker: true,
         plant_owner: { include: { machines: true, operators: true } },
@@ -578,6 +634,359 @@ const getUserById = async (req, res, next) => {
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
     res.status(200).json({ success: true, data: user });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+const approveDriver = async (req, res) => {
+  try {
+    const { driverId } = req.params;
+    const userId = driverId;
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { driver: true }
+    });
+
+    if (!user || !user.driver) {
+      return res.status(404).json({ success: false, message: 'Driver not found' });
+    }
+
+    const driver = user.driver;
+
+    await prisma.$transaction(async (tx) => {
+      // Update User
+      await tx.user.update({
+        where: { id: userId },
+        data: { status: 'ACTIVE' }
+      });
+
+      // Update Driver
+      await tx.driver.update({
+        where: { id: driver.id },
+        data: { status: 'ACTIVE' }
+      });
+
+      // Update DriverApproval
+      await tx.driverApproval.upsert({
+        where: { driver_id: driver.id },
+        update: {
+          status: 'APPROVED',
+          approved_by_id: req.user.id,
+          approved_at: new Date(),
+          rejection_reason: null,
+          suspension_reason: null,
+          requested_documents: null
+        },
+        create: {
+          driver_id: driver.id,
+          status: 'APPROVED',
+          approved_by_id: req.user.id,
+          approved_at: new Date()
+        }
+      });
+
+      // Status History
+      await tx.driverStatusHistory.create({
+        data: {
+          driver_id: driver.id,
+          old_status: user.status,
+          new_status: 'APPROVED',
+          changed_by_id: req.user.id,
+          change_reason: 'Admin approved driver credentials'
+        }
+      });
+
+      // Activity Log
+      await tx.activityLog.create({
+        data: {
+          user_id: req.user.id,
+          action: 'DRIVER_APPROVED',
+          description: `Admin approved driver ${user.email}`
+        }
+      });
+    });
+
+    // Simulate Email Sending
+    console.log(`✉️ Sending Approval Email to: ${user.email}`);
+    console.log(`Subject: Welcome to LoadAfrica - Driver Profile Approved!`);
+    console.log(`Message: Dear Driver, your profile has been successfully verified. You can now log into your account using your email and password.`);
+
+    // Emit live update to let frontend reload lists without refresh
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('driver_status_changed', { id: userId, status: 'ACTIVE' });
+    }
+
+    res.status(200).json({ success: true, message: 'Driver approved successfully and notification sent' });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+const rejectDriver = async (req, res) => {
+  try {
+    const { driverId } = req.params;
+    const { reason } = req.body;
+    const userId = driverId;
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { driver: true }
+    });
+
+    if (!user || !user.driver) {
+      return res.status(404).json({ success: false, message: 'Driver not found' });
+    }
+
+    const driver = user.driver;
+
+    await prisma.$transaction(async (tx) => {
+      // Update User
+      await tx.user.update({
+        where: { id: userId },
+        data: { status: 'REJECTED' }
+      });
+
+      // Update Driver
+      await tx.driver.update({
+        where: { id: driver.id },
+        data: { status: 'REJECTED' }
+      });
+
+      // Update DriverApproval
+      await tx.driverApproval.upsert({
+        where: { driver_id: driver.id },
+        update: {
+          status: 'REJECTED',
+          rejection_reason: reason || 'Documents invalid or incomplete',
+          rejected_at: new Date()
+        },
+        create: {
+          driver_id: driver.id,
+          status: 'REJECTED',
+          rejection_reason: reason || 'Documents invalid or incomplete',
+          rejected_at: new Date()
+        }
+      });
+
+      // Status History
+      await tx.driverStatusHistory.create({
+        data: {
+          driver_id: driver.id,
+          old_status: user.status,
+          new_status: 'REJECTED',
+          changed_by_id: req.user.id,
+          change_reason: reason || 'Admin rejected driver application'
+        }
+      });
+
+      // Activity Log
+      await tx.activityLog.create({
+        data: {
+          user_id: req.user.id,
+          action: 'DRIVER_REJECTED',
+          description: `Admin rejected driver ${user.email}. Reason: ${reason}`
+        }
+      });
+    });
+
+    console.log(`✉️ Sending Rejection Email to: ${user.email}`);
+    console.log(`Reason: ${reason}`);
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('driver_status_changed', { id: userId, status: 'REJECTED' });
+    }
+
+    res.status(200).json({ success: true, message: 'Driver rejected successfully' });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+const suspendDriver = async (req, res) => {
+  try {
+    const { driverId } = req.params;
+    const { reason } = req.body;
+    const userId = driverId;
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { driver: true }
+    });
+
+    if (!user || !user.driver) {
+      return res.status(404).json({ success: false, message: 'Driver not found' });
+    }
+
+    const driver = user.driver;
+
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: { status: 'SUSPENDED' }
+      });
+
+      await tx.driver.update({
+        where: { id: driver.id },
+        data: { status: 'SUSPENDED' }
+      });
+
+      await tx.driverApproval.upsert({
+        where: { driver_id: driver.id },
+        update: {
+          status: 'SUSPENDED',
+          suspension_reason: reason || 'Violation of terms',
+          suspended_at: new Date()
+        },
+        create: {
+          driver_id: driver.id,
+          status: 'SUSPENDED',
+          suspension_reason: reason || 'Violation of terms',
+          suspended_at: new Date()
+        }
+      });
+
+      await tx.driverStatusHistory.create({
+        data: {
+          driver_id: driver.id,
+          old_status: user.status,
+          new_status: 'SUSPENDED',
+          changed_by_id: req.user.id,
+          change_reason: reason || 'Admin suspended driver account'
+        }
+      });
+
+      await tx.activityLog.create({
+        data: {
+          user_id: req.user.id,
+          action: 'DRIVER_SUSPENDED',
+          description: `Admin suspended driver ${user.email}. Reason: ${reason}`
+        }
+      });
+    });
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('driver_status_changed', { id: userId, status: 'SUSPENDED' });
+    }
+
+    res.status(200).json({ success: true, message: 'Driver suspended successfully' });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+const requestMoreDocuments = async (req, res) => {
+  try {
+    const { driverId } = req.params;
+    const { requestedDocs } = req.body;
+    const userId = driverId;
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { driver: true }
+    });
+
+    if (!user || !user.driver) {
+      return res.status(404).json({ success: false, message: 'Driver not found' });
+    }
+
+    const driver = user.driver;
+
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: { status: 'PENDING' }
+      });
+
+      await tx.driver.update({
+        where: { id: driver.id },
+        data: { status: 'INACTIVE' }
+      });
+
+      await tx.driverApproval.upsert({
+        where: { driver_id: driver.id },
+        update: {
+          status: 'PENDING',
+          requested_documents: requestedDocs
+        },
+        create: {
+          driver_id: driver.id,
+          status: 'PENDING',
+          requested_documents: requestedDocs
+        }
+      });
+
+      await tx.driverStatusHistory.create({
+        data: {
+          driver_id: driver.id,
+          old_status: user.status,
+          new_status: 'PENDING',
+          changed_by_id: req.user.id,
+          change_reason: `Admin requested correction/resubmission: ${requestedDocs}`
+        }
+      });
+    });
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('driver_status_changed', { id: userId, status: 'PENDING' });
+    }
+
+    res.status(200).json({ success: true, message: 'Revision request sent to driver successfully' });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+const assignDriverFleet = async (req, res) => {
+  try {
+    const { driverId } = req.params;
+    const { fleetOwnerId } = req.body;
+    const userId = driverId;
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { driver: true }
+    });
+
+    if (!user || !user.driver) {
+      return res.status(404).json({ success: false, message: 'Driver not found' });
+    }
+
+    const driver = user.driver;
+
+    await prisma.driver.update({
+      where: { id: driver.id },
+      data: {
+        fleet_owner_id: fleetOwnerId || null
+      }
+    });
+
+    await prisma.activityLog.create({
+      data: {
+        user_id: req.user.id,
+        action: 'DRIVER_FLEET_ASSIGNED',
+        description: `Admin assigned driver ${user.email} to fleet owner ${fleetOwnerId}`
+      }
+    });
+
+    res.status(200).json({ success: true, message: 'Driver fleet company assigned successfully' });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+const getApprovedFleetOwners = async (req, res) => {
+  try {
+    const fleetOwners = await prisma.user.findMany({
+      where: { role: 'FLEET_OWNER', status: 'ACTIVE', is_deleted: false },
+      include: { fleet_owner: true }
+    });
+    res.status(200).json({ success: true, data: fleetOwners });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }
@@ -600,5 +1009,11 @@ module.exports = {
   getBookingById,
   assignProvider,
   deleteUser,
-  deleteBooking
+  deleteBooking,
+  approveDriver,
+  rejectDriver,
+  suspendDriver,
+  requestMoreDocuments,
+  assignDriverFleet,
+  getApprovedFleetOwners
 };

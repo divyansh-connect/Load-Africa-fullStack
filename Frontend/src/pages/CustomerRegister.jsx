@@ -4,9 +4,12 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { Card, Input } from '../components/ui';
 import { User, MapPin } from 'lucide-react';
+import { authService } from '../services/authService';
 
 export default function CustomerRegister() {
   const navigate = useNavigate();
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   // Form states
   const [fullName, setFullName] = useState('');
@@ -15,10 +18,30 @@ export default function CustomerRegister() {
   const [password, setPassword] = useState('');
   const [address, setAddress] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // In a real app, this would submit the registration/login data
-    console.log('Form submitted:', { fullName, phone, email, password, address });
+    if (!fullName || !email || !password || !phone) {
+      setError('Please fill all required fields');
+      return;
+    }
+    setError('');
+    setLoading(true);
+
+    try {
+      await authService.register({
+        email,
+        password,
+        role: 'CUSTOMER',
+        firstName: fullName.split(' ')[0],
+        lastName: fullName.split(' ').slice(1).join(' '),
+        phone,
+      });
+      setLoading(false);
+      navigate('/customer/login');
+    } catch (err) {
+      setLoading(false);
+      setError(err.response?.data?.message || 'Registration failed.');
+    }
   };
 
   return (

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Outlet, useNavigate, NavLink, useLocation } from 'react-router-dom';
 import { 
   Truck, LogOut, LayoutDashboard, Users, FileText, Shield, 
-  Settings, Briefcase, BookOpen, Target, Menu, X, User 
+  Settings, Briefcase, BookOpen, Target, Menu, X, User, Bell
 } from 'lucide-react';
 
 export default function AdminLayout({ children }) {
@@ -10,6 +10,7 @@ export default function AdminLayout({ children }) {
   const location = useLocation();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
   const handleLogout = () => {
     navigate('/login');
@@ -145,9 +146,55 @@ export default function AdminLayout({ children }) {
           </div>
 
           <div className="flex items-center gap-4">
+            {/* Notification Bell */}
             <div className="relative">
               <button 
-                onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                onClick={() => {
+                  setIsNotificationsOpen(!isNotificationsOpen);
+                  setIsUserMenuOpen(false);
+                }}
+                className="relative p-2 rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+              >
+                <Bell className="h-5 w-5" />
+                {/* Red dot badge for unread notifications */}
+                <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+              </button>
+
+              {isNotificationsOpen && (
+                <>
+                  <div className="fixed inset-0 z-20" onClick={() => setIsNotificationsOpen(false)} />
+                  <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-slate-150 py-2 z-30 transform origin-top-right transition-all">
+                    <div className="px-4 py-3 border-b border-slate-100 flex justify-between items-center">
+                      <p className="text-sm font-bold text-slate-800">Notifications</p>
+                      <button className="text-[11px] text-[#f99c00] hover:underline font-semibold">Mark all read</button>
+                    </div>
+                    <div className="max-h-64 overflow-y-auto">
+                      {/* Placeholder Notification Items */}
+                      <div className="px-4 py-3 border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer">
+                        <p className="text-xs font-semibold text-slate-800">New Fleet Registration</p>
+                        <p className="text-[11px] text-slate-500 mt-0.5">A new fleet owner has uploaded their documents for approval.</p>
+                        <span className="text-[10px] text-slate-400 mt-1 block">5 minutes ago</span>
+                      </div>
+                      <div className="px-4 py-3 border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer">
+                        <p className="text-xs font-semibold text-slate-800">System Alert</p>
+                        <p className="text-[11px] text-slate-500 mt-0.5">Your admin session will expire in 1 hour.</p>
+                        <span className="text-[10px] text-slate-400 mt-1 block">1 hour ago</span>
+                      </div>
+                    </div>
+                    <div className="px-4 py-2 text-center border-t border-slate-100">
+                      <button className="text-xs font-bold text-slate-600 hover:text-slate-900">View all notifications</button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="relative">
+              <button 
+                onClick={() => {
+                  setIsUserMenuOpen(!isUserMenuOpen);
+                  setIsNotificationsOpen(false);
+                }}
                 className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-slate-100 transition-all duration-200"
               >
                 <div className="h-8 w-8 rounded-full bg-slate-900 flex items-center justify-center text-amber-500 font-black border border-slate-200">

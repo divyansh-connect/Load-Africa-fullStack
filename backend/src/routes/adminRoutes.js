@@ -16,7 +16,13 @@ const {
   getBookingById,
   assignProvider,
   deleteUser,
-  deleteBooking
+  deleteBooking,
+  approveDriver,
+  rejectDriver,
+  suspendDriver,
+  requestMoreDocuments,
+  assignDriverFleet,
+  getApprovedFleetOwners
 } = require('../controllers/adminController');
 const { requireAuth, requireRole } = require('../middlewares/authMiddleware');
 
@@ -34,6 +40,14 @@ router.get('/users/:id', getUserById);
 router.get('/pending-users', getPendingUsers);
 router.post('/users/approve/:userId', approveUser);
 router.post('/users/reject/:userId', rejectUser);
+
+// Driver Action Endpoints
+router.post('/drivers/:driverId/approve', approveDriver);
+router.post('/drivers/:driverId/reject', rejectDriver);
+router.post('/drivers/:driverId/suspend', suspendDriver);
+router.post('/drivers/:driverId/request-docs', requestMoreDocuments);
+router.post('/drivers/:driverId/assign-fleet', assignDriverFleet);
+router.get('/fleet-owners/approved', getApprovedFleetOwners);
 
 // Booking Management
 router.get('/bookings', getAllBookings);
