@@ -95,7 +95,24 @@ const getAssignedLoads = async (req, res) => {
 
     const bookings = await prisma.booking.findMany({
       where: {
-        status: { notIn: ['DRAFT', 'QUOTE_REQUESTED', 'QUOTE_PREPARED', 'REJECTED', 'CANCELLED', 'FAILED', 'EXPIRED'] }
+        status: { notIn: ['DRAFT', 'QUOTE_REQUESTED', 'QUOTE_PREPARED', 'REJECTED', 'CANCELLED', 'FAILED', 'EXPIRED'] },
+        OR: [
+          {
+            assignments: {
+              some: {
+                broker_id: broker.id
+              }
+            }
+          },
+          {
+            quotes: {
+              some: {
+                prepared_by: req.user.id,
+                status: 'ACCEPTED'
+              }
+            }
+          }
+        ]
       },
       include: {
         customer: { include: { user: true } },
@@ -240,8 +257,20 @@ const getCustomers = async (req, res) => {
 
     const customerMap = new Map();
     assignments.forEach(a => {
-      if (a.booking.customer) {
-        customerMap.set(a.booking.customer.id, a.booking.customer);
+      const customer = a.booking?.customer;
+      if (customer) {
+        if (!customerMap.has(customer.id)) {
+          customerMap.set(customer.id, {
+            ...customer,
+            totalBookings: 0,
+            activeBookings: 0
+          });
+        }
+        const entry = customerMap.get(customer.id);
+        entry.totalBookings += 1;
+        if (['IN_TRANSIT', 'PICKED_UP', 'LOADING', 'DRIVER_EN_ROUTE', 'ARRIVED_PICKUP'].includes(a.booking.status)) {
+          entry.activeBookings += 1;
+        }
       }
     });
 

@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Navigation, Package, Calendar, MapPin, 
-  ExternalLink, CheckCircle2, X, RefreshCcw
+  ExternalLink, CheckCircle2, X, RefreshCcw,
+  Truck, User, Building, Phone, Clock, FileText, ArrowRight, ShieldCheck, Send
 } from 'lucide-react';
 import { brokerService } from '../../services/brokerService';
 import { bookingService } from '../../services/bookingService';
@@ -17,8 +18,8 @@ export default function AssignedLoads() {
 
   const [fleets, setFleets] = useState([]);
   const [drivers, setDrivers] = useState([]);
-  const [selectedFleetId, setSelectedFleetId] = useState('');
-  const [selectedDriverId, setSelectedDriverId] = useState('');
+  const [selectedPartnerId, setSelectedPartnerId] = useState('');
+  const [partnerType, setPartnerType] = useState('FLEET'); // FLEET or DRIVER
   const [assigning, setAssigning] = useState(false);
 
   useEffect(() => {
@@ -28,6 +29,7 @@ export default function AssignedLoads() {
 
   const fetchAssignedLoads = async () => {
     try {
+      setLoading(true);
       const res = await brokerService.getAssignedLoads();
       if (res.success) {
         setAssignedLoads(res.data);
@@ -52,38 +54,29 @@ export default function AssignedLoads() {
 
   const handleViewClick = (load) => {
     setSelectedLoad(load);
-    setSelectedFleetId('');
-    setSelectedDriverId('');
+    setSelectedPartnerId('');
+    setPartnerType('FLEET');
     setViewModalOpen(true);
   };
 
-  const handleAssignFleet = async () => {
-    if (!selectedFleetId) return;
+  const handleAssign = async () => {
+    if (!selectedPartnerId) return;
     try {
       setAssigning(true);
-      const res = await brokerService.assignFleet(selectedLoad.id, selectedFleetId);
+      let res;
+      if (partnerType === 'FLEET') {
+        res = await brokerService.assignFleet(selectedLoad.id, selectedPartnerId);
+      } else {
+        res = await brokerService.assignDriver(selectedLoad.id, selectedPartnerId);
+      }
+      
       if (res.success) {
         setViewModalOpen(false);
         fetchAssignedLoads();
+        alert('Assignment completed successfully');
       }
     } catch (err) {
-      alert(err.message || 'Failed to assign Fleet');
-    } finally {
-      setAssigning(false);
-    }
-  };
-
-  const handleAssignDriver = async () => {
-    if (!selectedDriverId) return;
-    try {
-      setAssigning(true);
-      const res = await brokerService.assignDriver(selectedLoad.id, selectedDriverId);
-      if (res.success) {
-        setViewModalOpen(false);
-        fetchAssignedLoads();
-      }
-    } catch (err) {
-      alert(err.message || 'Failed to assign Driver');
+      alert(err.response?.data?.message || err.message || 'Assignment failed');
     } finally {
       setAssigning(false);
     }
@@ -96,83 +89,126 @@ export default function AssignedLoads() {
       case 'driver_en_route':
       case 'loading':
       case 'picked_up':
+      case 'arrived_pickup':
+      case 'arrived_destination':
         return <Badge status="in_transit" />;
       case 'delivered':
       case 'completed':
+      case 'pod_verified':
         return <Badge status="completed" />;
       case 'booking_confirmed':
       case 'driver_assigned':
         return <Badge status="assigned" />;
       default:
-        return <span className="px-2 py-1 text-[10px] font-bold uppercase rounded-md bg-slate-100 text-slate-650 border border-slate-200">{status}</span>;
+        return (
+          <span className="px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider rounded-md bg-amber-50 text-amber-700 border border-amber-250">
+            {status}
+          </span>
+        );
     }
   };
 
   return (
-    <div className="space-y-6 animate-fadeIn text-left">
-      
+    <div className="space-y-6 text-left">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-black text-slate-900 tracking-tight">Assigned Bookings</h2>
-          <p className="text-xs text-slate-400">Track current logistics transits and delivery status for your brokered bookings.</p>
+          <p className="text-xs text-slate-500 font-semibold font-sans mt-0.5">Manage transporter dispatching and track active delivery status</p>
         </div>
         <button 
           onClick={fetchAssignedLoads}
-          className="flex items-center gap-2 px-4 py-2 border border-slate-200 text-slate-700 bg-white rounded-xl text-sm font-semibold hover:bg-slate-50 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 border border-slate-200 text-slate-700 bg-white rounded-xl text-xs font-semibold hover:bg-slate-100 transition-colors shrink-0"
         >
           <RefreshCcw className="h-4 w-4" />
-          Refresh
+          Refresh Bookings
         </button>
       </div>
 
-      {/* Stats row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <StatCard title="In Transit" value={assignedLoads.filter(l => ['IN_TRANSIT', 'PICKED_UP', 'LOADING', 'DRIVER_EN_ROUTE'].includes(l.status)).length} icon={Navigation} color="amber" />
-        <StatCard title="Completed Deliveries" value={assignedLoads.filter(l => ['COMPLETED', 'DELIVERED', 'PAYMENT_RECEIVED'].includes(l.status)).length} icon={CheckCircle2} color="emerald" />
-        <StatCard title="Total Allocations" value={assignedLoads.length} icon={Package} color="indigo" />
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <StatCard 
+          title="Active Transits" 
+          value={assignedLoads.filter(l => ['IN_TRANSIT', 'PICKED_UP', 'LOADING', 'DRIVER_EN_ROUTE', 'ARRIVED_PICKUP'].includes(l.status)).length} 
+          icon={Navigation} 
+          color="amber" 
+        />
+        <StatCard 
+          title="Completed Trips" 
+          value={assignedLoads.filter(l => ['COMPLETED', 'DELIVERED', 'POD_VERIFIED'].includes(l.status)).length} 
+          icon={CheckCircle2} 
+          color="emerald" 
+        />
+        <StatCard 
+          title="Total Brokered Loads" 
+          value={assignedLoads.length} 
+          icon={Package} 
+          color="indigo" 
+        />
       </div>
 
-      {/* Grid list table */}
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden text-xs">
+      {/* Bookings Table */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden text-xs">
         {loading ? (
-          <div className="p-12 text-center text-slate-500 font-medium">
+          <div className="p-16 text-center text-slate-500 font-medium">
             <RefreshCcw className="h-6 w-6 animate-spin mx-auto mb-2 text-slate-400" />
             Loading assigned bookings...
           </div>
         ) : assignedLoads.length === 0 ? (
-          <div className="p-12 text-center text-slate-400 font-medium">You don't have any assigned bookings yet.</div>
+          <div className="p-16 text-center text-slate-400 font-medium flex flex-col items-center justify-center gap-1.5">
+            <Package className="h-8 w-8 text-slate-350" />
+            <span>No assigned bookings found.</span>
+          </div>
         ) : (
-          <Table headers={['Booking Details', 'Assigned Transporter', 'Transit State', 'Date Created', 'Action']}>
+          <Table headers={['Booking Route', 'Assigned Transporter / Operator', 'Transit State', 'Date Created', 'Details']}>
             {assignedLoads.map((load) => {
               const transporterName = load.assignment?.driver?.user?.first_name 
                 ? `${load.assignment.driver.user.first_name} ${load.assignment.driver.user.last_name || ''}` 
                 : load.assignment?.fleet_owner?.company_name 
                 ? load.assignment.fleet_owner.company_name
-                : 'Awaiting Operator Assignment';
+                : null;
               
               return (
-                <tr key={load.id} className="hover:bg-slate-50/30">
+                <tr key={load.id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="py-4 px-6">
-                    <div>
-                      <p className="font-bold text-slate-800 text-sm truncate max-w-[200px]">{load.pickup_address} → {load.delivery_address}</p>
-                      <span className="text-[10px] text-slate-400 font-mono">{load.id.split('-')[0]}...</span>
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-1 font-bold text-slate-800 text-xs sm:text-sm">
+                        <span className="truncate max-w-[120px]">{load.pickup_address?.split(',')[0]}</span>
+                        <ArrowRight className="h-3 w-3 text-slate-400 shrink-0" />
+                        <span className="truncate max-w-[120px]">{load.delivery_address?.split(',')[0]}</span>
+                      </div>
+                      <p className="text-[10px] text-slate-400 font-mono">ID: {load.id.split('-')[0].toUpperCase()}</p>
                     </div>
                   </td>
-                  <td className="py-4 px-6 font-bold text-slate-850">
-                    <p>{transporterName}</p>
+                  <td className="py-4 px-6 font-semibold">
+                    {transporterName ? (
+                      <div className="flex items-center gap-1.5">
+                        {load.assignment?.fleet_owner_id ? (
+                          <Building className="h-3.5 w-3.5 text-indigo-500" />
+                        ) : (
+                          <User className="h-3.5 w-3.5 text-amber-500" />
+                        )}
+                        <span className="text-slate-800">{transporterName}</span>
+                      </div>
+                    ) : (
+                      <span className="inline-flex px-2 py-0.5 rounded text-[9px] uppercase font-black bg-amber-50 text-amber-700 border border-amber-200 animate-pulse">
+                        Awaiting Partner Dispatch
+                      </span>
+                    )}
                   </td>
                   <td className="py-4 px-6">
                     {getStatusBadge(load.status)}
                   </td>
-                  <td className="py-4 px-6 font-mono text-slate-400">{new Date(load.created_at).toLocaleDateString()}</td>
-                  <td className="py-4 px-6 text-right">
+                  <td className="py-4 px-6 font-mono text-slate-400 font-medium">
+                    {new Date(load.created_at).toLocaleDateString('en-ZA', { year: 'numeric', month: 'short', day: 'numeric' })}
+                  </td>
+                  <td className="py-4 px-6 text-left">
                     <button 
                       onClick={() => handleViewClick(load)}
-                      className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer" 
+                      className="h-8 w-8 rounded-lg border border-slate-200 hover:border-amber-500 hover:bg-amber-50 text-slate-500 hover:text-amber-600 flex items-center justify-center transition-all cursor-pointer" 
                       title="View Details"
                     >
-                      <ExternalLink className="h-4 w-4" />
+                      <ExternalLink className="h-3.5 w-3.5" />
                     </button>
                   </td>
                 </tr>
@@ -182,63 +218,83 @@ export default function AssignedLoads() {
         )}
       </div>
 
-      {/* View Details Modal */}
+      {/* View Details / Dispatch Modal */}
       {viewModalOpen && selectedLoad && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setViewModalOpen(false)} />
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-lg relative z-10 overflow-hidden max-h-[90vh] flex flex-col">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 shrink-0">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg relative overflow-hidden max-h-[90vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50 shrink-0">
               <div>
-                <h2 className="text-xl font-black text-slate-900">Booking Details</h2>
-                <p className="text-sm text-slate-500">View logistics information</p>
+                <h2 className="text-lg font-black text-slate-900">Booking Management</h2>
+                <p className="text-xs text-slate-500 font-semibold font-sans mt-0.5">Route: {selectedLoad.pickup_address?.split(',')[0]} → {selectedLoad.delivery_address?.split(',')[0]}</p>
               </div>
-              <button onClick={() => setViewModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer">
+              <button 
+                onClick={() => setViewModalOpen(false)} 
+                className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-200 hover:text-slate-650 transition-colors"
+              >
                 <X className="h-5 w-5" />
               </button>
             </div>
             
-            <div className="p-6 space-y-6 overflow-y-auto flex-1">
-              {/* Header Info */}
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="text-lg font-bold text-slate-900">Booking Status</h3>
-                  <p className="text-xs font-mono text-slate-400 mt-1">ID: {selectedLoad.id.split('-')[0]}</p>
-                </div>
+            {/* Modal Body */}
+            <div className="p-6 space-y-6 overflow-y-auto flex-1 text-xs">
+              {/* Transit State Indicator */}
+              <div className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <span className="font-bold text-slate-600">Current Transit State:</span>
                 {getStatusBadge(selectedLoad.status)}
               </div>
 
-              {/* Route */}
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex items-center gap-4">
-                <div className="h-10 w-10 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center shrink-0">
-                  <MapPin className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Transit Route</p>
-                  <p className="text-sm font-semibold text-slate-900">{selectedLoad.pickup_address} <span className="text-slate-400 mx-1">→</span> {selectedLoad.delivery_address}</p>
+              {/* Addresses details */}
+              <div className="space-y-3">
+                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Logistics Locations</h4>
+                <div className="space-y-3 p-4 bg-slate-50 rounded-xl border border-slate-100 relative">
+                  <div className="absolute left-6.5 top-8 bottom-8 w-0.5 bg-dashed border-l border-slate-350" />
+                  
+                  <div className="flex gap-3 relative z-10">
+                    <div className="h-5 w-5 bg-emerald-500 text-white rounded-full flex items-center justify-center font-bold text-[9px] shrink-0">A</div>
+                    <div>
+                      <p className="font-black text-slate-900">Pickup Address</p>
+                      <p className="text-slate-600 mt-0.5 font-medium">{selectedLoad.pickup_address}</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5 font-sans font-semibold">Date: {new Date(selectedLoad.pickup_date).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 relative z-10">
+                    <div className="h-5 w-5 bg-red-500 text-white rounded-full flex items-center justify-center font-bold text-[9px] shrink-0">B</div>
+                    <div>
+                      <p className="font-black text-slate-900">Delivery Address</p>
+                      <p className="text-slate-600 mt-0.5 font-medium">{selectedLoad.delivery_address}</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5 font-sans font-semibold">Date: {new Date(selectedLoad.delivery_date).toLocaleDateString()}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Assignment Details */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <p className="text-xs font-bold text-slate-400 uppercase">Cargo</p>
-                  <p className="text-sm font-semibold text-slate-900">{selectedLoad.cargo_name} ({selectedLoad.weight}kg)</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs font-bold text-slate-400 uppercase">Assigned Transporter</p>
-                  <p className="text-sm font-semibold text-slate-900">
-                    {selectedLoad.assignment?.driver?.user?.first_name 
-                      ? `${selectedLoad.assignment.driver.user.first_name} ${selectedLoad.assignment.driver.user.last_name || ''}` 
-                      : selectedLoad.assignment?.fleet_owner?.company_name 
-                      ? selectedLoad.assignment.fleet_owner.company_name
-                      : 'Unassigned'}
-                  </p>
+              {/* Cargo Details */}
+              <div className="space-y-3">
+                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Cargo & Capacity Info</h4>
+                <div className="grid grid-cols-2 gap-4 p-4 border border-slate-100 rounded-xl">
+                  <div>
+                    <span className="block text-[10px] font-bold text-slate-400 uppercase">Cargo Material</span>
+                    <span className="text-slate-900 font-bold text-sm">{selectedLoad.cargo_name}</span>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] font-bold text-slate-400 uppercase">Total Weight</span>
+                    <span className="text-slate-900 font-bold text-sm">{selectedLoad.weight?.toLocaleString()} kg</span>
+                  </div>
                 </div>
               </div>
 
+              {/* Proof of Delivery (POD) Section */}
               {selectedLoad.status === 'POD_UPLOADED' && (
-                <div className="bg-amber-50 p-4 border border-amber-200 rounded-xl text-center space-y-3">
-                  <p className="text-xs font-bold text-amber-800">The driver has uploaded the Proof of Delivery (POD). Please verify document correctness.</p>
+                <div className="bg-amber-50 p-4 border border-amber-200 rounded-xl space-y-3.5">
+                  <div className="flex items-start gap-2.5">
+                    <ShieldCheck className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold text-amber-900 text-xs">Proof of Delivery (POD) uploaded</p>
+                      <p className="text-[10px] text-amber-700 mt-0.5 font-medium font-sans">The driver has completed delivery. Please verify the uploaded document before confirmation.</p>
+                    </div>
+                  </div>
                   <button
                     onClick={async () => {
                       try {
@@ -247,6 +303,7 @@ export default function AssignedLoads() {
                         if (res.success) {
                           setViewModalOpen(false);
                           fetchAssignedLoads();
+                          alert('Proof of Delivery verified and invoice scheduled');
                         }
                       } catch (err) {
                         alert(err.message || 'Failed to verify POD');
@@ -255,93 +312,112 @@ export default function AssignedLoads() {
                       }
                     }}
                     disabled={assigning}
-                    className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-900 font-extrabold text-xs tracking-wider rounded-xl uppercase transition-colors"
+                    className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 font-black text-xs tracking-wider rounded-xl uppercase transition-colors flex items-center justify-center gap-1.5"
                   >
-                    {assigning ? 'Verifying...' : 'Verify Proof of Delivery (POD)'}
+                    {assigning ? <RefreshCcw className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                    Verify Proof of Delivery (POD)
                   </button>
                 </div>
               )}
 
-              {/* Assignment Selector if not assigned */}
-              {!selectedLoad.assignment && (
-                <div className="space-y-4 pt-4 border-t border-slate-200">
-                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">Assign Operations Dispatch</h4>
+              {/* Transporter Dispatch Control Box */}
+              {!selectedLoad.assignment ? (
+                <div className="space-y-3 pt-3 border-t border-slate-100">
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Transporter Dispatch Allocation</h4>
                   
-                  <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                    {/* Tabs */}
-                    <div className="flex border-b border-slate-100 bg-slate-50">
+                  <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                    {/* Partner Type Selector Tab Buttons */}
+                    <div className="flex border-b border-slate-200 bg-slate-50">
                       <button 
-                        className={`flex-1 py-3 text-xs font-bold transition-colors ${selectedFleetId !== undefined && selectedDriverId === '' ? 'bg-amber-500 text-slate-900 border-b-2 border-amber-600' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
-                        onClick={() => { setSelectedFleetId(''); setSelectedDriverId(''); }}
-                        title="Click to reset and choose Fleet"
+                        type="button"
+                        className={`flex-1 py-3 text-xs font-black uppercase tracking-wider transition-colors ${partnerType === 'FLEET' ? 'bg-white text-amber-600 border-b-2 border-amber-500' : 'text-slate-500 hover:text-slate-700'}`}
+                        onClick={() => { setPartnerType('FLEET'); setSelectedPartnerId(''); }}
                       >
                         Option A: Fleet Owner
                       </button>
                       <button 
-                        className={`flex-1 py-3 text-xs font-bold transition-colors ${selectedDriverId !== '' ? 'bg-amber-500 text-slate-900 border-b-2 border-amber-600' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
-                        onClick={() => { setSelectedDriverId('temp'); setSelectedFleetId(''); setSelectedDriverId(''); }}
-                        title="Click to reset and choose Driver"
+                        type="button"
+                        className={`flex-1 py-3 text-xs font-black uppercase tracking-wider transition-colors ${partnerType === 'DRIVER' ? 'bg-white text-amber-600 border-b-2 border-amber-500' : 'text-slate-500 hover:text-slate-700'}`}
+                        onClick={() => { setPartnerType('DRIVER'); setSelectedPartnerId(''); }}
                       >
                         Option B: Independent Driver
                       </button>
                     </div>
 
-                    <div className="p-5 space-y-4 bg-slate-50/50">
-                      <div>
-                        <p className="text-xs font-bold text-slate-900">
-                          Dispatch to {selectedDriverId !== '' || (selectedFleetId === '' && selectedDriverId === '') ? 'Transporter' : 'Transporter'}
-                        </p>
-                        <p className="text-[10px] text-slate-500 font-semibold mt-1">
-                          Select an approved partner below to handle this load. They will receive a notification to review and start transit.
-                        </p>
-                      </div>
-                      
-                      <div className="flex flex-col gap-3">
+                    {/* Dispatch inputs area */}
+                    <div className="p-4 space-y-4 bg-white">
+                      <div className="space-y-1.5">
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                          Select Approved {partnerType === 'FLEET' ? 'Fleet Transporter' : 'Independent Driver'} *
+                        </label>
                         <select
-                          value={selectedFleetId || selectedDriverId}
-                          onChange={(e) => { 
-                            const val = e.target.value;
-                            if (val.startsWith('fleet_')) {
-                              setSelectedFleetId(val.replace('fleet_', ''));
-                              setSelectedDriverId('');
-                            } else if (val.startsWith('driver_')) {
-                              setSelectedDriverId(val.replace('driver_', ''));
-                              setSelectedFleetId('');
-                            } else {
-                              setSelectedFleetId('');
-                              setSelectedDriverId('');
-                            }
-                          }}
-                          className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500/20 shadow-sm"
+                          required
+                          value={selectedPartnerId}
+                          onChange={(e) => setSelectedPartnerId(e.target.value)}
+                          className="w-full px-3 py-2.5 bg-slate-50 focus:bg-white border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-amber-500 shadow-sm"
                         >
-                          <option value="">-- Select Approved Partner --</option>
-                          <optgroup label="Fleet Owners">
-                            {fleets.map(f => (
-                              <option key={`f_${f.id}`} value={`fleet_${f.fleet_owner?.id}`}>
-                                [Fleet] {f.fleet_owner?.company_name || `${f.first_name} ${f.last_name}`}
+                          <option value="">-- Click to choose partner --</option>
+                          {partnerType === 'FLEET' ? (
+                            fleets.map(f => (
+                              <option key={f.fleet_owner?.id} value={f.fleet_owner?.id}>
+                                {f.fleet_owner?.company_name || `${f.first_name} ${f.last_name}`}
                               </option>
-                            ))}
-                          </optgroup>
-                          <optgroup label="Independent Drivers">
-                            {drivers.map(d => {
-                              const vehicleType = d.driver?.vehicle_relation?.vehicle_type || d.driver?.assigned_vehicle?.type || 'Unspecified';
+                            ))
+                          ) : (
+                            drivers.map(d => {
+                              const vehicleType = d.driver?.vehicle_relation?.vehicle_type || d.driver?.assigned_vehicle?.type || 'Unspecified vehicle';
                               return (
-                                <option key={`d_${d.id}`} value={`driver_${d.driver?.id}`}>
-                                  [Driver] {d.first_name} {d.last_name} — {vehicleType}
+                                <option key={d.driver?.id} value={d.driver?.id}>
+                                  {d.first_name} {d.last_name} — ({vehicleType})
                                 </option>
                               );
-                            })}
-                          </optgroup>
+                            })
+                          )}
                         </select>
-                        
-                        <button
-                          disabled={(!selectedFleetId && !selectedDriverId) || assigning}
-                          onClick={() => selectedFleetId ? handleAssignFleet() : handleAssignDriver()}
-                          className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 text-xs font-black uppercase tracking-wider rounded-xl transition-all shadow-sm cursor-pointer"
-                        >
-                          {assigning ? 'Assigning...' : 'Confirm Dispatch Assignment'}
-                        </button>
                       </div>
+
+                      <button
+                        type="button"
+                        disabled={!selectedPartnerId || assigning}
+                        onClick={handleAssign}
+                        className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 text-xs font-black uppercase tracking-wider rounded-xl transition-all shadow-md shadow-amber-500/10 flex items-center justify-center gap-1"
+                      >
+                        {assigning ? (
+                          <RefreshCcw className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Send className="h-4 w-4" />
+                        )}
+                        Confirm Dispatch Assignment
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* Assigned Operator Details view */
+                <div className="space-y-3 pt-3 border-t border-slate-100">
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Allocated Operator Info</h4>
+                  <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl flex items-start gap-4">
+                    <div className="h-10 w-10 bg-slate-200 rounded-full flex items-center justify-center shrink-0">
+                      {selectedLoad.assignment.fleet_owner_id ? (
+                        <Building className="h-5 w-5 text-indigo-500" />
+                      ) : (
+                        <User className="h-5 w-5 text-amber-500" />
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <p className="font-bold text-slate-900">
+                        {selectedLoad.assignment.driver?.user?.first_name 
+                          ? `${selectedLoad.assignment.driver.user.first_name} ${selectedLoad.assignment.driver.user.last_name || ''}`
+                          : selectedLoad.assignment.fleet_owner?.company_name || 'Fleet operator'}
+                      </p>
+                      <p className="text-[10px] text-slate-500 font-sans">
+                        Type: {selectedLoad.assignment.fleet_owner_id ? 'Fleet dispatch' : 'Independent Driver'}
+                      </p>
+                      {selectedLoad.assignment.driver?.user?.phone && (
+                        <p className="text-[10px] text-slate-500 flex items-center gap-1 font-sans mt-0.5">
+                          <Phone className="h-3 w-3" /> {selectedLoad.assignment.driver.user.phone}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>

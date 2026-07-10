@@ -150,10 +150,37 @@ const updateBookingStatus = async (req, res, next) => {
       });
 
       if (status === 'CUSTOMER_ACCEPTED' || status === 'BOOKING_CONFIRMED') {
-        await tx.quote.updateMany({
+        const acceptedQuote = await tx.quote.findFirst({
           where: { booking_id: id },
-          data: { status: 'ACCEPTED' }
+          orderBy: { created_at: 'desc' }
         });
+
+        if (acceptedQuote && acceptedQuote.prepared_by) {
+          await tx.quote.update({
+            where: { id: acceptedQuote.id },
+            data: { status: 'ACCEPTED' }
+          });
+
+          const broker = await tx.broker.findUnique({
+            where: { user_id: acceptedQuote.prepared_by }
+          });
+
+          if (broker) {
+            const existingAssignment = await tx.bookingAssignment.findFirst({
+              where: { booking_id: id, broker_id: broker.id }
+            });
+
+            if (!existingAssignment) {
+              await tx.bookingAssignment.create({
+                data: {
+                  booking_id: id,
+                  broker_id: broker.id,
+                  status: 'ACTIVE'
+                }
+              });
+            }
+          }
+        }
       }
 
       // Tracking History
