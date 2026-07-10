@@ -41,6 +41,11 @@ export const brokerService = {
     return response.data;
   },
 
+  assignPlant: async (bookingId, plantOwnerId) => {
+    const response = await api.post(`/broker/bookings/${bookingId}/assign-plant`, { plantOwnerId });
+    return response.data;
+  },
+
   getApprovedFleetOwners: async () => {
     const response = await api.get('/broker/fleet-owners');
     return response.data;
@@ -48,6 +53,11 @@ export const brokerService = {
 
   getApprovedDrivers: async () => {
     const response = await api.get('/broker/drivers');
+    return response.data;
+  },
+
+  getApprovedPlantOwners: async () => {
+    const response = await api.get('/broker/plant-owners');
     return response.data;
   },
 

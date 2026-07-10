@@ -162,11 +162,11 @@ const approveApplication = async (req, res) => {
             user_id: user.id,
             company_name: app.company_name,
             status: 'ACTIVE',
-            company_documents: {
+            company_documents: JSON.stringify({
               registration_document: app.company_reg_doc,
               national_id: app.national_id,
               base_location: app.base_location
-            }
+            })
           }
         });
       }
@@ -179,12 +179,12 @@ const approveApplication = async (req, res) => {
           capacity: null,
           registration_number: app.registration_number,
           status: 'AVAILABLE',
-          machine_documents: {
+          machine_documents: JSON.stringify({
             photo: app.machine_photo,
             make: app.make,
             model: app.model,
             year: app.year
-          }
+          })
         }
       });
 
