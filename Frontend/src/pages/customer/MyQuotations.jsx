@@ -42,17 +42,24 @@ function QuoteCard({ booking, onAccept, onReject, actionLoading }) {
       : '—';
 
   const lineItems = quote
-    ? [
-        { label: 'Base / Vehicle Rate', value: quote.vehicle_rate },
-        { label: 'Distance Charge', value: quote.distance_cost },
-        { label: 'Fuel Surcharge', value: quote.fuel_charges },
-        { label: 'Weight Charges', value: quote.weight_charges },
-        { label: 'Insurance', value: quote.insurance_charges },
-        { label: 'Broker Fee', value: quote.broker_fee },
-        { label: 'Platform Fee', value: quote.platform_fee },
-        { label: 'VAT (15%)', value: quote.tax },
-        quote.discount > 0 && { label: 'Discount', value: -quote.discount },
-      ].filter(Boolean)
+    ? (booking.bookingType === 'Plant Hire'
+      ? [
+          { label: 'Base Rental Rate', value: quote.vehicle_rate },
+          { label: 'Broker Fee', value: quote.broker_fee },
+          { label: 'Platform Fee', value: quote.platform_fee },
+          { label: 'VAT (15%)', value: quote.tax },
+        ].filter(Boolean)
+      : [
+          { label: 'Base / Vehicle Rate', value: quote.vehicle_rate },
+          { label: 'Distance Charge', value: quote.distance_cost },
+          { label: 'Fuel Surcharge', value: quote.fuel_charges },
+          { label: 'Weight Charges', value: quote.weight_charges },
+          { label: 'Insurance', value: quote.insurance_charges },
+          { label: 'Broker Fee', value: quote.broker_fee },
+          { label: 'Platform Fee', value: quote.platform_fee },
+          { label: 'VAT (15%)', value: quote.tax },
+          quote.discount > 0 && { label: 'Discount', value: -quote.discount },
+        ].filter(Boolean))
     : [];
 
   return (
@@ -61,21 +68,34 @@ function QuoteCard({ booking, onAccept, onReject, actionLoading }) {
       <div className="p-5 space-y-3">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
-            <p className="text-[10px] font-mono text-slate-400 mb-1">
-              {booking.id?.slice(0, 16)}...
-            </p>
-            {/* Route */}
-            <div className="flex items-center gap-2 text-sm font-bold text-slate-800">
-              <div className="flex items-center gap-1 truncate">
-                <div className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
-                <span className="truncate">{booking.pickup_address?.split(',')[0]}</span>
-              </div>
-              <ArrowRight className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-              <div className="flex items-center gap-1 truncate">
-                <div className="h-2 w-2 rounded-full bg-red-500 shrink-0" />
-                <span className="truncate">{booking.delivery_address?.split(',')[0]}</span>
-              </div>
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                booking.bookingType === 'Plant Hire' ? 'bg-purple-100 text-purple-700 border border-purple-200' : 'bg-blue-100 text-blue-700 border border-blue-200'
+              }`}>
+                {booking.bookingType || 'Transport'}
+              </span>
+              <p className="text-[10px] font-mono text-slate-400">
+                {booking.id?.slice(0, 16)}...
+              </p>
             </div>
+            {/* Route or Machine details */}
+            {booking.bookingType === 'Plant Hire' ? (
+              <div className="text-sm font-bold text-slate-800">
+                {booking.machineType} ({booking.machineCategory})
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-sm font-bold text-slate-800">
+                <div className="flex items-center gap-1 truncate">
+                  <div className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
+                  <span className="truncate">{booking.pickup_address?.split(',')[0]}</span>
+                </div>
+                <ArrowRight className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                <div className="flex items-center gap-1 truncate">
+                  <div className="h-2 w-2 rounded-full bg-red-500 shrink-0" />
+                  <span className="truncate">{booking.delivery_address?.split(',')[0]}</span>
+                </div>
+              </div>
+            )}
           </div>
           {/* Status badge */}
           <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-lg border shrink-0 flex items-center gap-1 ${cfg.color}`}>
@@ -86,16 +106,29 @@ function QuoteCard({ booking, onAccept, onReject, actionLoading }) {
 
         {/* Info pills */}
         <div className="flex flex-wrap gap-2">
-          {[
-            { icon: Truck, text: booking.requested_vehicle || 'Any Vehicle' },
-            booking.estimated_distance && { icon: Navigation, text: `${Number(booking.estimated_distance).toFixed(1)} km` },
-            { icon: Clock, text: new Date(booking.created_at).toLocaleDateString('en-ZA') },
-          ].filter(Boolean).map(({ icon: Icon, text }, i) => (
-            <div key={i} className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 border border-slate-100 rounded-lg text-[10px] font-semibold text-slate-600">
-              <Icon className="h-3 w-3 text-slate-400" />
-              {text}
-            </div>
-          ))}
+          {booking.bookingType === 'Plant Hire' ? (
+            <>
+              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 border border-slate-100 rounded-lg text-[10px] font-semibold text-slate-600">
+                <MapPin className="h-3 w-3 text-slate-400 shrink-0" />
+                {booking.siteAddress}
+              </div>
+              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 border border-slate-100 rounded-lg text-[10px] font-semibold text-slate-600">
+                <Clock className="h-3 w-3 text-slate-400 shrink-0" />
+                {booking.durationValue} {booking.durationUnit}
+              </div>
+            </>
+          ) : (
+            [
+              { icon: Truck, text: booking.requested_vehicle || 'Any Vehicle' },
+              booking.estimated_distance && { icon: Navigation, text: `${Number(booking.estimated_distance).toFixed(1)} km` },
+              { icon: Clock, text: new Date(booking.created_at).toLocaleDateString('en-ZA') },
+            ].filter(Boolean).map(({ icon: Icon, text }, i) => (
+              <div key={i} className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 border border-slate-100 rounded-lg text-[10px] font-semibold text-slate-600">
+                <Icon className="h-3 w-3 text-slate-400" />
+                {text}
+              </div>
+            ))
+          )}
         </div>
       </div>
 
@@ -215,7 +248,26 @@ export default function MyQuotations() {
       setError(null);
       const res = await customerService.getMyQuotations();
       if (res.success) {
-        setQuotations(res.data);
+        // Seeding a mock Plant Hire quotation to show alongside Transport quotations
+        const plantMock = {
+          id: 'plant-quote-mock-id-12345',
+          bookingType: 'Plant Hire',
+          status: 'QUOTE_PREPARED',
+          created_at: new Date().toISOString(),
+          machineCategory: 'Earthmoving',
+          machineType: 'Excavator 20 Ton',
+          siteAddress: 'Johannesburg, Gauteng',
+          durationValue: 8,
+          durationUnit: 'Hours',
+          quotes: [{
+            grand_total: 4800,
+            vehicle_rate: 4000,
+            tax: 600,
+            broker_fee: 200,
+            platform_fee: 0
+          }]
+        };
+        setQuotations([plantMock, ...res.data]);
       } else {
         setError(res.message || 'Failed to load quotations');
       }

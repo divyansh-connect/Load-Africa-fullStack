@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate, Outlet } from 'react-router-dom';
 import { 
   LayoutDashboard, PlusCircle, History, User, Settings, Bell, 
-  Menu, X, LogOut, Navigation, ShieldCheck, HelpCircle, Truck, FileText
+  Menu, X, LogOut, Navigation, ShieldCheck, HelpCircle, Truck, FileText, Tractor
 } from 'lucide-react';
 import { authService } from '../services/authService';
 
@@ -37,6 +37,7 @@ export default function CustomerLayout({ children }) {
   const navItems = [
     { name: 'Dashboard', path: '/customer/dashboard', icon: LayoutDashboard },
     { name: 'Create Booking', path: '/customer/create-booking', icon: PlusCircle },
+    { name: 'Book Plant Machine', path: '/customer/book-plant', icon: Tractor },
     { name: 'My Quotations', path: '/customer/my-quotations', icon: FileText },
     { name: 'Active Deliveries', path: '/customer/active-deliveries', icon: Truck },
     { name: 'Live Tracking', path: '/customer/tracking', icon: Navigation },
