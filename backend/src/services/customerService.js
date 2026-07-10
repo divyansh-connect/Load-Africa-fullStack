@@ -81,7 +81,7 @@ const getMyQuotations = async (userId) => {
   const quotations = await prisma.booking.findMany({
     where: {
       customer_id: customer.id,
-      status: { in: ['QUOTE_PREPARED', 'CUSTOMER_ACCEPTED', 'BOOKING_CONFIRMED', 'REJECTED'] },
+      status: { in: ['QUOTE_REQUESTED', 'QUOTE_PREPARED', 'CUSTOMER_ACCEPTED', 'BOOKING_CONFIRMED', 'REJECTED'] },
       is_deleted: false,
     },
     orderBy: { updated_at: 'desc' },

@@ -21,12 +21,12 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response Interceptor: Handle 401 Unauthorized
+// Response Interceptor: Handle 401 Unauthorized / 403 Forbidden
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response && error.response.status === 401) {
-      // Clear token and redirect to login if unauthorized
+    if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+      // Clear token and redirect to login if unauthorized or forbidden (role collision)
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';

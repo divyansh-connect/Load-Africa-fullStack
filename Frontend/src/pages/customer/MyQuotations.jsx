@@ -8,18 +8,43 @@ import {
 import { customerService } from '../../services/customerService';
 
 const STATUS_CONFIG = {
+  REQUEST_SUBMITTED: {
+    label: 'Awaiting Broker Quote',
+    color: 'text-blue-700 bg-blue-50 border-blue-200',
+    dot: 'bg-blue-400',
+  },
   QUOTE_PREPARED: {
     label: 'Awaiting Your Decision',
     color: 'text-amber-700 bg-amber-50 border-amber-200',
     dot: 'bg-amber-400',
   },
-  CUSTOMER_ACCEPTED: {
+  QUOTE_SENT: {
+    label: 'Awaiting Your Decision',
+    color: 'text-amber-700 bg-amber-50 border-amber-200',
+    dot: 'bg-amber-400',
+  },
+  QUOTE_ACCEPTED: {
     label: 'Accepted',
     color: 'text-emerald-700 bg-emerald-50 border-emerald-200',
     dot: 'bg-emerald-400',
   },
   BOOKING_CONFIRMED: {
     label: 'Booking Confirmed',
+    color: 'text-blue-700 bg-blue-50 border-blue-200',
+    dot: 'bg-blue-400',
+  },
+  PAYMENT_PENDING: {
+    label: 'Payment Pending',
+    color: 'text-amber-700 bg-amber-50 border-amber-200',
+    dot: 'bg-amber-400',
+  },
+  PAYMENT_COMPLETED: {
+    label: 'Payment Completed',
+    color: 'text-emerald-700 bg-emerald-50 border-emerald-200',
+    dot: 'bg-emerald-400',
+  },
+  PLANT_ASSIGNED: {
+    label: 'Machine Assigned',
     color: 'text-blue-700 bg-blue-50 border-blue-200',
     dot: 'bg-blue-400',
   },
@@ -34,7 +59,7 @@ function QuoteCard({ booking, onAccept, onReject, actionLoading }) {
   const [expanded, setExpanded] = useState(false);
   const quote = booking.quotes?.[0];
   const cfg = STATUS_CONFIG[booking.status] || STATUS_CONFIG.QUOTE_PREPARED;
-  const canAct = booking.status === 'QUOTE_PREPARED';
+  const canAct = booking.status === 'QUOTE_PREPARED' || booking.status === 'QUOTE_SENT';
 
   const fmt = (val) =>
     val !== undefined && val !== null
@@ -176,8 +201,8 @@ function QuoteCard({ booking, onAccept, onReject, actionLoading }) {
           )}
         </>
       ) : (
-        <div className="mx-5 mb-3 bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-500 text-center">
-          Broker quote data unavailable
+        <div className="mx-5 mb-3 bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-500 text-center font-medium">
+          {booking.bookingType === 'Plant Hire' ? 'Awaiting broker quotation...' : 'Broker quote data unavailable'}
         </div>
       )}
 
@@ -207,11 +232,11 @@ function QuoteCard({ booking, onAccept, onReject, actionLoading }) {
         </div>
       )}
 
-      {booking.status === 'CUSTOMER_ACCEPTED' || booking.status === 'BOOKING_CONFIRMED' ? (
+      {booking.status === 'CUSTOMER_ACCEPTED' || booking.status === 'BOOKING_CONFIRMED' || booking.status === 'QUOTE_ACCEPTED' || booking.status === 'PAYMENT_PENDING' || booking.status === 'PAYMENT_COMPLETED' || booking.status === 'PLANT_ASSIGNED' ? (
         <div className="p-4 border-t border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs text-emerald-700 font-bold">
             <CheckCircle2 className="h-4 w-4" />
-            Quote accepted — booking confirmed
+            {booking.bookingType === 'Plant Hire' ? 'Quote accepted — processing booking' : 'Quote accepted — booking confirmed'}
           </div>
           <button
             onClick={() => window.location.href = `/customer/booking-details/${booking.id}`}
@@ -248,11 +273,36 @@ export default function MyQuotations() {
       setError(null);
       const res = await customerService.getMyQuotations();
       if (res.success) {
-        // Seeding a mock Plant Hire quotation to show alongside Transport quotations
-        const plantMock = {
-          id: 'plant-quote-mock-id-12345',
+        // Map database bookings to populate Plant Hire details from description
+        const processedBookings = res.data.map(booking => {
+          if (booking.cargo_category === 'Plant Hire') {
+            let plantDetails = {};
+            try {
+              if (booking.description) {
+                plantDetails = JSON.parse(booking.description);
+              }
+            } catch (e) {
+              console.error("Error parsing plant description:", e);
+            }
+            return {
+              ...booking,
+              bookingType: 'Plant Hire',
+              status: booking.status === 'QUOTE_REQUESTED' ? 'REQUEST_SUBMITTED' : booking.status,
+              machineCategory: plantDetails.machineCategory || 'Plant',
+              machineType: plantDetails.machineType || booking.requested_vehicle || 'Equipment',
+              siteAddress: plantDetails.siteAddress || booking.pickup_address,
+              durationValue: plantDetails.durationValue || '',
+              durationUnit: plantDetails.durationUnit || 'Hours'
+            };
+          }
+          return booking;
+        });
+
+        // Seeding mock Plant Hire quotation for demo purposes of QUOTE_SENT state
+        const plantMockQuoted = {
+          id: 'plant-quote-sent-12345',
           bookingType: 'Plant Hire',
-          status: 'QUOTE_PREPARED',
+          status: 'QUOTE_SENT',
           created_at: new Date().toISOString(),
           machineCategory: 'Earthmoving',
           machineType: 'Excavator 20 Ton',
@@ -267,7 +317,8 @@ export default function MyQuotations() {
             platform_fee: 0
           }]
         };
-        setQuotations([plantMock, ...res.data]);
+
+        setQuotations([plantMockQuoted, ...processedBookings]);
       } else {
         setError(res.message || 'Failed to load quotations');
       }

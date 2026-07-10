@@ -121,56 +121,91 @@ export default function QuoteRequests() {
             </div>
           ) : (
             <div className="flex flex-col gap-3">
-              {filteredRequests.map((req) => (
-                <div key={req.id} className="bg-white rounded-xl border border-slate-200 shadow-sm hover:border-amber-400 transition-all flex flex-col md:flex-row items-start md:items-center p-4 gap-4 md:gap-6">
-                  {/* Status/ID */}
-                  <div className="shrink-0 flex flex-col items-start gap-1 w-full md:w-32">
-                    <span className="text-[10px] font-black px-2 py-1 bg-amber-100 text-amber-800 rounded-md uppercase tracking-wider">
-                      ID: {req.id.split('-')[0]}
-                    </span>
-                    <span className="text-[10px] text-slate-400 font-bold">{new Date(req.created_at).toLocaleDateString()}</span>
-                  </div>
+              {filteredRequests.map((req) => {
+                let plantDetails = {};
+                if (req.cargo_category === 'Plant Hire' && req.description) {
+                  try {
+                    plantDetails = JSON.parse(req.description);
+                  } catch (e) {
+                    plantDetails = {
+                      machineType: req.requested_vehicle || 'Machine',
+                      machineCategory: 'Plant',
+                      siteAddress: req.pickup_address,
+                      durationValue: '',
+                      durationUnit: ''
+                    };
+                  }
+                }
 
-                  {/* Customer Info */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-0.5">Customer</p>
-                    <div className="flex items-center gap-2">
-                      <div className="h-6 w-6 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center border border-indigo-100 shrink-0">
-                        <User className="h-3 w-3" />
+                return (
+                  <div key={req.id} className="bg-white rounded-xl border border-slate-200 shadow-sm hover:border-amber-400 transition-all flex flex-col md:flex-row items-start md:items-center p-4 gap-4 md:gap-6">
+                    {/* Status/ID */}
+                    <div className="shrink-0 flex flex-col items-start gap-1 w-full md:w-32">
+                      <span className="text-[10px] font-black px-2 py-1 bg-amber-100 text-amber-800 rounded-md uppercase tracking-wider">
+                        ID: {req.id.split('-')[0]}
+                      </span>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md ${
+                          req.cargo_category === 'Plant Hire' ? 'bg-purple-100 text-purple-700 border border-purple-200' : 'bg-blue-100 text-blue-700 border border-blue-200'
+                        }`}>
+                          {req.cargo_category === 'Plant Hire' ? 'Plant' : 'Load'}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-bold">{new Date(req.created_at).toLocaleDateString()}</span>
                       </div>
-                      <p className="text-sm font-bold text-slate-800 truncate">
-                        {req.customer?.company_name 
-                          ? req.customer.company_name 
-                          : req.customer?.user?.first_name 
-                            ? `${req.customer.user.first_name} ${req.customer.user.last_name || ''}` 
-                            : req.customer?.user?.email
-                              ? req.customer.user.email.split('@')[0]
-                              : req.guest_company
-                                ? req.guest_company
-                                : req.guest_email
-                                  ? req.guest_email.split('@')[0]
-                                  : req.pickup_contact || 'Guest User'}
-                      </p>
                     </div>
-                  </div>
 
-                  {/* Route */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-0.5">Route</p>
-                    <div className="flex items-center gap-1 text-xs font-bold text-slate-800 truncate">
-                      <span className="truncate max-w-[120px]" title={req.pickup_address}>{req.pickup_address?.split(',')[0]}</span>
-                      <span className="text-slate-400 mx-1">→</span>
-                      <span className="truncate max-w-[120px]" title={req.delivery_address}>{req.delivery_address?.split(',')[0]}</span>
+                    {/* Customer Info */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-0.5">Customer</p>
+                      <div className="flex items-center gap-2">
+                        <div className="h-6 w-6 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center border border-indigo-100 shrink-0">
+                          <User className="h-3 w-3" />
+                        </div>
+                        <p className="text-sm font-bold text-slate-800 truncate">
+                          {req.customer?.company_name 
+                            ? req.customer.company_name 
+                            : req.customer?.user?.first_name 
+                              ? `${req.customer.user.first_name} ${req.customer.user.last_name || ''}` 
+                              : req.customer?.user?.email
+                                ? req.customer.user.email.split('@')[0]
+                                : req.guest_company
+                                  ? req.guest_company
+                                  : req.guest_email
+                                    ? req.guest_email.split('@')[0]
+                                    : req.pickup_contact || 'Guest User'}
+                        </p>
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Cargo */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-0.5">Cargo & Weight</p>
-                    <p className="text-xs font-bold text-slate-800 truncate">
-                      {req.cargo_name} <span className="text-slate-500 font-semibold">({req.weight}kg)</span>
-                    </p>
-                  </div>
+                    {/* Route */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-0.5">Route</p>
+                      {req.cargo_category === 'Plant Hire' ? (
+                        <p className="text-xs font-bold text-slate-800 truncate" title={req.pickup_address}>
+                          {req.pickup_address?.split(',')[0]}
+                        </p>
+                      ) : (
+                        <div className="flex items-center gap-1 text-xs font-bold text-slate-800 truncate">
+                          <span className="truncate max-w-[120px]" title={req.pickup_address}>{req.pickup_address?.split(',')[0]}</span>
+                          <span className="text-slate-400 mx-1">→</span>
+                          <span className="truncate max-w-[120px]" title={req.delivery_address}>{req.delivery_address?.split(',')[0]}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Cargo */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-0.5">Cargo & Weight</p>
+                      {req.cargo_category === 'Plant Hire' ? (
+                        <p className="text-xs font-bold text-slate-800 truncate">
+                          {plantDetails.machineType || req.requested_vehicle} <span className="text-slate-500 font-semibold">({plantDetails.durationValue} {plantDetails.durationUnit})</span>
+                        </p>
+                      ) : (
+                        <p className="text-xs font-bold text-slate-800 truncate">
+                          {req.cargo_name} <span className="text-slate-500 font-semibold">({req.weight}kg)</span>
+                        </p>
+                      )}
+                    </div>
 
                   {/* Action */}
                   <div className="shrink-0 w-full md:w-auto mt-2 md:mt-0">
@@ -189,7 +224,8 @@ export default function QuoteRequests() {
                     )}
                   </div>
                 </div>
-              ))}
+              );
+            })}
             </div>
           )}
         </div>
@@ -212,99 +248,128 @@ export default function QuoteRequests() {
             
             <div className="p-6 space-y-5 overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-slate-200">
               {/* Detailed Load Info Summary */}
-              <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200/60 space-y-4 text-xs font-semibold text-slate-700">
-                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2">Trip & Cargo Specifications</h4>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Pickup Point</p>
-                    <p className="text-slate-800 font-bold truncate max-w-[200px]" title={selectedBooking.pickup_address}>
-                      {selectedBooking.pickup_address?.split(',')[0]}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Delivery Point</p>
-                    <p className="text-slate-800 font-bold truncate max-w-[200px]" title={selectedBooking.delivery_address}>
-                      {selectedBooking.delivery_address?.split(',')[0]}
-                    </p>
-                  </div>
-                </div>
+              {(() => {
+                let selectedPlantDetails = {};
+                if (selectedBooking && selectedBooking.cargo_category === 'Plant Hire' && selectedBooking.description) {
+                  try {
+                    selectedPlantDetails = JSON.parse(selectedBooking.description);
+                  } catch (e) {
+                    selectedPlantDetails = {
+                      machineType: selectedBooking.requested_vehicle || 'Machine',
+                      machineCategory: 'Plant',
+                      durationValue: '',
+                      durationUnit: ''
+                    };
+                  }
+                }
 
-                <div className="grid grid-cols-2 gap-4 pt-1 border-t border-slate-100/50">
-                  <div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Customer / Company</p>
-                    <p className="text-slate-800 font-bold">
-                      {selectedBooking.customer?.company_name || selectedBooking.guest_company || 'Individual Customer'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Contact Person</p>
-                    <p className="text-slate-800 font-bold truncate">
-                      {selectedBooking.customer?.user?.first_name 
-                        ? `${selectedBooking.customer.user.first_name} ${selectedBooking.customer.user.last_name || ''}` 
-                        : selectedBooking.pickup_contact || selectedBooking.customer?.user?.email?.split('@')[0] || selectedBooking.guest_email?.split('@')[0] || 'Guest User'}
-                    </p>
-                  </div>
-                </div>
+                return (
+                  <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200/60 space-y-4 text-xs font-semibold text-slate-700">
+                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2">Trip & Cargo Specifications</h4>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">{selectedBooking.cargo_category === 'Plant Hire' ? 'Site Address' : 'Pickup Point'}</p>
+                        <p className="text-slate-800 font-bold truncate max-w-[200px]" title={selectedBooking.pickup_address}>
+                          {selectedBooking.pickup_address?.split(',')[0]}
+                        </p>
+                      </div>
+                      {selectedBooking.cargo_category !== 'Plant Hire' && (
+                        <div>
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Delivery Point</p>
+                          <p className="text-slate-800 font-bold truncate max-w-[200px]" title={selectedBooking.delivery_address}>
+                            {selectedBooking.delivery_address?.split(',')[0]}
+                          </p>
+                        </div>
+                      )}
+                    </div>
 
-                <div className="grid grid-cols-2 gap-4 pt-1">
-                  <div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Phone Number</p>
-                    <p className="text-slate-800 font-bold">{selectedBooking.customer?.user?.phone || selectedBooking.guest_phone || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Email Address</p>
-                    <p className="text-slate-800 font-bold truncate max-w-[200px]" title={selectedBooking.customer?.user?.email || selectedBooking.guest_email}>
-                      {selectedBooking.customer?.user?.email || selectedBooking.guest_email || 'N/A'}
-                    </p>
-                  </div>
-                </div>
+                    <div className="grid grid-cols-2 gap-4 pt-1 border-t border-slate-100/50">
+                      <div>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Customer / Company</p>
+                        <p className="text-slate-800 font-bold">
+                          {selectedBooking.customer?.company_name || selectedBooking.guest_company || 'Individual Customer'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Contact Person</p>
+                        <p className="text-slate-800 font-bold truncate">
+                          {selectedBooking.customer?.user?.first_name 
+                            ? `${selectedBooking.customer.user.first_name} ${selectedBooking.customer.user.last_name || ''}` 
+                            : selectedBooking.pickup_contact || selectedBooking.customer?.user?.email?.split('@')[0] || selectedBooking.guest_email?.split('@')[0] || 'Guest User'}
+                        </p>
+                      </div>
+                    </div>
 
-                <div className="grid grid-cols-3 gap-4 pt-1 border-t border-slate-100/50">
-                  <div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Cargo & Weight</p>
-                    <p className="text-slate-800 font-bold">{selectedBooking.cargo_name} ({selectedBooking.weight} kg)</p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Category</p>
-                    <p className="text-slate-800 font-bold">{selectedBooking.cargo_category}</p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Vehicle Type</p>
-                    <p className="text-slate-800 font-bold">{selectedBooking.requested_vehicle || 'Any Available'}</p>
-                  </div>
-                </div>
+                    <div className="grid grid-cols-2 gap-4 pt-1">
+                      <div>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Phone Number</p>
+                        <p className="text-slate-800 font-bold">{selectedBooking.customer?.user?.phone || selectedBooking.guest_phone || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Email Address</p>
+                        <p className="text-slate-800 font-bold truncate max-w-[200px]" title={selectedBooking.customer?.user?.email || selectedBooking.guest_email}>
+                          {selectedBooking.customer?.user?.email || selectedBooking.guest_email || 'N/A'}
+                        </p>
+                      </div>
+                    </div>
 
-                <div className="grid grid-cols-3 gap-4 pt-1">
-                  <div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Pickup Date</p>
-                    <p className="text-slate-800 font-bold">
-                      {selectedBooking.pickup_date ? new Date(selectedBooking.pickup_date).toLocaleDateString() : 'Immediate'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Est. Distance</p>
-                    <p className="text-slate-800 font-bold">
-                      {selectedBooking.estimated_distance ? `${selectedBooking.estimated_distance} km` : '—'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Est. Travel Time</p>
-                    <p className="text-slate-800 font-bold">
-                      {selectedBooking.estimated_duration_mins ? `${Math.round(selectedBooking.estimated_duration_mins / 60)} hours` : '—'}
-                    </p>
-                  </div>
-                </div>
+                    <div className="grid grid-cols-3 gap-4 pt-1 border-t border-slate-100/50">
+                      <div>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">{selectedBooking.cargo_category === 'Plant Hire' ? 'Machine Name' : 'Cargo & Weight'}</p>
+                        {selectedBooking.cargo_category === 'Plant Hire' ? (
+                          <p className="text-slate-800 font-bold">{selectedPlantDetails.machineType || selectedBooking.requested_vehicle}</p>
+                        ) : (
+                          <p className="text-slate-800 font-bold">{selectedBooking.cargo_name} ({selectedBooking.weight} kg)</p>
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Category</p>
+                        <p className="text-slate-800 font-bold">{selectedBooking.cargo_category === 'Plant Hire' ? selectedPlantDetails.machineCategory : selectedBooking.cargo_category}</p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">{selectedBooking.cargo_category === 'Plant Hire' ? 'Duration' : 'Vehicle Type'}</p>
+                        <p className="text-slate-800 font-bold">
+                          {selectedBooking.cargo_category === 'Plant Hire' ? `${selectedPlantDetails.durationValue} ${selectedPlantDetails.durationUnit}` : (selectedBooking.requested_vehicle || 'Any Available')}
+                        </p>
+                      </div>
+                    </div>
 
-                {selectedBooking.pickup_instructions && (
-                  <div className="pt-2 border-t border-slate-100">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Broker & Driver Guidelines</p>
-                    <p className="text-slate-650 font-medium leading-relaxed italic bg-white p-2.5 rounded-xl border border-slate-100 mt-1 max-h-20 overflow-y-auto whitespace-pre-wrap">
-                      {selectedBooking.pickup_instructions}
-                    </p>
+                    <div className="grid grid-cols-3 gap-4 pt-1">
+                      <div>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">{selectedBooking.cargo_category === 'Plant Hire' ? 'Preferred Date' : 'Pickup Date'}</p>
+                        <p className="text-slate-800 font-bold">
+                          {selectedBooking.pickup_date ? new Date(selectedBooking.pickup_date).toLocaleDateString() : 'Immediate'}
+                        </p>
+                      </div>
+                      {selectedBooking.cargo_category !== 'Plant Hire' && (
+                        <>
+                          <div>
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Est. Distance</p>
+                            <p className="text-slate-800 font-bold">
+                              {selectedBooking.estimated_distance ? `${selectedBooking.estimated_distance} km` : '—'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Est. Travel Time</p>
+                            <p className="text-slate-800 font-bold">
+                              {selectedBooking.estimated_duration_mins ? `${Math.round(selectedBooking.estimated_duration_mins / 60)} hours` : '—'}
+                            </p>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    {selectedBooking.pickup_instructions && (
+                      <div className="pt-2 border-t border-slate-100">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Broker & Driver Guidelines</p>
+                        <p className="text-slate-650 font-medium leading-relaxed italic bg-white p-2.5 rounded-xl border border-slate-100 mt-1 max-h-20 overflow-y-auto whitespace-pre-wrap">
+                          {selectedBooking.pickup_instructions}
+                        </p>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                );
+              })()}
 
               {/* Pricing Inputs */}
               <div className="space-y-4 pt-2">
