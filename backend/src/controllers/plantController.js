@@ -59,7 +59,7 @@ const submitCompliance = async (req, res) => {
       where: { id: plantOwnerId },
       data: {
         status: 'UNDER_REVIEW',
-        company_documents
+        company_documents: typeof company_documents === 'object' ? JSON.stringify(company_documents) : company_documents
       }
     });
 
@@ -98,7 +98,7 @@ const addMachine = async (req, res) => {
         capacity: parseFloat(capacity) || 0,
         registration_number,
         status: initialStatus,
-        machine_documents
+        machine_documents: typeof machine_documents === 'object' ? JSON.stringify(machine_documents) : machine_documents
       }
     });
 

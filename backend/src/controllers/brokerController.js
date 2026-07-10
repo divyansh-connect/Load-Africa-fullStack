@@ -95,9 +95,9 @@ const getAssignedLoads = async (req, res) => {
 
     const bookings = await prisma.booking.findMany({
       where: {
-        status: { notIn: ['DRAFT', 'QUOTE_REQUESTED', 'QUOTE_PREPARED', 'REJECTED', 'CANCELLED', 'FAILED', 'EXPIRED'] },
         OR: [
           {
+            status: { notIn: ['DRAFT', 'QUOTE_REQUESTED', 'QUOTE_PREPARED', 'REJECTED', 'CANCELLED', 'FAILED', 'EXPIRED'] },
             assignments: {
               some: {
                 broker_id: broker.id
@@ -105,12 +105,17 @@ const getAssignedLoads = async (req, res) => {
             }
           },
           {
+            status: { notIn: ['DRAFT', 'QUOTE_REQUESTED', 'QUOTE_PREPARED', 'REJECTED', 'CANCELLED', 'FAILED', 'EXPIRED'] },
             quotes: {
               some: {
                 prepared_by: req.user.id,
                 status: 'ACCEPTED'
               }
             }
+          },
+          {
+            cargo_category: 'Plant Hire',
+            status: { in: ['QUOTE_REQUESTED', 'QUOTE_PREPARED', 'CUSTOMER_ACCEPTED', 'BOOKING_CONFIRMED'] }
           }
         ]
       },
@@ -405,13 +410,74 @@ const getApprovedDrivers = async (req, res) => {
         role: 'DRIVER', 
         status: 'ACTIVE',
         driver: {
-          status: { in: ['AVAILABLE', 'INACTIVE'] },
           fleet_owner_id: null // Only Independent Drivers
         }
       },
       include: { driver: { include: { profile: true, vehicle_relation: true, assigned_vehicle: true } } }
     });
     res.status(200).json({ success: true, data: drivers });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+const getApprovedPlantOwners = async (req, res) => {
+  try {
+    const plantOwners = await prisma.user.findMany({
+      where: { role: 'PLANT_OWNER', status: 'ACTIVE' },
+      include: { plant_owner: true }
+    });
+    res.status(200).json({ success: true, data: plantOwners });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+const assignPlant = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { plantOwnerId } = req.body;
+
+    const broker = await prisma.broker.findUnique({
+      where: { user_id: req.user.id }
+    });
+    if (!broker) return res.status(403).json({ success: false, message: 'Broker profile not found' });
+
+    const booking = await prisma.booking.findUnique({ where: { id } });
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+
+    await prisma.$transaction(async (tx) => {
+      await tx.bookingAssignment.updateMany({
+        where: { booking_id: id, status: 'ACTIVE' },
+        data: { status: 'INACTIVE' }
+      });
+
+      await tx.bookingAssignment.create({
+        data: {
+          booking_id: id,
+          plant_owner_id: plantOwnerId,
+          broker_id: broker.id,
+          assigned_by: req.user.id,
+          status: 'PENDING'
+        }
+      });
+
+      await tx.booking.update({
+        where: { id },
+        data: { status: 'BOOKING_CONFIRMED' }
+      });
+
+      await tx.trackingHistory.create({
+        data: {
+          booking_id: id,
+          status: 'BOOKING_CONFIRMED',
+          remarks: 'Broker assigned booking to Plant Owner Company',
+          updated_by: req.user.id
+        }
+      });
+    });
+
+    res.status(200).json({ success: true, message: 'Assigned to Plant Owner Company successfully' });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }
@@ -427,5 +493,7 @@ module.exports = {
   assignFleet,
   assignDriver,
   getApprovedFleetOwners,
-  getApprovedDrivers
+  getApprovedDrivers,
+  getApprovedPlantOwners,
+  assignPlant
 };

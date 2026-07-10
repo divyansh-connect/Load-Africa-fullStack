@@ -66,7 +66,7 @@ const submitCompliance = async (req, res) => {
       where: { id: fleetOwnerId },
       data: {
         status: 'UNDER_REVIEW',
-        company_documents: company_documents
+        company_documents: typeof company_documents === 'object' ? JSON.stringify(company_documents) : company_documents
       }
     });
 
