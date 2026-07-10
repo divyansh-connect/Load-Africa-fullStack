@@ -49,7 +49,6 @@ export default function PlantLayout({ children }) {
       { name: 'Hire Requests', path: '/plant-portal/requests', icon: FileText },
       { name: 'Revenue', path: '/plant-portal/revenue', icon: DollarSign },
       { name: 'List New Machine', path: '/plant-portal/add-machine', icon: PlusCircle },
-      { name: 'Maintenance', path: '/plant-portal/maintenance', icon: Wrench },
     ] : [
       { name: 'Compliance', path: '/plant-portal/compliance', icon: ShieldAlert },
     ]),

@@ -22,6 +22,12 @@ export default function AssignedLoads() {
   const [selectedPartnerId, setSelectedPartnerId] = useState('');
   const [partnerType, setPartnerType] = useState('FLEET'); // FLEET or DRIVER
   const [assigning, setAssigning] = useState(false);
+  const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
+
+  const showNotification = (message, type = 'success') => {
+    setNotification({ show: true, message, type });
+    setTimeout(() => setNotification({ show: false, message: '', type: 'success' }), 4000);
+  };
 
   useEffect(() => {
     fetchAssignedLoads();
@@ -74,10 +80,10 @@ export default function AssignedLoads() {
       if (res.success) {
         setViewModalOpen(false);
         fetchAssignedLoads();
-        alert('Assignment completed successfully');
+        showNotification('Assignment completed successfully', 'success');
       }
     } catch (err) {
-      alert(err.response?.data?.message || err.message || 'Assignment failed');
+      showNotification(err.response?.data?.message || err.message || 'Assignment failed', 'error');
     } finally {
       setAssigning(false);
     }
@@ -317,10 +323,10 @@ export default function AssignedLoads() {
                         if (res.success) {
                           setViewModalOpen(false);
                           fetchAssignedLoads();
-                          alert('Proof of Delivery verified and invoice scheduled');
+                          showNotification('Proof of Delivery verified and invoice scheduled', 'success');
                         }
                       } catch (err) {
-                        alert(err.message || 'Failed to verify POD');
+                        showNotification(err.message || 'Failed to verify POD', 'error');
                       } finally {
                         setAssigning(false);
                       }
@@ -438,6 +444,16 @@ export default function AssignedLoads() {
               )}
 
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Alert/Toast notification */}
+      {notification.show && (
+        <div className="fixed bottom-6 right-6 z-[9999] flex items-center gap-3 px-4 py-3.5 rounded-2xl shadow-xl border animate-slideUp max-w-sm bg-slate-900 border-slate-800 text-white">
+          <div className={`h-2 w-2 rounded-full shrink-0 ${notification.type === 'error' ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500 animate-ping'}`} />
+          <div className="text-xs font-bold tracking-wide font-sans">
+            {notification.message}
           </div>
         </div>
       )}

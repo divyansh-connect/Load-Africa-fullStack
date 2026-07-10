@@ -1491,7 +1491,6 @@ export default function PlantDashboard() {
       {path.endsWith('/equipment') && renderEquipment()}
       {path.endsWith('/add-machine') && renderAddMachine()}
       {path.endsWith('/revenue') && renderRevenue()}
-      {path.endsWith('/maintenance') && renderMaintenance()}
       {path.endsWith('/profile') && renderProfile()}
 
       {/* Global Toast */}

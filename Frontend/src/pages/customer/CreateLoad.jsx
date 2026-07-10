@@ -28,6 +28,8 @@ export default function CreateLoad() {
   const [selectedVehicle, setSelectedVehicle] = useState('bakkie');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [pickupCoords, setPickupCoords] = useState(null);
+  const [dropoffCoords, setDropoffCoords] = useState(null);
 
   const calculateEstimate = (baseRate) => {
     if (!baseRate) return 0;
@@ -55,8 +57,8 @@ export default function CreateLoad() {
       const { bookingService } = await import('../../services/bookingService');
       
       // 1. Geocode pickup and delivery addresses
-      const pickupGeocode = await MapProvider.geocode.geocode(pickup);
-      const dropoffGeocode = await MapProvider.geocode.geocode(dropoff);
+      const pickupGeocode = pickupCoords || await MapProvider.geocode.geocode(pickup);
+      const dropoffGeocode = dropoffCoords || await MapProvider.geocode.geocode(dropoff);
       
       const distance = MapProvider.route.calculateHaversineDistance(
         pickupGeocode.lat, pickupGeocode.lng,
@@ -156,8 +158,11 @@ export default function CreateLoad() {
                     label="Pickup Location Address" 
                     placeholder="Search pickup facility or address" 
                     value={pickup} 
-                    onChange={e => setPickup(e.target.value)} 
-                    onPlaceSelect={place => setPickup(place.address)} 
+                    onChange={e => { setPickup(e.target.value); setPickupCoords(null); }} 
+                    onPlaceSelect={place => {
+                      setPickup(place.address);
+                      setPickupCoords({ lat: place.lat, lng: place.lng });
+                    }} 
                     icon={MapPin} 
                     required 
                     className="h-12 pl-10 text-[13px] font-semibold rounded-lg bg-gray-50 border border-gray-200 focus:bg-white transition-all text-slate-900 placeholder:text-gray-400 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
@@ -169,8 +174,11 @@ export default function CreateLoad() {
                     label="Delivery Location Address" 
                     placeholder="Search dropoff facility or address" 
                     value={dropoff} 
-                    onChange={e => setDropoff(e.target.value)} 
-                    onPlaceSelect={place => setDropoff(place.address)} 
+                    onChange={e => { setDropoff(e.target.value); setDropoffCoords(null); }} 
+                    onPlaceSelect={place => {
+                      setDropoff(place.address);
+                      setDropoffCoords({ lat: place.lat, lng: place.lng });
+                    }} 
                     icon={MapPin} 
                     required 
                     className="h-12 pl-10 text-[13px] font-semibold rounded-lg bg-gray-50 border border-gray-200 focus:bg-white transition-all text-slate-900 placeholder:text-gray-400 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
