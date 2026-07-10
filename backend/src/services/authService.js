@@ -101,11 +101,12 @@ const registerUser = async (data) => {
 };
 
 const registerDriver = async (data) => {
-  const { email, password, fullName, phone, profile, kyc, vehicle, documents } = data;
+  let { email, password, fullName, phone, profile, kyc, vehicle, documents } = data;
+  email = email.trim().toLowerCase();
 
   const existingUser = await prisma.user.findUnique({ where: { email } });
   if (existingUser) {
-    throw new Error('Email already in use');
+    throw new Error('Email already in use. Please use a different email address.');
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
@@ -120,7 +121,8 @@ const registerDriver = async (data) => {
         status: 'PENDING',
         first_name: fullName.split(' ')[0],
         last_name: fullName.split(' ').slice(1).join(' '),
-        phone
+        phone,
+        avatar: documents?.profilePhoto || null
       }
     });
 
@@ -374,13 +376,26 @@ const loginUser = async (email, password) => {
     }
   }
 
+  // Fetch broker info if role is BROKER
+  let brokerInfo = null;
+  if (user.role === 'BROKER') {
+    brokerInfo = await prisma.broker.findUnique({ where: { user_id: user.id } });
+  }
+
   return {
     token,
     user: {
       id: user.id,
       email: user.email,
       role: user.role,
-      onboarding_completed: onboardingCompleted
+      status: user.status,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      phone: user.phone,
+      avatar: user.avatar,
+      created_at: user.created_at,
+      onboarding_completed: onboardingCompleted,
+      broker: brokerInfo ? { id: brokerInfo.id, company_name: brokerInfo.company_name } : undefined
     }
   };
 };

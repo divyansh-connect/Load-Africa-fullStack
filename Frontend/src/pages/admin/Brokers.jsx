@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Search, CheckCircle2, XCircle, Trash2, Eye, PauseCircle, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Search, CheckCircle2, XCircle, Trash2, Eye, PauseCircle, ChevronLeft, ChevronRight, Loader2, Plus, X } from 'lucide-react';
 import { adminService } from '../../services/adminService';
 
 export default function Brokers() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   
   const [brokers, setBrokers] = useState([]);
@@ -11,6 +13,18 @@ export default function Brokers() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalBrokers, setTotalBrokers] = useState(0);
   const [error, setError] = useState(null);
+
+  // Add Broker Modal State
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
+  const [newBroker, setNewBroker] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    password: '',
+    companyName: ''
+  });
 
   const fetchBrokers = async () => {
     try {
@@ -48,6 +62,24 @@ export default function Brokers() {
     }
   };
 
+  const handleAddBroker = async (e) => {
+    e.preventDefault();
+    try {
+      setIsAdding(true);
+      const res = await adminService.createBroker(newBroker);
+      if (res.success) {
+        setShowAddModal(false);
+        setNewBroker({ firstName: '', lastName: '', email: '', phone: '', password: '', companyName: '' });
+        fetchBrokers();
+        alert('Broker added successfully');
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || err.message || 'Failed to add broker');
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       
@@ -70,9 +102,17 @@ export default function Brokers() {
               className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-amber-500 text-sm font-medium"
             />
           </div>
-          <button onClick={fetchBrokers} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors w-full sm:w-auto justify-center">
-            Refresh
-          </button>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <button onClick={fetchBrokers} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors">
+              Refresh
+            </button>
+            <button 
+              onClick={() => setShowAddModal(true)} 
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-amber-500 border border-amber-600 rounded-xl text-sm font-black tracking-wide text-white hover:bg-amber-600 transition-colors"
+            >
+              <Plus className="h-4 w-4" /> Add Broker
+            </button>
+          </div>
         </div>
 
         {/* Data Table */}
@@ -122,7 +162,7 @@ export default function Brokers() {
                   </td>
                   <td className="px-5 py-4">
                     <div className="flex items-center justify-end gap-3">
-                      <button className="text-slate-400 hover:text-sky-500 transition-colors" title="View Profile">
+                      <button onClick={() => navigate(`/admin-portal/brokers/${broker.id}`)} className="text-slate-400 hover:text-sky-500 transition-colors" title="View Profile">
                         <Eye className="h-4 w-4" />
                       </button>
                       {broker.status === 'PENDING' && (
@@ -179,6 +219,102 @@ export default function Brokers() {
           </div>
         </div>
       </div>
+
+      {/* Add Broker Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xl w-full max-w-lg">
+            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">Add New Broker</h3>
+              <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <form onSubmit={handleAddBroker} className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">First Name *</label>
+                  <input
+                    required
+                    type="text"
+                    value={newBroker.firstName}
+                    onChange={(e) => setNewBroker({...newBroker, firstName: e.target.value})}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:border-amber-500 focus:outline-none text-xs font-semibold"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Last Name</label>
+                  <input
+                    type="text"
+                    value={newBroker.lastName}
+                    onChange={(e) => setNewBroker({...newBroker, lastName: e.target.value})}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:border-amber-500 focus:outline-none text-xs font-semibold"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Email Address *</label>
+                  <input
+                    required
+                    type="email"
+                    value={newBroker.email}
+                    onChange={(e) => setNewBroker({...newBroker, email: e.target.value})}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:border-amber-500 focus:outline-none text-xs font-semibold"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Phone Number</label>
+                  <input
+                    type="tel"
+                    value={newBroker.phone}
+                    onChange={(e) => setNewBroker({...newBroker, phone: e.target.value})}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:border-amber-500 focus:outline-none text-xs font-semibold"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Company Name *</label>
+                <input
+                  required
+                  type="text"
+                  value={newBroker.companyName}
+                  onChange={(e) => setNewBroker({...newBroker, companyName: e.target.value})}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:border-amber-500 focus:outline-none text-xs font-semibold"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Initial Password *</label>
+                <input
+                  required
+                  type="password"
+                  minLength={6}
+                  value={newBroker.password}
+                  onChange={(e) => setNewBroker({...newBroker, password: e.target.value})}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:border-amber-500 focus:outline-none text-xs font-semibold"
+                />
+              </div>
+
+              <div className="pt-4 border-t border-slate-100 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="flex-1 py-2 border border-slate-200 text-slate-600 font-bold text-xs rounded-xl hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isAdding}
+                  className="flex-1 py-2 bg-amber-500 text-white font-black uppercase tracking-wider text-[10px] rounded-xl hover:bg-amber-600 disabled:opacity-50 flex items-center justify-center"
+                >
+                  {isAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Create Broker'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, useNavigate, NavLink, useLocation } from 'react-router-dom';
 import { 
   Truck, LogOut, LayoutDashboard, Users, FileText, Shield, 
   Settings, Briefcase, BookOpen, Target, Menu, X, User, Bell
 } from 'lucide-react';
+import { authService } from '../services/authService';
 
 export default function AdminLayout({ children }) {
   const navigate = useNavigate();
@@ -11,6 +12,14 @@ export default function AdminLayout({ children }) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  
+  const [adminUser, setAdminUser] = useState(authService.getCurrentUser());
+
+  useEffect(() => {
+    const handleUpdate = () => setAdminUser(authService.getCurrentUser());
+    window.addEventListener('user-updated', handleUpdate);
+    return () => window.removeEventListener('user-updated', handleUpdate);
+  }, []);
 
   const handleLogout = () => {
     navigate('/login');
@@ -197,10 +206,14 @@ export default function AdminLayout({ children }) {
                 }}
                 className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-slate-100 transition-all duration-200"
               >
-                <div className="h-8 w-8 rounded-full bg-slate-900 flex items-center justify-center text-amber-500 font-black border border-slate-200">
-                  A
+                <div className="h-8 w-8 rounded-full bg-slate-900 flex items-center justify-center text-amber-500 font-black border border-slate-200 overflow-hidden shrink-0">
+                  {adminUser?.avatar ? (
+                    <img src={adminUser.avatar} alt="Profile" className="h-full w-full object-cover" />
+                  ) : (
+                    (adminUser?.first_name?.[0] || adminUser?.email?.[0] || 'A').toUpperCase()
+                  )}
                 </div>
-                <span className="hidden md:block text-sm font-bold text-slate-700">Admin</span>
+                <span className="hidden md:block text-sm font-bold text-slate-700">{adminUser?.first_name || 'Admin'}</span>
               </button>
 
               {isUserMenuOpen && (
@@ -208,15 +221,22 @@ export default function AdminLayout({ children }) {
                   <div className="fixed inset-0 z-20" onClick={() => setIsUserMenuOpen(false)} />
                   <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-150 py-2 z-30 transform origin-top-right transition-all">
                     <div className="px-4 py-3 border-b border-slate-100">
-                      <p className="text-sm font-bold text-slate-800">Admin</p>
-                      <p className="text-xs text-slate-500 truncate">admin@loadafrica.com</p>
+                      <p className="text-sm font-bold text-slate-800">{adminUser ? `${adminUser.first_name || ''} ${adminUser.last_name || ''}`.trim() || 'Admin User' : 'Admin User'}</p>
+                      <p className="text-xs text-slate-500 truncate">{adminUser?.email || 'admin@loadafrica.com'}</p>
                     </div>
                     <button 
-                      onClick={() => { setIsUserMenuOpen(false); navigate('/admin-portal/settings'); }}
+                      onClick={() => { setIsUserMenuOpen(false); navigate('/admin-portal/settings?tab=profile'); }}
+                      className="flex items-center w-full px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                    >
+                      <User className="h-4 w-4 mr-3 text-slate-400" />
+                      My Profile
+                    </button>
+                    <button 
+                      onClick={() => { setIsUserMenuOpen(false); navigate('/admin-portal/settings?tab=platform'); }}
                       className="flex items-center w-full px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
                     >
                       <Settings className="h-4 w-4 mr-3 text-slate-400" />
-                      Settings
+                      Platform Settings
                     </button>
                     <div className="border-t border-slate-100 my-1" />
                     <button 

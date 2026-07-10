@@ -265,70 +265,84 @@ export default function AssignedLoads() {
               {/* Assignment Selector if not assigned */}
               {!selectedLoad.assignment && (
                 <div className="space-y-4 pt-4 border-t border-slate-200">
-                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Assign Operations Dispatch</h4>
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">Assign Operations Dispatch</h4>
                   
-                  <div className="grid grid-cols-1 gap-4">
-                    {/* Option A: Assign Fleet */}
-                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
-                      <div>
-                        <p className="text-xs font-bold text-slate-900">Option A: Dispatch to Fleet Owner</p>
-                        <p className="text-[10px] text-slate-450 font-semibold leading-relaxed">Fleet Owner will review, accept, and dispatch their vehicle and fleet driver.</p>
-                      </div>
-                      <div className="flex gap-2">
-                        <select
-                          value={selectedFleetId}
-                          onChange={(e) => { setSelectedFleetId(e.target.value); setSelectedDriverId(''); }}
-                          className="flex-1 px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500/20"
-                        >
-                          <option value="">Select approved fleet owner...</option>
-                          {fleets.map(f => (
-                            <option key={f.id} value={f.fleet_owner?.id}>
-                              {f.fleet_owner?.company_name || `${f.first_name} ${f.last_name}`}
-                            </option>
-                          ))}
-                        </select>
-                        <button
-                          disabled={!selectedFleetId || assigning}
-                          onClick={handleAssignFleet}
-                          className="px-4 py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-955 text-xs font-black rounded-lg transition-colors cursor-pointer"
-                        >
-                          Assign Fleet
-                        </button>
-                      </div>
+                  <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                    {/* Tabs */}
+                    <div className="flex border-b border-slate-100 bg-slate-50">
+                      <button 
+                        className={`flex-1 py-3 text-xs font-bold transition-colors ${selectedFleetId !== undefined && selectedDriverId === '' ? 'bg-amber-500 text-slate-900 border-b-2 border-amber-600' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
+                        onClick={() => { setSelectedFleetId(''); setSelectedDriverId(''); }}
+                        title="Click to reset and choose Fleet"
+                      >
+                        Option A: Fleet Owner
+                      </button>
+                      <button 
+                        className={`flex-1 py-3 text-xs font-bold transition-colors ${selectedDriverId !== '' ? 'bg-amber-500 text-slate-900 border-b-2 border-amber-600' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
+                        onClick={() => { setSelectedDriverId('temp'); setSelectedFleetId(''); setSelectedDriverId(''); }}
+                        title="Click to reset and choose Driver"
+                      >
+                        Option B: Independent Driver
+                      </button>
                     </div>
 
-                    {/* Option B: Assign Independent Driver */}
-                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                    <div className="p-5 space-y-4 bg-slate-50/50">
                       <div>
-                        <p className="text-xs font-bold text-slate-900">Option B: Dispatch to Independent Driver</p>
-                        <p className="text-[10px] text-slate-450 font-semibold leading-relaxed">Driver will receive load, review details, and start transit directly.</p>
+                        <p className="text-xs font-bold text-slate-900">
+                          Dispatch to {selectedDriverId !== '' || (selectedFleetId === '' && selectedDriverId === '') ? 'Transporter' : 'Transporter'}
+                        </p>
+                        <p className="text-[10px] text-slate-500 font-semibold mt-1">
+                          Select an approved partner below to handle this load. They will receive a notification to review and start transit.
+                        </p>
                       </div>
-                      <div className="flex gap-2">
+                      
+                      <div className="flex flex-col gap-3">
                         <select
-                          value={selectedDriverId}
-                          onChange={(e) => { setSelectedDriverId(e.target.value); setSelectedFleetId(''); }}
-                          className="flex-1 px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                          value={selectedFleetId || selectedDriverId}
+                          onChange={(e) => { 
+                            const val = e.target.value;
+                            if (val.startsWith('fleet_')) {
+                              setSelectedFleetId(val.replace('fleet_', ''));
+                              setSelectedDriverId('');
+                            } else if (val.startsWith('driver_')) {
+                              setSelectedDriverId(val.replace('driver_', ''));
+                              setSelectedFleetId('');
+                            } else {
+                              setSelectedFleetId('');
+                              setSelectedDriverId('');
+                            }
+                          }}
+                          className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500/20 shadow-sm"
                         >
-                          <option value="">Select approved driver...</option>
-                          {drivers.map(d => {
-                            const vehicleType = d.driver?.vehicle_relation?.vehicle_type || d.driver?.assigned_vehicle?.type || 'Vehicle Unspecified';
-                            return (
-                              <option key={d.id} value={d.driver?.id}>
-                                {d.first_name} {d.last_name} — [{vehicleType}]
+                          <option value="">-- Select Approved Partner --</option>
+                          <optgroup label="Fleet Owners">
+                            {fleets.map(f => (
+                              <option key={`f_${f.id}`} value={`fleet_${f.fleet_owner?.id}`}>
+                                [Fleet] {f.fleet_owner?.company_name || `${f.first_name} ${f.last_name}`}
                               </option>
-                            );
-                          })}
+                            ))}
+                          </optgroup>
+                          <optgroup label="Independent Drivers">
+                            {drivers.map(d => {
+                              const vehicleType = d.driver?.vehicle_relation?.vehicle_type || d.driver?.assigned_vehicle?.type || 'Unspecified';
+                              return (
+                                <option key={`d_${d.id}`} value={`driver_${d.driver?.id}`}>
+                                  [Driver] {d.first_name} {d.last_name} — {vehicleType}
+                                </option>
+                              );
+                            })}
+                          </optgroup>
                         </select>
+                        
                         <button
-                          disabled={!selectedDriverId || assigning}
-                          onClick={handleAssignDriver}
-                          className="px-4 py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-955 text-xs font-black rounded-lg transition-colors cursor-pointer"
+                          disabled={(!selectedFleetId && !selectedDriverId) || assigning}
+                          onClick={() => selectedFleetId ? handleAssignFleet() : handleAssignDriver()}
+                          className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 text-xs font-black uppercase tracking-wider rounded-xl transition-all shadow-sm cursor-pointer"
                         >
-                          Assign Driver
+                          {assigning ? 'Assigning...' : 'Confirm Dispatch Assignment'}
                         </button>
                       </div>
                     </div>
-
                   </div>
                 </div>
               )}

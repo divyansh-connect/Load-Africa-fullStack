@@ -14,10 +14,7 @@ export default function QuoteRequests() {
   // Quote form state
   const [quoteForm, setQuoteForm] = useState({
     vehicle_rate: '',
-    weight_charges: '',
     fuel_charges: '',
-    insurance_charges: '',
-    hazard_charge: '',
     discount: ''
   });
 
@@ -41,8 +38,7 @@ export default function QuoteRequests() {
   const handleCreateQuoteClick = (req) => {
     setSelectedBooking(req);
     setQuoteForm({
-      vehicle_rate: '', weight_charges: '', fuel_charges: '', 
-      insurance_charges: '', hazard_charge: '', discount: ''
+      vehicle_rate: '', fuel_charges: '', discount: ''
     });
     setQuoteModalOpen(true);
   };
@@ -56,10 +52,7 @@ export default function QuoteRequests() {
       const res = await brokerService.submitQuote(selectedBooking.id, {
         ...quoteForm,
         vehicle_rate: Number(quoteForm.vehicle_rate) || 0,
-        weight_charges: Number(quoteForm.weight_charges) || 0,
         fuel_charges: Number(quoteForm.fuel_charges) || 0,
-        insurance_charges: Number(quoteForm.insurance_charges) || 0,
-        hazard_charge: Number(quoteForm.hazard_charge) || 0,
         discount: Number(quoteForm.discount) || 0,
       });
       if (res.success) {
@@ -127,89 +120,71 @@ export default function QuoteRequests() {
               No pending quote requests found.
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="flex flex-col gap-3">
               {filteredRequests.map((req) => (
-                <div key={req.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:border-amber-400 transition-all flex flex-col">
-                  {/* Card Header: Route */}
-                  <div className="p-4 border-b border-slate-100 bg-slate-50/50 rounded-t-2xl space-y-3">
-                    <div className="flex justify-between items-start mb-1">
-                      <span className="text-[10px] font-black px-2 py-1 bg-amber-100 text-amber-800 rounded-md uppercase tracking-wider">
-                        ID: {req.id.split('-')[0]}
-                      </span>
-                      <span className="text-[10px] text-slate-400 font-semibold bg-white border border-slate-200 px-2 py-1 rounded-md">{new Date(req.created_at).toLocaleDateString()}</span>
-                    </div>
-                    <div className="flex items-start gap-2.5">
-                      <div className="mt-1 h-3 w-3 rounded-full bg-emerald-100 border-2 border-emerald-500 shrink-0" />
-                      <div>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Pickup Point</p>
-                        <p className="text-xs font-black text-slate-900 leading-tight">{req.pickup_address?.split(',')[0]}</p>
-                        <p className="text-[10px] text-slate-500 truncate max-w-[200px]">{req.pickup_address}</p>
+                <div key={req.id} className="bg-white rounded-xl border border-slate-200 shadow-sm hover:border-amber-400 transition-all flex flex-col md:flex-row items-start md:items-center p-4 gap-4 md:gap-6">
+                  {/* Status/ID */}
+                  <div className="shrink-0 flex flex-col items-start gap-1 w-full md:w-32">
+                    <span className="text-[10px] font-black px-2 py-1 bg-amber-100 text-amber-800 rounded-md uppercase tracking-wider">
+                      ID: {req.id.split('-')[0]}
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-bold">{new Date(req.created_at).toLocaleDateString()}</span>
+                  </div>
+
+                  {/* Customer Info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-0.5">Customer</p>
+                    <div className="flex items-center gap-2">
+                      <div className="h-6 w-6 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center border border-indigo-100 shrink-0">
+                        <User className="h-3 w-3" />
                       </div>
-                    </div>
-                    <div className="pl-1.5 border-l-2 border-dashed border-slate-300 ml-1.5 py-1" />
-                    <div className="flex items-start gap-2.5">
-                      <div className="mt-1 h-3 w-3 rounded-full bg-amber-100 border-2 border-amber-500 shrink-0" />
-                      <div>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Delivery Point</p>
-                        <p className="text-xs font-black text-slate-900 leading-tight">{req.delivery_address?.split(',')[0]}</p>
-                        <p className="text-[10px] text-slate-500 truncate max-w-[200px]">{req.delivery_address}</p>
-                      </div>
+                      <p className="text-sm font-bold text-slate-800 truncate">
+                        {req.customer?.company_name 
+                          ? req.customer.company_name 
+                          : req.customer?.user?.first_name 
+                            ? `${req.customer.user.first_name} ${req.customer.user.last_name || ''}` 
+                            : req.customer?.user?.email
+                              ? req.customer.user.email.split('@')[0]
+                              : req.guest_company
+                                ? req.guest_company
+                                : req.guest_email
+                                  ? req.guest_email.split('@')[0]
+                                  : req.pickup_contact || 'Guest User'}
+                      </p>
                     </div>
                   </div>
 
-                  {/* Card Body: Customer & Cargo */}
-                  <div className="p-5 space-y-4 flex-1">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center border border-indigo-100 shrink-0">
-                        <User className="h-5 w-5" />
-                      </div>
-                      <div className="overflow-hidden">
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Customer Details</p>
-                        <p className="text-sm font-bold text-slate-800 truncate">
-                          {req.customer?.company_name 
-                            ? req.customer.company_name 
-                            : req.customer?.user?.first_name 
-                              ? `${req.customer.user.first_name} ${req.customer.user.last_name || ''}` 
-                              : req.customer?.user?.email
-                                ? req.customer.user.email.split('@')[0]
-                                : req.guest_company
-                                  ? req.guest_company
-                                  : req.guest_email
-                                    ? req.guest_email.split('@')[0]
-                                    : req.pickup_contact || 'Guest User'}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
-                      <div>
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Cargo & Weight</p>
-                        <p className="text-xs font-bold text-slate-800 truncate" title={req.cargo_name}>{req.cargo_name}</p>
-                        <p className="text-[10px] font-semibold text-slate-500">{req.weight} kg</p>
-                      </div>
-                      <div>
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Requested Vehicle</p>
-                        <p className="text-xs font-bold text-slate-800 flex items-center gap-1 truncate">
-                          <Truck className="h-3 w-3 text-slate-400 shrink-0" />
-                          <span className="truncate" title={req.requested_vehicle || 'Any Vehicle'}>{req.requested_vehicle || 'Any Vehicle'}</span>
-                        </p>
-                      </div>
+                  {/* Route */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-0.5">Route</p>
+                    <div className="flex items-center gap-1 text-xs font-bold text-slate-800 truncate">
+                      <span className="truncate max-w-[120px]" title={req.pickup_address}>{req.pickup_address?.split(',')[0]}</span>
+                      <span className="text-slate-400 mx-1">→</span>
+                      <span className="truncate max-w-[120px]" title={req.delivery_address}>{req.delivery_address?.split(',')[0]}</span>
                     </div>
                   </div>
 
-                  {/* Card Footer: Action */}
-                  <div className="p-4 border-t border-slate-100 bg-white rounded-b-2xl">
+                  {/* Cargo */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-0.5">Cargo & Weight</p>
+                    <p className="text-xs font-bold text-slate-800 truncate">
+                      {req.cargo_name} <span className="text-slate-500 font-semibold">({req.weight}kg)</span>
+                    </p>
+                  </div>
+
+                  {/* Action */}
+                  <div className="shrink-0 w-full md:w-auto mt-2 md:mt-0">
                     {req.quotes && req.quotes.length > 0 ? (
-                      <div className="w-full py-2.5 bg-slate-50 border border-slate-200 text-slate-500 text-xs font-black uppercase tracking-wider text-center rounded-xl flex justify-center items-center gap-2">
-                        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                      <div className="px-4 py-2 bg-slate-50 border border-slate-200 text-slate-500 text-xs font-black uppercase tracking-wider text-center rounded-lg flex justify-center items-center gap-1.5">
+                        <CheckCircle2 className="h-3 w-3 text-emerald-500" />
                         Quote Issued
                       </div>
                     ) : (
                       <button 
                         onClick={() => handleCreateQuoteClick(req)}
-                        className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-black uppercase tracking-wider rounded-xl transition-all shadow-md shadow-amber-500/20 cursor-pointer"
+                        className="w-full md:w-auto px-5 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-black uppercase tracking-wider rounded-lg transition-all shadow-sm cursor-pointer"
                       >
-                        Create Quote
+                        View & Quote
                       </button>
                     )}
                   </div>
@@ -345,18 +320,6 @@ export default function QuoteRequests() {
                     <input type="number" name="fuel_charges" value={quoteForm.fuel_charges} onChange={handleQuoteChange} className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-amber-500 text-sm font-semibold" placeholder="e.g. 1500" />
                   </div>
                   <div className="space-y-1">
-                    <label className="block text-xs font-bold text-slate-700">Weight Charges</label>
-                    <input type="number" name="weight_charges" value={quoteForm.weight_charges} onChange={handleQuoteChange} className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-amber-500 text-sm font-semibold" placeholder="e.g. 500" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="block text-xs font-bold text-slate-700">Insurance Charges</label>
-                    <input type="number" name="insurance_charges" value={quoteForm.insurance_charges} onChange={handleQuoteChange} className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-amber-500 text-sm font-semibold" placeholder="e.g. 300" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="block text-xs font-bold text-slate-700">Hazard/Special Charge</label>
-                    <input type="number" name="hazard_charge" value={quoteForm.hazard_charge} onChange={handleQuoteChange} className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-amber-500 text-sm font-semibold" placeholder="e.g. 0" />
-                  </div>
-                  <div className="space-y-1">
                     <label className="block text-xs font-bold text-red-650">Discount</label>
                     <input type="number" name="discount" value={quoteForm.discount} onChange={handleQuoteChange} className="w-full px-3 py-2 border border-red-200 bg-red-50 rounded-lg focus:outline-none focus:border-red-500 text-sm font-semibold" placeholder="e.g. 0" />
                   </div>
@@ -365,10 +328,7 @@ export default function QuoteRequests() {
                 {/* Live Real-time Quote Split Calculator */}
                 {(() => {
                   const subtotal = (Number(quoteForm.vehicle_rate) || 0) + 
-                                   (Number(quoteForm.fuel_charges) || 0) + 
-                                   (Number(quoteForm.weight_charges) || 0) + 
-                                   (Number(quoteForm.insurance_charges) || 0) + 
-                                   (Number(quoteForm.hazard_charge) || 0) - 
+                                   (Number(quoteForm.fuel_charges) || 0) - 
                                    (Number(quoteForm.discount) || 0);
                   const brokerFee = subtotal * 0.05;
                   const platformFee = subtotal * 0.10;

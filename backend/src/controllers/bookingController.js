@@ -182,7 +182,7 @@ const updateBookingStatus = async (req, res, next) => {
         });
         
         if (!existingInvoice) {
-          const grandTotal = booking.quotes.length > 0 ? Number(booking.quotes[0].grand_total) : 0;
+          const grandTotal = booking.quotes.length > 0 ? Number(booking.quotes[0].grand_total) : 1500;
           const platformComm = grandTotal * 0.10;
           const payoutAmount = grandTotal * 0.90;
 
@@ -229,6 +229,11 @@ const updateBookingStatus = async (req, res, next) => {
                 where: { id: assignment.driver_id }
               });
               if (driver) payeeUserId = driver.user_id;
+
+              await tx.driver.update({
+                where: { id: assignment.driver_id },
+                data: { status: 'AVAILABLE' }
+              });
             }
           }
 

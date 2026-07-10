@@ -519,7 +519,7 @@ const getProfile = async (req, res) => {
 const updateProfile = async (req, res) => {
   try {
     const fleetOwnerId = await getFleetOwnerId(req);
-    const { first_name, last_name, phone, company_name, company_registration, tax_number, address } = req.body;
+    const { first_name, last_name, phone, company_name, company_registration, tax_number, address, avatar } = req.body;
 
     const fleetOwner = await prisma.fleetOwner.findUnique({
       where: { id: fleetOwnerId }
@@ -532,6 +532,7 @@ const updateProfile = async (req, res) => {
           first_name: first_name !== undefined ? first_name : undefined,
           last_name: last_name !== undefined ? last_name : undefined,
           phone: phone !== undefined ? phone : undefined,
+          avatar: avatar !== undefined ? avatar : undefined,
         }
       });
 

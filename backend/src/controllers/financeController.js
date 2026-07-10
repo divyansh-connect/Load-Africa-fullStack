@@ -71,26 +71,20 @@ const verifyPODAndReleasePayment = async (req, res) => {
 
 const withdrawEarnings = async (req, res) => {
   try {
-    const driverId = await getDriverId(req); // For drivers. Wait, we should make it generic for the logged-in user.
     const userId = req.user.id;
     const { amount } = req.body;
 
     if (!amount || amount <= 0) return res.status(400).json({ success: false, message: 'Invalid withdrawal amount' });
 
     const wallet = await prisma.wallet.findFirst({ where: { user_id: userId } });
-    if (!wallet || wallet.balance < amount) return res.status(400).json({ success: false, message: 'Insufficient funds' });
+    if (!wallet || Number(wallet.balance) < amount) return res.status(400).json({ success: false, message: 'Insufficient funds' });
 
     await prisma.$transaction(async (tx) => {
       await tx.wallet.update({
         where: { id: wallet.id },
-        data: { balance: { decrement: amount } }
-      });
-
-      const withdrawal = await tx.withdrawalRequest.create({
-        data: {
-          wallet_id: wallet.id,
-          amount,
-          status: 'PENDING'
+        data: { 
+          balance: { decrement: amount },
+          pending_balance: { increment: amount }
         }
       });
 
@@ -100,7 +94,6 @@ const withdrawEarnings = async (req, res) => {
           type: 'DEBIT',
           amount,
           description: `Withdrawal request submitted`,
-          reference_id: withdrawal.id,
           status: 'PENDING'
         }
       });
@@ -118,13 +111,19 @@ const getWallet = async (req, res) => {
     
     let wallet = await prisma.wallet.findFirst({ 
       where: { user_id: userId },
-      include: { transactions: { orderBy: { created_at: 'desc' } } }
+      include: { 
+        transactions: { orderBy: { created_at: 'desc' } },
+        user: { select: { first_name: true, last_name: true } }
+      }
     });
  
     if (!wallet) {
       wallet = await prisma.wallet.create({
         data: { user_id: userId, balance: 0 },
-        include: { transactions: true }
+        include: { 
+          transactions: true,
+          user: { select: { first_name: true, last_name: true } }
+        }
       });
     }
  

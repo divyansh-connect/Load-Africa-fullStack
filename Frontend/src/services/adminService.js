@@ -21,6 +21,17 @@ export const adminService = {
     return response.data;
   },
 
+  getAdminFinancials: async (params) => {
+    const response = await api.get('/admin/payments', { params });
+    return response.data;
+  },
+
+  createBroker: async (brokerData) => {
+    // Admin-created brokers are auto-approved (ACTIVE)
+    const response = await api.post('/admin/brokers/create', brokerData);
+    return response.data;
+  },
+
   getAllBookings: async (params) => {
     const response = await api.get('/admin/bookings', { params });
     return response.data;

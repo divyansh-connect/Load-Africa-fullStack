@@ -35,6 +35,12 @@ export default function EarningsWallet() {
       if (res.success) {
         setWallet(res.data);
         setTransactions(res.data.transactions || []);
+        if (res.data.user) {
+          setBankDetails(prev => ({
+            ...prev,
+            accountHolder: `${res.data.user.first_name || ''} ${res.data.user.last_name || ''}`.trim() || 'Driver'
+          }));
+        }
       }
     } catch (err) {
       console.error("Failed to load wallet", err);
@@ -76,8 +82,18 @@ export default function EarningsWallet() {
 
   if (loading || !wallet) return <div className="p-10 text-center text-slate-500">Loading Wallet...</div>;
 
+  const totalEarnings = transactions
+    .filter(tx => tx.type === 'CREDIT')
+    .reduce((sum, tx) => sum + Number(tx.amount), 0);
+
+  const totalWithdrawals = transactions
+    .filter(tx => tx.type === 'DEBIT')
+    .reduce((sum, tx) => sum + Number(tx.amount), 0);
+
+  const pendingBalance = Number(wallet.pending_balance || 0);
+
   return (
-    <div className="space-y-8 animate-fadeIn">
+    <div className="space-y-8 animate-fadeIn text-left">
       
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -93,25 +109,62 @@ export default function EarningsWallet() {
       </div>
 
       {/* Cards stats grid */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         
-        {/* Wallet Balance */}
-        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow col-span-1 md:col-span-2">
-          <div className="flex justify-between items-start">
-            <div className="space-y-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Withdrawable Balance</span>
-              <p className="text-4xl font-extrabold text-slate-900">R {wallet.balance}</p>
-            </div>
-            <div className="bg-emerald-100 p-3 rounded-xl text-emerald-600">
-              <CreditCard className="h-6 w-6" />
-            </div>
+        {/* Card 1: Withdrawable Balance */}
+        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+          <div className="space-y-1">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Withdrawable Balance</span>
+            <p className="text-3xl font-black text-slate-900">R {Number(wallet.balance).toFixed(2)}</p>
           </div>
           <button 
             onClick={() => setWithdrawOpen(true)}
-            className="mt-6 w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition-all shadow-md shadow-emerald-500/10"
+            className="mt-6 w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition-all shadow-md shadow-emerald-500/10"
           >
-            Withdraw to Bank
+            Withdraw Funds
           </button>
+        </div>
+
+        {/* Card 2: Total Earnings */}
+        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+          <div className="flex justify-between items-start">
+            <div className="space-y-1">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Earnings</span>
+              <p className="text-3xl font-black text-emerald-600">R {totalEarnings.toFixed(2)}</p>
+            </div>
+            <div className="bg-emerald-50 p-2.5 rounded-xl text-emerald-650">
+              <TrendingUp className="h-5 w-5" />
+            </div>
+          </div>
+          <p className="text-[10px] text-slate-400 font-semibold mt-4">Lifetime freight revenue earned.</p>
+        </div>
+
+        {/* Card 3: Total Withdrawals */}
+        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+          <div className="flex justify-between items-start">
+            <div className="space-y-1">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Withdrawn</span>
+              <p className="text-3xl font-black text-slate-800">R {totalWithdrawals.toFixed(2)}</p>
+            </div>
+            <div className="bg-slate-100 p-2.5 rounded-xl text-slate-600">
+              <CreditCard className="h-5 w-5" />
+            </div>
+          </div>
+          <p className="text-[10px] text-slate-400 font-semibold mt-4">Transferred payouts to bank account.</p>
+        </div>
+
+        {/* Card 4: Pending Clearance */}
+        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+          <div className="flex justify-between items-start">
+            <div className="space-y-1">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Pending Balance</span>
+              <p className="text-3xl font-black text-amber-600">R {pendingBalance.toFixed(2)}</p>
+            </div>
+            <div className="bg-amber-50 p-2.5 rounded-xl text-amber-600">
+              <Clock className="h-5 w-5 animate-pulse" />
+            </div>
+          </div>
+          <p className="text-[10px] text-slate-400 font-semibold mt-4">Escrow or uncleared funds in transit.</p>
         </div>
 
       </div>

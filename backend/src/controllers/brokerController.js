@@ -95,7 +95,7 @@ const getAssignedLoads = async (req, res) => {
 
     const bookings = await prisma.booking.findMany({
       where: {
-        status: { notIn: ['DRAFT', 'QUOTE_REQUESTED', 'QUOTE_PREPARED'] }
+        status: { notIn: ['DRAFT', 'QUOTE_REQUESTED', 'QUOTE_PREPARED', 'REJECTED', 'CANCELLED', 'FAILED', 'EXPIRED'] }
       },
       include: {
         customer: { include: { user: true } },
@@ -263,6 +263,9 @@ const assignFleet = async (req, res) => {
 
     const booking = await prisma.booking.findUnique({ where: { id } });
     if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+    if (!['CUSTOMER_ACCEPTED', 'BOOKING_CONFIRMED', 'DRIVER_SEARCHING'].includes(booking.status)) {
+      return res.status(400).json({ success: false, message: 'Cannot assign a Fleet Owner unless the booking quote has been accepted by the customer.' });
+    }
 
     await prisma.$transaction(async (tx) => {
       await tx.bookingAssignment.updateMany({
@@ -313,6 +316,9 @@ const assignDriver = async (req, res) => {
 
     const booking = await prisma.booking.findUnique({ where: { id } });
     if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+    if (!['CUSTOMER_ACCEPTED', 'BOOKING_CONFIRMED', 'DRIVER_SEARCHING'].includes(booking.status)) {
+      return res.status(400).json({ success: false, message: 'Cannot assign a Driver unless the booking quote has been accepted by the customer.' });
+    }
 
     await prisma.$transaction(async (tx) => {
       await tx.bookingAssignment.updateMany({

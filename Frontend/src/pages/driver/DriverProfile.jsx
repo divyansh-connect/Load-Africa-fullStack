@@ -78,11 +78,18 @@ export default function DriverProfile() {
         first_name: profileData.first_name,
         last_name: profileData.last_name,
         phone: profileData.phone,
-        // Optional: email updates typically require a separate verification flow, not doing here
+        avatar: profileData.avatar
       };
       const res = await driverService.updateProfile(payload);
       if (res.success) {
         alert('Profile updated successfully!');
+        // Update auth context
+        const { authService } = await import('../../services/authService');
+        const user = authService.getCurrentUser();
+        if (user) {
+          localStorage.setItem('user', JSON.stringify({ ...user, avatar: profileData.avatar, first_name: profileData.first_name, last_name: profileData.last_name }));
+          window.dispatchEvent(new Event('user-updated'));
+        }
       }
     } catch (err) {
       alert('Failed to update profile');
@@ -173,7 +180,29 @@ export default function DriverProfile() {
                   <div>
                     <h3 className="text-lg font-bold text-slate-800">Profile Photo</h3>
                     <div className="flex gap-2 mt-2">
-                      <Button variant="outline" className="text-[10px] py-1.5 px-3" type="button">Change Photo</Button>
+                      <label className="cursor-pointer text-[10px] py-1.5 px-3 border border-slate-200 rounded-lg hover:bg-slate-50 font-bold text-slate-700 transition-colors">
+                        Change Photo
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          className="hidden" 
+                          onChange={async (e) => {
+                            const file = e.target.files[0];
+                            if (file) {
+                              try {
+                                const { uploadService } = await import('../../services/uploadService');
+                                const res = await uploadService.uploadFile(file);
+                                if (res.success && res.data.urls.length > 0) {
+                                  const url = 'http://localhost:5000' + res.data.urls[0];
+                                  setProfileData(prev => ({ ...prev, avatar: url }));
+                                }
+                              } catch (err) {
+                                alert('Upload failed');
+                              }
+                            }
+                          }}
+                        />
+                      </label>
                     </div>
                   </div>
                 </div>

@@ -41,5 +41,18 @@ export const authService = {
   submitCompliance: async (documents) => {
     const response = await api.post('/fleet/compliance/submit', { company_documents: documents });
     return response.data;
+  },
+
+  updateProfile: async (profileData) => {
+    const response = await api.put('/auth/profile', profileData);
+    if (response.data.success && response.data.data) {
+      // Update local storage user
+      const currentUser = authService.getCurrentUser();
+      const updatedUser = { ...currentUser, ...response.data.data };
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      // Dispatch custom event to notify components (like Navbar) about user update
+      window.dispatchEvent(new Event('user-updated'));
+    }
+    return response.data;
   }
 };

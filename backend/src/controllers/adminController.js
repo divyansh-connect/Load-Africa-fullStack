@@ -1042,6 +1042,69 @@ const getAdminFinancials = async (req, res) => {
   }
 };
 
+const createBroker = async (req, res) => {
+  try {
+    const { email, password, firstName, lastName, phone, companyName } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ success: false, message: 'Email and password are required' });
+    }
+
+    const existing = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
+    if (existing) {
+      return res.status(400).json({ success: false, message: 'Email already in use' });
+    }
+
+    const bcrypt = require('bcrypt');
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const result = await prisma.$transaction(async (tx) => {
+      // Create User with ACTIVE status since admin is adding directly
+      const user = await tx.user.create({
+        data: {
+          email: email.trim().toLowerCase(),
+          password: hashedPassword,
+          role: 'BROKER',
+          status: 'ACTIVE',
+          first_name: firstName || null,
+          last_name: lastName || null,
+          phone: phone || null
+        }
+      });
+
+      // Create Broker profile
+      await tx.broker.create({
+        data: {
+          user_id: user.id,
+          company_name: companyName || null
+        }
+      });
+
+      // Create Wallet
+      await tx.wallet.create({ data: { user_id: user.id } });
+
+      // Activity log
+      await tx.activityLog.create({
+        data: {
+          user_id: req.user.id,
+          action: 'CREATE_BROKER',
+          description: `Admin created broker account for ${email}`
+        }
+      });
+
+      return user;
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Broker created successfully',
+      data: { id: result.id, email: result.email, role: result.role }
+    });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   approveDriverKYC,
   approveFleetOwner,
@@ -1066,5 +1129,6 @@ module.exports = {
   requestMoreDocuments,
   assignDriverFleet,
   getApprovedFleetOwners,
-  getAdminFinancials
+  getAdminFinancials,
+  createBroker
 };

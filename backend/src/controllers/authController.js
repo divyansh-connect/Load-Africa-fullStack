@@ -1,5 +1,6 @@
 const { registerUser, registerDriver, loginUser } = require('../services/authService');
 const { z } = require('zod');
+const { prisma } = require('../config/db');
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -125,6 +126,10 @@ const registerDriverController = async (req, res, next) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ success: false, message: 'Validation Error', errors: error.errors });
     }
+    if (error.code === 'P2002') {
+      const field = error.meta?.target?.[0] || 'A unique field';
+      return res.status(400).json({ success: false, message: `${field} is already registered. Please use a unique value.` });
+    }
     res.status(400).json({ success: false, message: error.message });
   }
 };
@@ -175,4 +180,37 @@ const getApprovedFleetOwnersPublic = async (req, res) => {
   }
 };
 
-module.exports = { register, registerDriver: registerDriverController, login, getMe, getApprovedFleetOwnersPublic };
+const updateProfile = async (req, res) => {
+  try {
+    const { first_name, last_name, phone, avatar } = req.body;
+    const userId = req.user.id;
+    
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        first_name: first_name !== undefined ? first_name : undefined,
+        last_name: last_name !== undefined ? last_name : undefined,
+        phone: phone !== undefined ? phone : undefined,
+        avatar: avatar !== undefined ? avatar : undefined,
+      }
+    });
+
+    res.status(200).json({ 
+      success: true, 
+      message: 'Profile updated successfully',
+      data: {
+        id: updatedUser.id,
+        first_name: updatedUser.first_name,
+        last_name: updatedUser.last_name,
+        phone: updatedUser.phone,
+        avatar: updatedUser.avatar,
+        email: updatedUser.email,
+        role: updatedUser.role
+      }
+    });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+module.exports = { register, registerDriver: registerDriverController, login, getMe, getApprovedFleetOwnersPublic, updateProfile };

@@ -50,6 +50,16 @@ export const brokerService = {
     const response = await api.get('/broker/drivers');
     return response.data;
   },
+
+  getWallet: async () => {
+    const response = await api.get('/finance/wallet');
+    return response.data;
+  },
+
+  withdrawEarnings: async (amount) => {
+    const response = await api.post('/finance/withdraw', { amount });
+    return response.data;
+  },
 };
 
 export default brokerService;

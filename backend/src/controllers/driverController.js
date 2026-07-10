@@ -14,18 +14,24 @@ const getAvailableLoads = async (req, res) => {
     if (!driverId) return res.status(404).json({ success: false, message: 'Driver profile not found' });
 
     // In a real app, we would match based on driver's assigned vehicle type and location.
-    // For now, fetch bookings where status = DRIVER_SEARCHING
+    // Fetch bookings where status = DRIVER_SEARCHING OR explicitly assigned to this driver (PENDING)
     const loads = await prisma.booking.findMany({
       where: {
-        status: 'DRIVER_SEARCHING',
         is_deleted: false,
-        // Optional: exclude loads this driver already applied to
-        applications: {
-          none: { driver_id: driverId }
-        }
+        OR: [
+          {
+            status: 'DRIVER_SEARCHING',
+            applications: { none: { driver_id: driverId } }
+          },
+          {
+            status: 'DRIVER_ASSIGNED',
+            assignments: { some: { driver_id: driverId, status: 'PENDING' } }
+          }
+        ]
       },
       include: {
-        customer: { include: { user: { select: { first_name: true, last_name: true, email: true, phone: true } } } }
+        customer: { include: { user: { select: { first_name: true, last_name: true, email: true, phone: true } } } },
+        assignments: { where: { driver_id: driverId, status: 'PENDING' } }
       },
       orderBy: { created_at: 'desc' }
     });
@@ -43,39 +49,58 @@ const applyForLoad = async (req, res) => {
     
     if (!driverId) return res.status(404).json({ success: false, message: 'Driver profile not found' });
 
-    // Check if booking is still available
-    const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
-    if (!booking || booking.status !== 'DRIVER_SEARCHING') {
+    // Check if booking is available globally OR pending for this driver
+    const booking = await prisma.booking.findUnique({ 
+      where: { id: bookingId },
+      include: { assignments: { where: { driver_id: driverId, status: 'PENDING' } } }
+    });
+
+    if (!booking || (booking.status !== 'DRIVER_SEARCHING' && (booking.status !== 'DRIVER_ASSIGNED' || booking.assignments.length === 0))) {
       return res.status(400).json({ success: false, message: 'Load is no longer available' });
     }
 
-    // Create Application and Update Booking Status to DRIVER_APPLIED
-    const application = await prisma.$transaction(async (tx) => {
-      const app = await tx.driverApplication.create({
-        data: {
-          booking_id: bookingId,
-          driver_id: driverId,
-          status: 'APPLIED'
-        }
-      });
-
-      await tx.booking.update({
-        where: { id: bookingId },
-        data: { status: 'DRIVER_APPLIED' }
-      });
+    const assignment = await prisma.$transaction(async (tx) => {
+      let ass;
+      if (booking.assignments.length > 0) {
+        // Update pending assignment to ACTIVE
+        ass = await tx.bookingAssignment.update({
+          where: { id: booking.assignments[0].id },
+          data: { status: 'ACTIVE' }
+        });
+      } else {
+        // Create new active assignment
+        ass = await tx.bookingAssignment.create({
+          data: {
+            booking_id: bookingId,
+            driver_id: driverId,
+            status: 'ACTIVE',
+            assigned_by: req.user?.id || driverId
+          }
+        });
+        
+        await tx.booking.update({
+          where: { id: bookingId },
+          data: { status: 'DRIVER_ASSIGNED' }
+        });
+      }
 
       await tx.trackingHistory.create({
-        data: { booking_id: bookingId, status: 'DRIVER_APPLIED', remarks: 'Driver applied for load' }
+        data: { booking_id: bookingId, status: 'DRIVER_ASSIGNED', remarks: 'Driver accepted and assigned to load' }
       });
       
       await tx.activityLog.create({
-        data: { action: 'DRIVER_APPLIED', description: `Driver applied for booking ${bookingId}` }
+        data: { action: 'DRIVER_ASSIGNED', description: `Driver accepted booking ${bookingId}` }
       });
 
-      return app;
+      await tx.driver.update({
+        where: { id: driverId },
+        data: { status: 'ON_TRIP' }
+      });
+
+      return ass;
     });
 
-    res.status(200).json({ success: true, data: application });
+    res.status(200).json({ success: true, data: assignment });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }
@@ -85,10 +110,11 @@ const getActiveTrip = async (req, res) => {
   try {
     const driverId = await getDriverId(req);
     
-    // An active trip is an assigned booking that is not completed or cancelled
+    // An active trip is an ACTIVE assigned booking that is not completed or cancelled
     const activeTrip = await prisma.bookingAssignment.findFirst({
       where: {
         driver_id: driverId,
+        status: 'ACTIVE',
         booking: {
           status: {
             in: ['DRIVER_ASSIGNED', 'DRIVER_EN_ROUTE', 'ARRIVED_PICKUP', 'LOADING', 'PICKED_UP', 'IN_TRANSIT', 'ARRIVED_DESTINATION', 'DELIVERED', 'POD_UPLOADED']
@@ -135,12 +161,90 @@ const updateTripStatus = async (req, res) => {
     const updated = await prisma.$transaction(async (tx) => {
       const b = await tx.booking.update({
         where: { id: bookingId },
-        data: { status }
+        data: { status },
+        include: { quotes: true }
       });
 
       await tx.trackingHistory.create({
         data: { booking_id: bookingId, status, remarks: remarks || `Driver marked as ${status}` }
       });
+
+      if (status === 'COMPLETED') {
+        const existingInvoice = await tx.invoice.findFirst({
+          where: { booking_id: bookingId }
+        });
+        
+        if (!existingInvoice) {
+          const grandTotal = b.quotes.length > 0 ? Number(b.quotes[0].grand_total) : 1500;
+          const platformComm = grandTotal * 0.10;
+          const payoutAmount = grandTotal * 0.90;
+
+          const invoice = await tx.invoice.create({
+            data: {
+              invoice_no: `INV-${Math.floor(100000 + Math.random() * 900000)}`,
+              booking_id: bookingId,
+              customer_id: b.customer_id,
+              amount: grandTotal - platformComm,
+              tax_amount: 0,
+              total_amount: grandTotal,
+              platform_commission: platformComm,
+              payout_amount: payoutAmount,
+              due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Due in 7 days
+              status: 'PAID'
+            }
+          });
+
+          await tx.payment.create({
+            data: {
+              invoice_id: invoice.id,
+              amount: grandTotal,
+              payment_method: 'CARD',
+              transaction_id: `TXN-${Math.floor(100000 + Math.random() * 900000)}`,
+              status: 'PAID'
+            }
+          });
+
+          await tx.driver.update({
+            where: { id: driverId },
+            data: { status: 'AVAILABLE' }
+          });
+
+          const driver = await tx.driver.findUnique({
+            where: { id: driverId }
+          });
+
+          if (driver && driver.user_id) {
+            let wallet = await tx.wallet.findFirst({
+              where: { user_id: driver.user_id }
+            });
+
+            if (!wallet) {
+              wallet = await tx.wallet.create({
+                data: {
+                  user_id: driver.user_id,
+                  balance: 0,
+                  pending_balance: 0
+                }
+              });
+            }
+
+            await tx.wallet.update({
+              where: { id: wallet.id },
+              data: { balance: { increment: payoutAmount } }
+            });
+
+            await tx.walletTransaction.create({
+              data: {
+                wallet_id: wallet.id,
+                type: 'CREDIT',
+                amount: payoutAmount,
+                description: `Payout for load delivery (Booking ID: ${bookingId.slice(0, 8)})`,
+                reference_id: bookingId
+              }
+            });
+          }
+        }
+      }
 
       return b;
     });
@@ -342,7 +446,7 @@ const updateProfile = async (req, res) => {
     });
     if (!driver) return res.status(404).json({ success: false, message: 'Driver not found' });
 
-    const { first_name, last_name, phone, bank_details } = req.body;
+    const { first_name, last_name, phone, bank_details, avatar } = req.body;
 
     await prisma.user.update({
       where: { id: driver.user_id },
@@ -350,6 +454,7 @@ const updateProfile = async (req, res) => {
         first_name: first_name !== undefined ? first_name : undefined,
         last_name: last_name !== undefined ? last_name : undefined,
         phone: phone !== undefined ? phone : undefined,
+        avatar: avatar !== undefined ? avatar : undefined,
         bank_details: bank_details !== undefined ? bank_details : undefined,
       }
     });
@@ -481,6 +586,99 @@ const toggleOnlineStatus = async (req, res) => {
   }
 };
 
+const getKYCDocuments = async (req, res) => {
+  try {
+    const driverId = await getDriverId(req);
+    if (!driverId) return res.status(404).json({ success: false, message: 'Driver profile not found' });
+
+    let documents = await prisma.driverDocuments.findUnique({
+      where: { driver_id: driverId }
+    });
+
+    if (!documents) {
+      documents = await prisma.driverDocuments.create({
+        data: { driver_id: driverId }
+      });
+    }
+
+    const driver = await prisma.driver.findUnique({
+      where: { id: driverId },
+      include: { 
+        approval: true,
+        profile: true,
+        kyc: true,
+        user: true,
+        photos: true
+      }
+    });
+
+    const allDocuments = {
+      ...documents,
+      profile_photo: driver.photos?.profile_photo || null,
+      selfie: driver.photos?.selfie || null,
+    };
+
+    res.status(200).json({
+      success: true,
+      data: {
+        documents: allDocuments,
+        status: driver.status,
+        approval: driver.approval,
+        profileDetails: {
+          fullName: driver.user ? `${driver.user.first_name || ''} ${driver.user.last_name || ''}`.trim() : '',
+          email: driver.user?.email || '',
+          phone: driver.user?.phone || '',
+          dob: driver.profile?.date_of_birth || '',
+          gender: driver.profile?.gender || '',
+          nationalId: driver.national_id || driver.kyc?.national_id || '',
+          licenseNumber: driver.license || driver.kyc?.license_number || '',
+          licenseExpiry: driver.license_expiry || driver.kyc?.license_expiry || '',
+          address: driver.address || driver.profile?.address || '',
+          city: driver.profile?.city || '',
+          province: driver.profile?.province || '',
+          emergencyContactName: driver.profile?.emergency_contact?.name || '',
+          emergencyContactPhone: driver.profile?.emergency_contact?.phone || ''
+        }
+      }
+    });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+const uploadKYCDocument = async (req, res) => {
+  try {
+    const driverId = await getDriverId(req);
+    if (!driverId) return res.status(404).json({ success: false, message: 'Driver profile not found' });
+
+    const { docKey, fileUrl } = req.body;
+    if (!docKey || !fileUrl) {
+      return res.status(400).json({ success: false, message: 'Document key and file URL are required' });
+    }
+
+    const documents = await prisma.driverDocuments.upsert({
+      where: { driver_id: driverId },
+      update: { [docKey]: fileUrl },
+      create: { driver_id: driverId, [docKey]: fileUrl }
+    });
+
+    await prisma.driver.update({
+      where: { id: driverId },
+      data: { status: 'PENDING' }
+    });
+    
+    const d = await prisma.driver.findUnique({ where: { id: driverId } });
+    await prisma.user.update({
+      where: { id: d.user_id },
+      data: { status: 'PENDING' }
+    });
+
+    res.status(200).json({ success: true, data: documents });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   getAvailableLoads,
   applyForLoad,
@@ -493,5 +691,7 @@ module.exports = {
   updateProfile,
   completeOnboarding,
   updateTelemetry,
-  toggleOnlineStatus
+  toggleOnlineStatus,
+  getKYCDocuments,
+  uploadKYCDocument
 };

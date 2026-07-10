@@ -5,15 +5,33 @@ import {
   Menu, X, LogOut, Navigation, User, Settings
 } from 'lucide-react';
 
-const driver = {
-  name: 'Sipho Zuma',
-  vehicle: '8-Ton Truck · GP 12 ABC',
-  avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&auto=format&fit=crop&q=80',
-};
-
 export default function DriverLayout({ children }) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [driver, setDriver] = useState({
+    name: 'Driver',
+    vehicle: 'Loading...',
+    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&auto=format&fit=crop&q=80',
+  });
+  
+  React.useEffect(() => {
+    import('../services/authService').then(({ authService }) => {
+      const fetchUser = () => {
+        const u = authService.getCurrentUser();
+        if (u) {
+          setDriver({
+            name: `${u.first_name || ''} ${u.last_name || ''}`.trim() || 'Driver',
+            vehicle: u.email || 'Driver Account',
+            avatar: u.avatar || u.profile_photo || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&auto=format&fit=crop&q=80'
+          });
+        }
+      };
+      fetchUser();
+      window.addEventListener('user-updated', fetchUser);
+      return () => window.removeEventListener('user-updated', fetchUser);
+    });
+  }, []);
+
   const location = useLocation();
   const navigate = useNavigate();
 

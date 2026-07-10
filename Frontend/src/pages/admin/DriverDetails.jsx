@@ -8,6 +8,8 @@ import {
 import { adminService } from '../../services/adminService';
 
 const DOCUMENT_LABELS = {
+  profile_photo: 'Profile Photo',
+  selfie: 'Selfie Verification',
   govt_id: 'Government ID / Passport',
   license_front: 'Driver License Front',
   license_back: 'Driver License Back',
@@ -106,6 +108,7 @@ export default function DriverDetails() {
   const profile = driver.profile || {};
   const photos = driver.photos || {};
   const docs = driver.documents_relation || {};
+  const allDocs = { ...docs, profile_photo: photos?.profile_photo, selfie: photos?.selfie };
   const vehicle = driver.vehicle_relation || {};
   const approval = driver.approval || {};
   const statusHistory = driver.status_history || [];
@@ -117,7 +120,7 @@ export default function DriverDetails() {
   const handleRotate = () => setRotation(prev => (prev + 90) % 360);
 
   const handleDownloadActiveDoc = () => {
-    const fileUrl = docs[activeDocKey];
+    const fileUrl = allDocs[activeDocKey];
     if (fileUrl) {
       const baseServerUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1').replace('/api/v1', '');
       const absoluteUrl = `${baseServerUrl}${fileUrl}`;
@@ -402,7 +405,7 @@ export default function DriverDetails() {
               </div>
               <div className="flex-1 overflow-y-auto p-2 space-y-1">
                 {Object.entries(DOCUMENT_LABELS).map(([key, label]) => {
-                  const url = docs[key];
+                  const url = allDocs[key];
                   const isUploaded = !!url;
                   return (
                     <button
@@ -424,7 +427,7 @@ export default function DriverDetails() {
 
             {/* Document display screen with Zoom/Rotate */}
             <div className="flex-1 flex flex-col bg-slate-900 relative">
-              {docs[activeDocKey] ? (
+              {allDocs[activeDocKey] ? (
                 <>
                   {/* Toolbar */}
                   <div className="absolute top-4 right-4 z-10 flex gap-2">
@@ -436,7 +439,7 @@ export default function DriverDetails() {
 
                   {/* Viewer frame */}
                   <div className="flex-1 overflow-auto flex items-center justify-center p-6">
-                    {docs[activeDocKey].toLowerCase().endsWith('.pdf') ? (
+                    {allDocs[activeDocKey].toLowerCase().endsWith('.pdf') ? (
                       <div className="text-center text-slate-300 font-bold space-y-3">
                         <FileText className="h-12 w-12 mx-auto text-slate-400 animate-pulse" />
                         <p className="text-xs">PDF Document uploaded. Click the button to view/download.</p>
@@ -449,7 +452,7 @@ export default function DriverDetails() {
                       </div>
                     ) : (
                       <img
-                        src={`${(import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1').replace('/api/v1', '')}${docs[activeDocKey]}`}
+                        src={`${(import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1').replace('/api/v1', '')}${allDocs[activeDocKey]}`}
                         alt="Doc preview"
                         className="max-w-full max-h-full object-contain transition-all shadow-xl rounded-md"
                         style={{

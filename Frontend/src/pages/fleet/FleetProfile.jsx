@@ -140,7 +140,43 @@ export default function FleetProfile() {
           
           {activeTab === 'profile' && (
             <div className="space-y-5">
-              <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
+              <div className="flex items-center gap-6 pb-4 border-b border-slate-100">
+                <img 
+                  src={profileData.avatar || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=80&auto=format&fit=crop&q=80'} 
+                  alt="Fleet Owner" 
+                  className="h-20 w-20 rounded-full object-cover border-4 border-slate-50"
+                />
+                <div>
+                  <h3 className="text-lg font-bold text-slate-800">Profile Photo</h3>
+                  <div className="flex gap-2 mt-2">
+                    <label className="cursor-pointer text-[10px] py-1.5 px-3 border border-slate-200 rounded-lg hover:bg-slate-50 font-bold text-slate-700 transition-colors">
+                      Change Photo
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden" 
+                        onChange={async (e) => {
+                          const file = e.target.files[0];
+                          if (file) {
+                            try {
+                              const { uploadService } = await import('../../services/uploadService');
+                              const res = await uploadService.uploadFile(file);
+                              if (res.success && res.data.urls.length > 0) {
+                                const url = 'http://localhost:5000' + res.data.urls[0];
+                                setProfileData(prev => ({ ...prev, avatar: url }));
+                              }
+                            } catch (err) {
+                              alert('Upload failed');
+                            }
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-2 mt-4">
                 <User className="h-4 w-4 text-amber-500" /> Owner Details
               </h3>
               

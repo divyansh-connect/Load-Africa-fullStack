@@ -23,7 +23,8 @@ const {
   requestMoreDocuments,
   assignDriverFleet,
   getApprovedFleetOwners,
-  getAdminFinancials
+  getAdminFinancials,
+  createBroker
 } = require('../controllers/adminController');
 const { requireAuth, requireRole } = require('../middlewares/authMiddleware');
 
@@ -68,5 +69,8 @@ router.delete('/users/:userId', deleteUser);
 
 // Payments & Financials Ledger
 router.get('/payments', getAdminFinancials);
+
+// Broker Management
+router.post('/brokers/create', createBroker);
 
 module.exports = router;

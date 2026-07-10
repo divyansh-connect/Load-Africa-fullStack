@@ -11,8 +11,16 @@ export default function BrokerLayout({ children }) {
   const location = useLocation();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const activeBroker = getMockData('brokers')[0];
+  const [activeBroker, setActiveBroker] = useState(null);
 
+  React.useEffect(() => {
+    import('../services/authService').then(({ authService }) => {
+      const fetchUser = () => setActiveBroker(authService.getCurrentUser());
+      fetchUser();
+      window.addEventListener('user-updated', fetchUser);
+      return () => window.removeEventListener('user-updated', fetchUser);
+    });
+  }, []);
   const handleLogout = () => {
     navigate('/login');
   };
@@ -61,14 +69,20 @@ export default function BrokerLayout({ children }) {
         {/* User Card on Sidebar bottom */}
         <div className="p-4 border-t border-slate-800 shrink-0">
           <div className="flex items-center gap-3 px-2 py-3 rounded-xl bg-slate-800/40 border border-slate-800 mb-3">
-            <img 
-              src={activeBroker?.avatar || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=150&auto=format&fit=crop&q=80'} 
-              alt="Broker Profile" 
-              className="h-10 w-10 rounded-full border border-slate-700 object-cover"
-            />
+            {(() => {
+              const av = activeBroker?.avatar;
+              const avatarUrl = av ? (av.startsWith('http') ? av : `${(import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1').replace('/api/v1', '')}${av}`) : null;
+              return avatarUrl ? (
+                <img src={avatarUrl} alt="Broker Profile" className="h-10 w-10 rounded-full border border-slate-700 object-cover" />
+              ) : (
+                <div className="h-10 w-10 rounded-full border border-slate-700 bg-slate-700 flex items-center justify-center shrink-0">
+                  <User className="h-5 w-5 text-slate-400" />
+                </div>
+              );
+            })()}
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-white truncate">{activeBroker?.name || 'Broker'}</p>
-              <p className="text-xs text-slate-400 truncate">Broker Account</p>
+              <p className="text-sm font-medium text-white truncate">{activeBroker ? `${activeBroker.first_name || ''} ${activeBroker.last_name || ''}`.trim() || 'Broker' : 'Broker'}</p>
+              <p className="text-xs text-slate-400 truncate">{activeBroker?.email || 'Broker Account'}</p>
             </div>
           </div>
           <button 
@@ -159,12 +173,18 @@ export default function BrokerLayout({ children }) {
                 onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                 className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-slate-100 transition-all duration-200"
               >
-                <img 
-                  src={activeBroker?.avatar || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=150&auto=format&fit=crop&q=80'} 
-                  alt="Profile" 
-                  className="h-8 w-8 rounded-full border border-slate-200 object-cover"
-                />
-                <span className="hidden md:block text-sm font-bold text-slate-700">{activeBroker?.name?.split(' ')[0] || 'Broker'}</span>
+                {(() => {
+                  const av = activeBroker?.avatar;
+                  const avatarUrl = av ? (av.startsWith('http') ? av : `${(import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1').replace('/api/v1', '')}${av}`) : null;
+                  return avatarUrl ? (
+                    <img src={avatarUrl} alt="Profile" className="h-8 w-8 rounded-full border border-slate-200 object-cover" />
+                  ) : (
+                    <div className="h-8 w-8 rounded-full border border-slate-200 bg-slate-100 flex items-center justify-center shrink-0">
+                      <User className="h-4 w-4 text-slate-400" />
+                    </div>
+                  );
+                })()}
+                <span className="hidden md:block text-sm font-bold text-slate-700">{activeBroker?.first_name || 'Broker'}</span>
               </button>
 
               {isUserMenuOpen && (
@@ -172,7 +192,7 @@ export default function BrokerLayout({ children }) {
                   <div className="fixed inset-0 z-20" onClick={() => setIsUserMenuOpen(false)} />
                   <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-150 py-2 z-30 transform origin-top-right transition-all">
                     <div className="px-4 py-3 border-b border-slate-100">
-                      <p className="text-sm font-bold text-slate-800">{activeBroker?.name || 'Broker Account'}</p>
+                      <p className="text-sm font-bold text-slate-800">{activeBroker ? `${activeBroker.first_name || ''} ${activeBroker.last_name || ''}`.trim() || 'Broker Account' : 'Broker Account'}</p>
                       <p className="text-xs text-slate-500 truncate">{activeBroker?.email || 'broker@loadafrica.co.za'}</p>
                     </div>
                     <button 

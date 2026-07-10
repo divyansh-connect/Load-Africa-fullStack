@@ -1,11 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import { Save, Globe, Mail, ShieldCheck, MapPin, Settings as SettingsIcon, RefreshCcw, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Save, Globe, Mail, ShieldCheck, MapPin, Settings as SettingsIcon, RefreshCcw, CheckCircle2, User, Camera } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { settingService } from '../../services/settingService';
-
+import { authService } from '../../services/authService';
+import { uploadService } from '../../services/uploadService';
 export default function Settings() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const queryTab = new URLSearchParams(location.search).get('tab');
+  const [activeTab, setActiveTab] = useState(queryTab || 'platform');
+
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('Settings Saved!');
+  const [successDesc, setSuccessDesc] = useState('Global configurations have been updated.');
   
   const [settings, setSettings] = useState({
     SYSTEM_TIMEZONE: 'Africa/Johannesburg (SAST)',
@@ -17,9 +26,32 @@ export default function Settings() {
     SMTP_PASS: ''
   });
 
+  const [adminUser, setAdminUser] = useState({
+    first_name: '',
+    last_name: '',
+    email: '',
+    phone: '',
+    avatar: ''
+  });
+  const fileInputRef = useRef(null);
+
   useEffect(() => {
     fetchSettings();
+    const currentUser = authService.getCurrentUser();
+    if (currentUser) {
+      setAdminUser({
+        first_name: currentUser.first_name || currentUser.firstName || '',
+        last_name: currentUser.last_name || currentUser.lastName || '',
+        email: currentUser.email || '',
+        phone: currentUser.phone || '',
+        avatar: currentUser.avatar || ''
+      });
+    }
   }, []);
+
+  useEffect(() => {
+    if (queryTab) setActiveTab(queryTab);
+  }, [queryTab]);
 
   const fetchSettings = async () => {
     try {
@@ -43,6 +75,8 @@ export default function Settings() {
       setSaving(true);
       const res = await settingService.updateSettings(settings);
       if (res.success) {
+        setSuccessMessage('Settings Saved!');
+        setSuccessDesc('Global configurations have been updated.');
         setShowSuccess(true);
         setTimeout(() => setShowSuccess(false), 3000);
       }
@@ -60,6 +94,44 @@ export default function Settings() {
     }));
   };
 
+  const handleSaveProfile = async () => {
+    try {
+      setSaving(true);
+      const res = await authService.updateProfile({
+        first_name: adminUser.first_name,
+        last_name: adminUser.last_name,
+        phone: adminUser.phone,
+        avatar: adminUser.avatar
+      });
+      if (res.success) {
+        setSuccessMessage('Profile Saved!');
+        setSuccessDesc('Your admin profile has been updated.');
+        setShowSuccess(true);
+        setTimeout(() => setShowSuccess(false), 3000);
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      try {
+        const res = await uploadService.uploadFile(file);
+        if (res.success && res.data.urls.length > 0) {
+          const url = 'http://localhost:5000' + res.data.urls[0];
+          setAdminUser(prev => ({ ...prev, avatar: url }));
+        }
+      } catch (err) {
+        console.error('Error uploading avatar:', err);
+        alert('Failed to upload avatar');
+      }
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -72,12 +144,12 @@ export default function Settings() {
     <div className="space-y-6 max-w-4xl relative">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Platform Settings</h1>
-          <p className="text-sm text-slate-500 font-medium">Configure global LoadAfrica application settings</p>
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Admin Configuration</h1>
+          <p className="text-sm text-slate-500 font-medium">Manage platform settings and your profile</p>
         </div>
         <div className="flex items-center gap-3">
           <button 
-            onClick={handleSave}
+            onClick={activeTab === 'platform' ? handleSave : handleSaveProfile}
             disabled={saving}
             className="flex items-center gap-2 px-6 py-2.5 bg-amber-500 text-slate-950 rounded-xl text-sm font-bold hover:bg-amber-400 transition-colors shadow-sm disabled:opacity-70"
           >
@@ -86,11 +158,37 @@ export default function Settings() {
             ) : (
               <Save className="h-4 w-4" />
             )}
-            {saving ? 'Saving...' : 'Save All Settings'}
+            {saving ? 'Saving...' : (activeTab === 'platform' ? 'Save Settings' : 'Save Profile')}
           </button>
         </div>
       </div>
 
+      <div className="flex border-b border-slate-200 bg-white p-2 rounded-xl shadow-sm border">
+        <button 
+          onClick={() => { setActiveTab('platform'); navigate('/admin-portal/settings?tab=platform', { replace: true }); }}
+          className={`flex-1 flex items-center justify-center gap-2 py-3 text-xs font-bold rounded-lg transition-all ${
+            activeTab === 'platform' 
+              ? 'bg-slate-900 text-white shadow-sm' 
+              : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+          }`}
+        >
+          <SettingsIcon className="h-4 w-4" />
+          Platform Settings
+        </button>
+        <button 
+          onClick={() => { setActiveTab('profile'); navigate('/admin-portal/settings?tab=profile', { replace: true }); }}
+          className={`flex-1 flex items-center justify-center gap-2 py-3 text-xs font-bold rounded-lg transition-all ${
+            activeTab === 'profile' 
+              ? 'bg-slate-900 text-white shadow-sm' 
+              : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+          }`}
+        >
+          <User className="h-4 w-4" />
+          My Profile
+        </button>
+      </div>
+
+      {activeTab === 'platform' && (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         
         {/* Localization & Region */}
@@ -219,6 +317,83 @@ export default function Settings() {
         </div>
 
       </div>
+      )}
+
+      {activeTab === 'profile' && (
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm max-w-2xl">
+          <h2 className="text-lg font-bold text-slate-900 mb-6">Personal Information</h2>
+          <div className="flex flex-col sm:flex-row gap-8 items-start mb-8">
+            <div className="flex flex-col items-center gap-3">
+              <div className="relative group">
+                <div className="h-28 w-28 rounded-full bg-slate-100 border-4 border-white shadow-md overflow-hidden relative">
+                  {adminUser.avatar ? (
+                    <img src={adminUser.avatar} alt="Profile" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="h-full w-full flex items-center justify-center text-4xl font-black text-slate-300">
+                      {(adminUser.first_name || 'A')[0].toUpperCase()}
+                    </div>
+                  )}
+                  <div 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="absolute inset-0 bg-slate-900/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                  >
+                    <Camera className="h-6 w-6 text-white" />
+                  </div>
+                </div>
+                <input 
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  accept="image/*"
+                  onChange={handleAvatarChange}
+                />
+              </div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center">Click to change<br/>Avatar</p>
+            </div>
+            
+            <div className="flex-1 space-y-4 w-full">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-slate-700">First Name</label>
+                  <input 
+                    type="text"
+                    value={adminUser.first_name}
+                    onChange={(e) => setAdminUser(prev => ({...prev, first_name: e.target.value}))}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:border-amber-500 transition-colors"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-slate-700">Last Name</label>
+                  <input 
+                    type="text"
+                    value={adminUser.last_name}
+                    onChange={(e) => setAdminUser(prev => ({...prev, last_name: e.target.value}))}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:border-amber-500 transition-colors"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="block text-xs font-bold text-slate-700">Email Address (Read-only)</label>
+                <input 
+                  type="email"
+                  value={adminUser.email}
+                  disabled
+                  className="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="block text-xs font-bold text-slate-700">Phone Number</label>
+                <input 
+                  type="tel"
+                  value={adminUser.phone}
+                  onChange={(e) => setAdminUser(prev => ({...prev, phone: e.target.value}))}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:border-amber-500 transition-colors"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showSuccess && (
         <div className="fixed bottom-6 right-6 z-50 animate-bounce">
@@ -227,8 +402,8 @@ export default function Settings() {
               <CheckCircle2 className="h-5 w-5 text-white" />
             </div>
             <div>
-              <p className="font-black text-sm">Settings Saved!</p>
-              <p className="text-xs font-semibold text-emerald-100">Global configurations have been updated.</p>
+              <p className="font-black text-sm">{successMessage}</p>
+              <p className="text-xs font-semibold text-emerald-100">{successDesc}</p>
             </div>
           </div>
         </div>

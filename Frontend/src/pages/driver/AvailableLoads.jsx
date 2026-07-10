@@ -34,12 +34,11 @@ export default function AvailableLoads() {
       setApplyingId(bookingId);
       const res = await driverService.applyForLoad(bookingId);
       if (res.success) {
-        // Remove from list or show success
-        alert("Application submitted successfully! The broker will review it.");
+        alert("Load accepted successfully! Go to Active Trip to view the route.");
         setLoads(loads.filter(l => l.id !== bookingId));
       }
     } catch (err) {
-      alert("Failed to apply for load. It may no longer be available.");
+      alert("Failed to accept load. It may no longer be available.");
       fetchLoads();
     } finally {
       setApplyingId(null);
@@ -151,9 +150,9 @@ export default function AvailableLoads() {
                   <button 
                     disabled={applyingId === load.id}
                     onClick={() => handleApply(load.id)}
-                    className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm rounded-xl transition-all shadow-lg shadow-slate-900/20 disabled:opacity-50"
+                    className="w-full py-3 bg-[#f4a236] hover:bg-amber-500 text-slate-950 font-black text-sm rounded-xl transition-all shadow-lg shadow-amber-500/20 disabled:opacity-50"
                   >
-                    {applyingId === load.id ? 'Applying...' : 'Apply for Load'}
+                    {applyingId === load.id ? 'Accepting...' : 'Accept Load'}
                   </button>
                   <button className="w-full py-2.5 text-slate-600 hover:bg-slate-50 font-bold text-xs rounded-xl transition-colors border border-transparent hover:border-slate-200">
                     View Full Details

@@ -35,6 +35,16 @@ export const driverService = {
     const response = await api.post('/driver/kyc/submit', data);
     return response.data;
   },
+
+  getKYCDocuments: async () => {
+    const response = await api.get('/driver/kyc/documents');
+    return response.data;
+  },
+
+  uploadKYCDocument: async (docKey, fileUrl) => {
+    const response = await api.post('/driver/kyc/upload-document', { docKey, fileUrl });
+    return response.data;
+  },
   
   getWallet: async () => {
     const response = await api.get('/finance/wallet');

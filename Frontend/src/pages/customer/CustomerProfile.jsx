@@ -50,20 +50,25 @@ export default function CustomerProfile() {
     }
   }, [queryTab]);
 
-  const handleSaveProfile = (e) => {
+  const handleSaveProfile = async (e) => {
     e.preventDefault();
-    setSaved(true);
-    
-    // Save to localstorage mock
-    const allUsers = getMockData('users') || [];
-    if (allUsers.length > 0) {
-      allUsers[0] = { ...allUsers[0], ...user };
-      saveMockData('users', allUsers);
+    try {
+      const { authService } = await import('../../services/authService');
+      const parts = user.name.split(' ');
+      const payload = {
+        first_name: parts[0],
+        last_name: parts.slice(1).join(' '),
+        phone: user.phone,
+        avatar: user.avatar
+      };
+      const res = await authService.updateProfile(payload);
+      if (res.success) {
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+      }
+    } catch (err) {
+      alert('Failed to save profile');
     }
-
-    setTimeout(() => {
-      setSaved(false);
-    }, 2000);
   };
 
   const deleteNotification = (id) => {
@@ -131,7 +136,29 @@ export default function CustomerProfile() {
             <div className="text-center sm:text-left space-y-1">
               <h3 className="font-bold text-slate-800 text-lg">{user.name}</h3>
               <p className="text-xs text-slate-400">Customer account joined Jan 2025</p>
-              <button type="button" className="text-xs text-amber-600 hover:text-amber-700 font-bold">Change Profile Photo</button>
+              <label className="cursor-pointer text-xs text-amber-600 hover:text-amber-700 font-bold inline-block">
+                Change Profile Photo
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  className="hidden" 
+                  onChange={async (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                      try {
+                        const { uploadService } = await import('../../services/uploadService');
+                        const res = await uploadService.uploadFile(file);
+                        if (res.success && res.data.urls.length > 0) {
+                          const url = 'http://localhost:5000' + res.data.urls[0];
+                          setUser(prev => ({ ...prev, avatar: url }));
+                        }
+                      } catch (err) {
+                        alert('Upload failed');
+                      }
+                    }
+                  }}
+                />
+              </label>
             </div>
           </div>
 

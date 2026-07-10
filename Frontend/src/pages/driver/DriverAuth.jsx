@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import QuickLoginSelector from '../../components/QuickLoginSelector';
 import { Truck } from 'lucide-react';
+import { authService } from '../../services/authService';
 
 export default function DriverAuth() {
   const [email, setEmail] = useState('sipho.zuma@load-driver.co.za');
@@ -20,7 +21,7 @@ export default function DriverAuth() {
     }
   }, [location.state]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!email || !password) {
       setError('Please fill in all fields.');
@@ -28,12 +29,14 @@ export default function DriverAuth() {
     }
     setError('');
     setLoading(true);
-    
-    // Simulate API loading
-    setTimeout(() => {
+    try {
+      const response = await authService.login(email, password);
       setLoading(false);
       navigate('/driver/dashboard');
-    }, 800);
+    } catch (err) {
+      setLoading(false);
+      setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
+    }
   };
 
   return (

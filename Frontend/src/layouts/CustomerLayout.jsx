@@ -14,10 +14,19 @@ export default function CustomerLayout({ children }) {
   
   const location = useLocation();
   const navigate = useNavigate();
-  const activeUser = authService.getCurrentUser();
-  const userDisplayName = activeUser?.firstName
-    ? `${activeUser.firstName} ${activeUser.lastName || ''}`.trim()
+  const [activeUser, setActiveUser] = useState(authService.getCurrentUser());
+
+  useEffect(() => {
+    const handleUpdate = () => setActiveUser(authService.getCurrentUser());
+    window.addEventListener('user-updated', handleUpdate);
+    return () => window.removeEventListener('user-updated', handleUpdate);
+  }, []);
+
+  const userDisplayName = activeUser?.first_name || activeUser?.firstName
+    ? `${activeUser.first_name || activeUser.firstName || ''} ${activeUser.last_name || activeUser.lastName || ''}`.trim()
     : activeUser?.email || 'Customer';
+
+  const userAvatar = activeUser?.avatar || null;
 
   const unreadCount = 0;
 
@@ -71,9 +80,13 @@ export default function CustomerLayout({ children }) {
         {/* User Card on Sidebar bottom */}
         <div className="p-4 border-t border-slate-800">
           <div className="flex items-center gap-3 px-2 py-3 rounded-xl bg-slate-800/40 border border-slate-800">
-            <div className="h-10 w-10 rounded-full bg-amber-500 flex items-center justify-center font-black text-slate-950 text-sm border border-amber-400 shrink-0">
-              {userDisplayName[0]?.toUpperCase() || 'C'}
-            </div>
+            {userAvatar ? (
+              <img src={userAvatar} alt="Profile" className="h-10 w-10 rounded-full border border-slate-700 object-cover shrink-0" />
+            ) : (
+              <div className="h-10 w-10 rounded-full bg-amber-500 flex items-center justify-center font-black text-slate-950 text-sm border border-amber-400 shrink-0">
+                {userDisplayName[0]?.toUpperCase() || 'C'}
+              </div>
+            )}
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium text-white truncate">{userDisplayName}</p>
               <p className="text-xs text-slate-400 truncate">{activeUser?.email || ''}</p>
@@ -247,9 +260,13 @@ export default function CustomerLayout({ children }) {
                 onClick={() => { setIsUserMenuOpen(!isUserMenuOpen); setIsNotifOpen(false); }}
                 className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-slate-100 transition-all duration-200"
               >
-                <div className="h-8 w-8 rounded-full bg-amber-500 flex items-center justify-center font-black text-slate-950 text-sm border border-amber-300 shrink-0">
-                  {userDisplayName?.[0]?.toUpperCase() || 'C'}
-                </div>
+                {userAvatar ? (
+                  <img src={userAvatar} alt="Profile" className="h-8 w-8 rounded-full border border-slate-200 object-cover shrink-0" />
+                ) : (
+                  <div className="h-8 w-8 rounded-full bg-amber-500 flex items-center justify-center font-black text-slate-950 text-sm border border-amber-300 shrink-0">
+                    {userDisplayName?.[0]?.toUpperCase() || 'C'}
+                  </div>
+                )}
                 <span className="hidden md:block text-sm font-semibold text-slate-700">{userDisplayName?.split(' ')[0] || 'Customer'}</span>
               </button>
 

@@ -12,9 +12,17 @@ export default function FleetLayout({ children }) {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const user = authService.getCurrentUser();
+  const [user, setUser] = useState(authService.getCurrentUser());
+  
+  useEffect(() => {
+    const handleUpdate = () => setUser(authService.getCurrentUser());
+    window.addEventListener('user-updated', handleUpdate);
+    return () => window.removeEventListener('user-updated', handleUpdate);
+  }, []);
+
   const userDisplayName = user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : 'Fleet Owner';
   const companyName = user?.email || 'Registered Transporter';
+  const userAvatar = user?.avatar || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=150&auto=format&fit=crop&q=80';
 
   const [fleetStatus, setFleetStatus] = useState('REGISTERED');
 
@@ -142,9 +150,11 @@ export default function FleetLayout({ children }) {
             </button>
             <div className="relative">
               <button onClick={() => setIsUserMenuOpen(!isUserMenuOpen)} className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-slate-100">
-                <div className="h-8 w-8 rounded-full bg-amber-500 flex items-center justify-center font-black text-slate-955 text-xs shrink-0">
-                  {userDisplayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'FL'}
-                </div>
+                <img 
+                  src={userAvatar} 
+                  alt="Profile" 
+                  className="h-8 w-8 rounded-full border border-slate-200 object-cover"
+                />
                 <span className="hidden md:block text-sm font-semibold text-slate-700">{userDisplayName.split(' ')[0]}</span>
               </button>
               {isUserMenuOpen && (
