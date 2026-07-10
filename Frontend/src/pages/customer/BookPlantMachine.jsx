@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { bookingService } from '../../services/bookingService';
 import {
   MapPin, Tractor, Clock, Calendar, MessageSquare, Phone, Mail, User, CheckCircle2, AlertCircle, ArrowLeft, ArrowRight, Send, Loader2, FileText, ChevronRight
 } from 'lucide-react';
@@ -42,12 +43,45 @@ export default function BookPlantMachine() {
   const handleNext = () => setStep(2);
   const handleBack = () => setStep(1);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     setSubmitting(true);
-    setTimeout(() => {
+    try {
+      const payload = {
+        cargo_category: 'Plant Hire',
+        cargo_name: `${form.machineCategory} - ${form.machineType}`,
+        description: JSON.stringify({
+          bookingType: 'Plant Hire',
+          machineCategory: form.machineCategory,
+          machineType: form.machineType,
+          durationValue: form.durationValue,
+          durationUnit: form.durationUnit,
+          specialRequirements: form.specialRequirements
+        }),
+        weight: 0,
+        volume: 0,
+        quantity: 1,
+        pickup_address: form.siteAddress,
+        pickup_date: form.preferredDate ? new Date(form.preferredDate).toISOString() : new Date().toISOString(),
+        pickup_contact: form.contactPerson,
+        pickup_instructions: form.phone ? `Phone: ${form.phone}. Email: ${form.email}` : '',
+        delivery_address: form.siteAddress,
+        delivery_date: form.preferredDate ? new Date(form.preferredDate).toISOString() : new Date().toISOString(),
+        requested_vehicle: form.machineType,
+        is_urgent: false,
+      };
+
+      const res = await bookingService.createBooking(payload);
+      if (res.success) {
+        setStep(3);
+      } else {
+        alert(res.message || 'Failed to submit booking');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('An error occurred while submitting the booking.');
+    } finally {
       setSubmitting(false);
-      setStep(3);
-    }, 1500);
+    }
   };
 
   const isStep1Valid = form.siteAddress && form.machineCategory && form.machineType && form.durationValue && form.preferredDate;
