@@ -4,6 +4,7 @@ import { Compass, ShieldCheck, MapPin, Truck, Phone, Star, Info, CheckCircle2 } 
 import { Card, Button, Badge } from '../../components/ui';
 import { bookingService } from '../../services/bookingService';
 import io from 'socket.io-client';
+import LoadAfricaMap from '../../components/ui/LoadAfricaMap';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
 const SOCKET_URL = API_URL.replace('/api/v1', '');
@@ -110,20 +111,22 @@ export default function ActiveBooking() {
   const currentLat = telemetry?.latitude || startLat;
   const currentLng = telemetry?.longitude || startLng;
 
-  const totalLatDiff = endLat - startLat;
-  const totalLngDiff = endLng - startLng;
-  const currentLatDiff = currentLat - startLat;
-  const currentLngDiff = currentLng - startLng;
-
-  let progressPct = 0;
-  if (Math.abs(totalLatDiff) > 0.0001 || Math.abs(totalLngDiff) > 0.0001) {
-    const totalDistSq = totalLatDiff * totalLatDiff + totalLngDiff * totalLngDiff;
-    const currentDistSq = currentLatDiff * currentLatDiff + currentLngDiff * currentLngDiff;
-    progressPct = Math.min(100, Math.max(0, Math.round((Math.sqrt(currentDistSq) / Math.sqrt(totalDistSq)) * 100)));
-  }
-
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 text-left animate-fadeIn">
+    <div className="space-y-6 animate-fadeIn text-left">
+      {/* Alert banner if driver hasn't accepted yet */}
+      {load.assignments?.[0]?.status === 'PENDING' && (
+        <div className="bg-amber-50 border border-amber-200 p-4.5 rounded-2xl text-amber-800 text-xs font-semibold flex items-start gap-3.5 shadow-sm">
+          <Info className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <h4 className="font-extrabold uppercase text-amber-950 tracking-wide text-xs">Transporter Dispatch Pending Confirmation</h4>
+            <p className="text-slate-600 font-medium font-sans leading-relaxed">
+              We have allocated driver <span className="font-bold text-slate-800">{driver.user?.first_name} {driver.user?.last_name || ''}</span> to this load. The driver has been notified and needs to click "Accept Assignment" in their mobile app to initialize the GPS telemetry feed.
+            </p>
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 text-left">
       
       {/* Map screen */}
       <div className="lg:col-span-2 space-y-6">
@@ -140,58 +143,18 @@ export default function ActiveBooking() {
             </div>
           </div>
 
-          <div className="flex-1 bg-slate-950 relative flex items-center justify-center p-6 overflow-hidden">
-            <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,_transparent_1px),_linear-gradient(90deg,_rgba(255,255,255,0.02)_1px,_transparent_1px)] bg-[size:30px_30px]" />
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full border border-indigo-500/5 animate-pulse pointer-events-none" />
-
-            <svg className="w-full h-full relative z-10" viewBox="0 0 500 300">
-              <circle cx="100" cy="150" r="8" className="fill-amber-500 stroke-amber-500/40 stroke-[6px]" />
-              <text x="100" y="130" className="fill-slate-400 font-bold text-[10px] text-center" textAnchor="middle">Pickup Route</text>
-
-              <circle cx="400" cy="150" r="8" className="fill-indigo-500 stroke-indigo-500/40 stroke-[6px]" />
-              <text x="400" y="130" className="fill-slate-400 font-bold text-[10px] text-center" textAnchor="middle">Dropoff Route</text>
-
-              <path d="M 100 150 Q 250 80 400 150" fill="none" stroke="#334155" strokeWidth="4" strokeDasharray="6,6" />
-              <path 
-                d="M 100 150 Q 250 80 400 150" 
-                fill="none" 
-                stroke="#f59e0b" 
-                strokeWidth="4" 
-                strokeDasharray="500" 
-                strokeDashoffset={500 - (500 * (progressPct / 100))}
-                className="transition-all duration-1000"
-              />
-
-              {(() => {
-                const t = progressPct / 100;
-                const x = (1 - t) * (1 - t) * 100 + 2 * (1 - t) * t * 250 + t * t * 400;
-                const y = (1 - t) * (1 - t) * 150 + 2 * (1 - t) * t * 80 + t * t * 150;
-                return (
-                  <g transform={`translate(${x - 12}, ${y - 12})`} className="transition-all duration-1000">
-                    <circle cx="12" cy="12" r="16" className="fill-amber-500/20 stroke-amber-500/30 stroke-1" />
-                    <rect x="4" y="6" width="16" height="12" rx="2" className="fill-amber-500 shadow-xl" />
-                    <circle cx="8" cy="18" r="2.5" className="fill-slate-900" />
-                    <circle cx="16" cy="18" r="2.5" className="fill-slate-900" />
-                  </g>
-                );
-              })()}
-            </svg>
-
-            <div className="absolute bottom-4 left-4 bg-slate-900/90 border border-slate-800 p-3.5 rounded-2xl text-[10px] text-slate-300 font-mono space-y-1 backdrop-blur z-20">
-              <p className="font-semibold text-white">TELEMETRY STREAM</p>
-              <div className="grid grid-cols-2 gap-x-4">
-                <span>LATITUDE:</span>
-                <span className="text-amber-500">{parseFloat(currentLat).toFixed(4)}° S</span>
-                <span>LONGITUDE:</span>
-                <span className="text-amber-500">{parseFloat(currentLng).toFixed(4)}° E</span>
-                <span>COMPLETED:</span>
-                <span className="text-white">{telemetry?.completed_distance || 0} km</span>
-              </div>
-            </div>
-
-            <div className="absolute bottom-4 right-4 bg-slate-900/90 border border-slate-800 p-3 rounded-xl text-[10px] text-amber-500 font-bold backdrop-blur z-20">
-              {telemetry?.eta ? `ETA: ${new Date(telemetry.eta).toLocaleTimeString()}` : 'ETA: Recalculating...'}
-            </div>
+          <div className="flex-1 relative overflow-hidden">
+            <LoadAfricaMap
+              pickupCoords={{ lat: startLat, lng: startLng }}
+              deliveryCoords={{ lat: endLat, lng: endLng }}
+              currentCoords={telemetry?.latitude ? { lat: telemetry.latitude, lng: telemetry.longitude } : null}
+              routePolyline={load.route_polyline}
+              heading={telemetry?.heading || 0}
+              driverName={`${driver.user?.first_name || ''} ${driver.user?.last_name || ''}`.trim()}
+              speed={telemetry?.speed || 0}
+              status={load.status}
+              height="100%"
+            />
           </div>
         </div>
       </div>
@@ -270,7 +233,7 @@ export default function ActiveBooking() {
           </div>
         </Card>
       </div>
-
+      </div>
     </div>
   );
 }

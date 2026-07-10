@@ -8,17 +8,10 @@ import {
 import { adminService } from '../../services/adminService';
 
 const DOCUMENT_LABELS = {
-  profile_photo: 'Profile Photo',
-  selfie: 'Selfie Verification',
   govt_id: 'Government ID / Passport',
   license_front: 'Driver License Front',
   license_back: 'Driver License Back',
-  police_clearance: 'Police Clearance Certificate',
-  medical_certificate: 'Medical Fitness Certificate',
-  proof_of_address: 'Proof of Address',
-  vehicle_registration: 'Vehicle Registration Disc/Paper',
-  insurance: 'Vehicle Insurance Policy',
-  roadworthy_certificate: 'Roadworthy Certificate (COF)'
+  vehicle_registration: 'Vehicle Registration Disc/Paper'
 };
 
 export default function DriverDetails() {
@@ -42,12 +35,7 @@ export default function DriverDetails() {
     govt_id: false,
     license_front: false,
     license_back: false,
-    police_clearance: false,
-    medical_certificate: false,
-    proof_of_address: false,
-    vehicle_registration: false,
-    insurance: false,
-    roadworthy_certificate: false
+    vehicle_registration: false
   });
 
   // Document Viewer settings

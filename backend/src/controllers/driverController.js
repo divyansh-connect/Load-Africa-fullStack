@@ -468,7 +468,7 @@ const updateProfile = async (req, res) => {
 const updateTelemetry = async (req, res) => {
   try {
     const { bookingId } = req.params;
-    const { latitude, longitude } = req.body;
+    const { latitude, longitude, speed, heading } = req.body;
     const driverId = await getDriverId(req);
 
     const assignment = await prisma.bookingAssignment.findFirst({
@@ -507,46 +507,64 @@ const updateTelemetry = async (req, res) => {
     const etaMs = remaining > 0 ? (remaining / 50) * 60 * 60 * 1000 : 0;
     const etaDate = new Date(Date.now() + etaMs);
 
-    const telemetry = await prisma.liveTrackingTelemetry.upsert({
-      where: { booking_id: bookingId },
-      update: {
-        latitude: parseFloat(latitude),
-        longitude: parseFloat(longitude),
-        completed_distance: completed,
-        remaining_distance: remaining,
-        eta: etaDate
-      },
-      create: {
-        booking_id: bookingId,
-        driver_id: driverId,
-        latitude: parseFloat(latitude),
-        longitude: parseFloat(longitude),
-        completed_distance: completed,
-        remaining_distance: remaining,
-        eta: etaDate
-      }
-    });
+    const telemetry = await prisma.$transaction(async (tx) => {
+      // 1. Update current position in Booking
+      await tx.booking.update({
+        where: { id: bookingId },
+        data: {
+          current_latitude: parseFloat(latitude),
+          current_longitude: parseFloat(longitude)
+        }
+      });
 
-    await prisma.trackingHistory.create({
-      data: {
-        booking_id: bookingId,
-        status: booking.status,
-        lat: parseFloat(latitude),
-        lng: parseFloat(longitude),
-        remarks: `Live telemetry update. Completed: ${completed} km. Remaining: ${remaining} km.`,
-        updated_by: req.user?.id || 'SYSTEM'
-      }
+      // 2. Upsert LiveTrackingTelemetry
+      const tel = await tx.liveTrackingTelemetry.upsert({
+        where: { booking_id: bookingId },
+        update: {
+          latitude: parseFloat(latitude),
+          longitude: parseFloat(longitude),
+          completed_distance: completed,
+          remaining_distance: remaining,
+          eta: etaDate
+        },
+        create: {
+          booking_id: bookingId,
+          driver_id: driverId,
+          latitude: parseFloat(latitude),
+          longitude: parseFloat(longitude),
+          completed_distance: completed,
+          remaining_distance: remaining,
+          eta: etaDate
+        }
+      });
+
+      // 3. Log to tracking history
+      await tx.trackingHistory.create({
+        data: {
+          booking_id: bookingId,
+          status: booking.status,
+          lat: parseFloat(latitude),
+          lng: parseFloat(longitude),
+          remarks: `Live telemetry update. Completed: ${completed} km. Remaining: ${remaining} km. Speed: ${speed || 0} km/h. Heading: ${heading || 0}°.`,
+          updated_by: req.user?.id || 'SYSTEM'
+        }
+      });
+
+      return tel;
     });
 
     const io = req.app.get('io');
     if (io) {
       io.emit(`telemetry_updated_${bookingId}`, {
         bookingId,
-        latitude,
-        longitude,
+        latitude: parseFloat(latitude),
+        longitude: parseFloat(longitude),
         completed_distance: completed,
         remaining_distance: remaining,
-        eta: etaDate
+        eta: etaDate,
+        speed: speed || 0,
+        heading: heading || 0,
+        updatedAt: new Date().toISOString()
       });
     }
 

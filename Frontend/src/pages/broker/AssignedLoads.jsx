@@ -8,6 +8,7 @@ import {
 import { brokerService } from '../../services/brokerService';
 import { bookingService } from '../../services/bookingService';
 import { Badge, Table, StatCard } from '../../components/ui';
+import LoadAfricaMap from '../../components/ui/LoadAfricaMap';
 
 export default function AssignedLoads() {
   const navigate = useNavigate();
@@ -244,6 +245,19 @@ export default function AssignedLoads() {
                 {getStatusBadge(selectedLoad.status)}
               </div>
 
+              {/* Map */}
+              <div className="h-44 w-full rounded-xl overflow-hidden border border-slate-200">
+                <LoadAfricaMap
+                  pickupCoords={{ lat: selectedLoad.pickup_coords_lat, lng: selectedLoad.pickup_coords_lng }}
+                  deliveryCoords={{ lat: selectedLoad.delivery_coords_lat, lng: selectedLoad.delivery_coords_lng }}
+                  currentCoords={selectedLoad.current_latitude ? { lat: selectedLoad.current_latitude, lng: selectedLoad.current_longitude } : null}
+                  routePolyline={selectedLoad.route_polyline}
+                  heading={selectedLoad.telemetry?.heading || 0}
+                  status={selectedLoad.status}
+                  height="100%"
+                />
+              </div>
+
               {/* Addresses details */}
               <div className="space-y-3">
                 <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Logistics Locations</h4>
@@ -321,7 +335,7 @@ export default function AssignedLoads() {
               )}
 
               {/* Transporter Dispatch Control Box */}
-              {!selectedLoad.assignment ? (
+              {(!selectedLoad.assignment || (!selectedLoad.assignment.driver && !selectedLoad.assignment.fleet_owner) || selectedLoad.assignment.status === 'PENDING') ? (
                 <div className="space-y-3 pt-3 border-t border-slate-100">
                   <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Transporter Dispatch Allocation</h4>
                   

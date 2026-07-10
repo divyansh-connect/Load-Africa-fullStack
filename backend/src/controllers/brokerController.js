@@ -292,7 +292,7 @@ const assignFleet = async (req, res) => {
 
     const booking = await prisma.booking.findUnique({ where: { id } });
     if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
-    if (!['CUSTOMER_ACCEPTED', 'BOOKING_CONFIRMED', 'DRIVER_SEARCHING'].includes(booking.status)) {
+    if (!['CUSTOMER_ACCEPTED', 'BOOKING_CONFIRMED', 'DRIVER_SEARCHING', 'DRIVER_ASSIGNED'].includes(booking.status)) {
       return res.status(400).json({ success: false, message: 'Cannot assign a Fleet Owner unless the booking quote has been accepted by the customer.' });
     }
 
@@ -345,7 +345,7 @@ const assignDriver = async (req, res) => {
 
     const booking = await prisma.booking.findUnique({ where: { id } });
     if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
-    if (!['CUSTOMER_ACCEPTED', 'BOOKING_CONFIRMED', 'DRIVER_SEARCHING'].includes(booking.status)) {
+    if (!['CUSTOMER_ACCEPTED', 'BOOKING_CONFIRMED', 'DRIVER_SEARCHING', 'DRIVER_ASSIGNED'].includes(booking.status)) {
       return res.status(400).json({ success: false, message: 'Cannot assign a Driver unless the booking quote has been accepted by the customer.' });
     }
 

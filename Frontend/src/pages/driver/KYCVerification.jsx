@@ -13,17 +13,10 @@ export default function KYCVerification() {
   const [profile, setProfile] = useState(null);
 
   const [documents, setDocuments] = useState([
-    { key: 'profile_photo', title: 'Profile Photo', type: 'Personal Photo', status: 'not_uploaded', uploadDate: 'Not Uploaded', expiryDate: 'Never' },
-    { key: 'selfie', title: 'Selfie Verification', type: 'Verification Info', status: 'not_uploaded', uploadDate: 'Not Uploaded', expiryDate: 'Never' },
     { key: 'govt_id', title: 'Government ID / Passport', type: 'Personal ID', status: 'not_uploaded', uploadDate: 'Not Uploaded', expiryDate: 'Never' },
     { key: 'license_front', title: 'Driver License Front', type: 'Driving Credentials', status: 'not_uploaded', uploadDate: 'Not Uploaded', expiryDate: 'Never' },
     { key: 'license_back', title: 'Driver License Back', type: 'Driving Credentials', status: 'not_uploaded', uploadDate: 'Not Uploaded', expiryDate: 'Never' },
-    { key: 'police_clearance', title: 'Police Clearance Certificate', type: 'Compliance Check', status: 'not_uploaded', uploadDate: 'Not Uploaded', expiryDate: 'Never' },
-    { key: 'medical_certificate', title: 'Medical Fitness Certificate', type: 'Health Compliance', status: 'not_uploaded', uploadDate: 'Not Uploaded', expiryDate: 'Never' },
-    { key: 'proof_of_address', title: 'Proof of Address', type: 'Verification Info', status: 'not_uploaded', uploadDate: 'Not Uploaded', expiryDate: 'Never' },
-    { key: 'vehicle_registration', title: 'Vehicle Registration Disc/Paper', type: 'Vehicle Compliance', status: 'not_uploaded', uploadDate: 'Not Uploaded', expiryDate: 'Never' },
-    { key: 'insurance', title: 'Vehicle Insurance Policy', type: 'Vehicle Compliance', status: 'not_uploaded', uploadDate: 'Not Uploaded', expiryDate: 'Never' },
-    { key: 'roadworthy_certificate', title: 'Roadworthy Certificate (COF)', type: 'Vehicle Compliance', status: 'not_uploaded', uploadDate: 'Not Uploaded', expiryDate: 'Never' }
+    { key: 'vehicle_registration', title: 'Vehicle Registration Disc/Paper', type: 'Vehicle Compliance', status: 'not_uploaded', uploadDate: 'Not Uploaded', expiryDate: 'Never' }
   ]);
 
   const showToast = (message) => {

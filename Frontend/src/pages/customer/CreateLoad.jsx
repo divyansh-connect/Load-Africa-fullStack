@@ -5,7 +5,6 @@ import {
   ArrowRight, ArrowLeft, CheckCircle2, ChevronRight, Info, ShieldCheck,
   Compass, Package
 } from 'lucide-react';
-import { createLoad } from '../../data/mockData';
 import { GooglePlacesInput } from '../../components/ui';
 
 const VEHICLE_TYPES = [
@@ -47,28 +46,52 @@ export default function CreateLoad() {
     setStep(2);
   };
 
-  const handleConfirmBooking = () => {
+  const handleConfirmBooking = async () => {
     setLoading(true);
+    setError('');
     
-    // Construct new load object
-    const finalBudget = calculateEstimate(budget);
-    const newLoad = {
-      title,
-      category,
-      weight: `${weight} Tons`,
-      pickup,
-      dropoff,
-      budget: finalBudget,
-      customerName: 'Patrice Motsepe',
-      customerId: 'usr-1',
-      vehicleType: VEHICLE_TYPES.find(v => v.id === selectedVehicle).name
-    };
+    try {
+      const { MapProvider } = await import('../../services/mapProvider/MapProvider');
+      const { bookingService } = await import('../../services/bookingService');
+      
+      // 1. Geocode pickup and delivery addresses
+      const pickupGeocode = await MapProvider.geocode.geocode(pickup);
+      const dropoffGeocode = await MapProvider.geocode.geocode(dropoff);
+      
+      const distance = MapProvider.route.calculateHaversineDistance(
+        pickupGeocode.lat, pickupGeocode.lng,
+        dropoffGeocode.lat, dropoffGeocode.lng
+      );
 
-    setTimeout(() => {
-      createLoad(newLoad);
+      // 2. Submit to backend
+      const res = await bookingService.createBooking({
+        cargo_name: title,
+        cargo_category: category,
+        weight: parseFloat(weight),
+        pickup_address: pickup,
+        pickup_coords_lat: pickupGeocode.lat,
+        pickup_coords_lng: pickupGeocode.lng,
+        delivery_address: dropoff,
+        delivery_coords_lat: dropoffGeocode.lat,
+        delivery_coords_lng: dropoffGeocode.lng,
+        requested_vehicle: VEHICLE_TYPES.find(v => v.id === selectedVehicle).name,
+        estimated_distance: distance,
+        pickup_date: new Date().toISOString(),
+        delivery_date: new Date(Date.now() + 86400000).toISOString()
+      });
+
+      if (res.success) {
+        setLoading(false);
+        setStep(4); // Dispatched screen
+      } else {
+        setError(res.message || 'Booking failed');
+        setLoading(false);
+      }
+    } catch (err) {
+      console.error(err);
+      setError(err.message || 'Geocoding or booking failed. Please check address inputs.');
       setLoading(false);
-      setStep(3);
-    }, 1500);
+    }
   };
 
   return (

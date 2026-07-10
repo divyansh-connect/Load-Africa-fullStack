@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, MapPin, Truck, User, Calendar, DollarSign, Loader2, UserCheck } from 'lucide-react';
+import { ArrowLeft, MapPin, Truck, User, Calendar, DollarSign, Loader2, UserCheck, Compass } from 'lucide-react';
 import { adminService } from '../../services/adminService';
+import LoadAfricaMap from '../../components/ui/LoadAfricaMap';
+import { TrackingService } from '../../services/mapProvider/TrackingService';
 
 export default function BookingDetails() {
   const { id } = useParams();
@@ -10,6 +12,7 @@ export default function BookingDetails() {
   const [booking, setBooking] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [telemetry, setTelemetry] = useState(null);
 
   const [drivers, setDrivers] = useState([]);
   const [selectedDriver, setSelectedDriver] = useState('');
@@ -22,6 +25,14 @@ export default function BookingDetails() {
       const res = await adminService.getBookingById(id);
       if (res.success) {
         setBooking(res.data);
+        if (res.data.current_latitude && res.data.current_longitude) {
+          setTelemetry({
+            latitude: res.data.current_latitude,
+            longitude: res.data.current_longitude,
+            speed: 0,
+            heading: 0
+          });
+        }
       } else {
         setError(res.message);
       }
@@ -46,6 +57,20 @@ export default function BookingDetails() {
   useEffect(() => {
     fetchBooking();
     fetchDrivers();
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    
+    // Subscribe to real-time driver coordinates
+    TrackingService.subscribeToLiveLocation(id, (data) => {
+      console.log('Admin received real-time telemetry:', data);
+      setTelemetry(data);
+    });
+
+    return () => {
+      TrackingService.unsubscribeFromLiveLocation(id);
+    };
   }, [id]);
 
   const handleAssign = async () => {
@@ -195,6 +220,27 @@ export default function BookingDetails() {
           </div>
         </div>
       </div>
+
+      {/* Live Map Tracking for Admin */}
+      {booking.status !== 'DRAFT' && booking.pickup_coords_lat && (
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
+          <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+            <Compass className="h-4.5 w-4.5 text-slate-400" /> Live Route Tracking Map
+          </h3>
+          <div className="h-[430px] rounded-xl overflow-hidden border border-slate-200 relative">
+            <LoadAfricaMap
+              pickupCoords={{ lat: booking.pickup_coords_lat, lng: booking.pickup_coords_lng }}
+              deliveryCoords={{ lat: booking.delivery_coords_lat, lng: booking.delivery_coords_lng }}
+              currentCoords={telemetry?.latitude ? { lat: telemetry.latitude, lng: telemetry.longitude } : null}
+              routePolyline={booking.route_polyline}
+              heading={telemetry?.heading || 0}
+              speed={telemetry?.speed || 0}
+              status={booking.status}
+              height="100%"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

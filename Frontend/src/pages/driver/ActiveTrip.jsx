@@ -5,26 +5,7 @@ import {
 } from 'lucide-react';
 import { driverService } from '../../services/driverService';
 
-function RouteMap({ pickup, delivery }) {
-  const hasCoords = pickup?.lat && pickup?.lng && delivery?.lat && delivery?.lng;
-
-  if (!hasCoords) return null;
-
-  const src = `https://www.openstreetmap.org/export/embed.html?bbox=${Math.min(pickup.lng, delivery.lng) - 0.5},${Math.min(pickup.lat, delivery.lat) - 0.5},${Math.max(pickup.lng, delivery.lng) + 0.5},${Math.max(pickup.lat, delivery.lat) + 0.5}&layer=mapnik&marker=${pickup.lat},${pickup.lng}`;
-
-  return (
-    <div className="rounded-2xl overflow-hidden border border-slate-205 shadow-sm h-64 w-full">
-      <iframe
-        title="Route Map"
-        src={src}
-        width="100%"
-        height="100%"
-        loading="lazy"
-        className="w-full h-full border-0"
-      />
-    </div>
-  );
-}
+import LoadAfricaMap from '../../components/ui/LoadAfricaMap';
 
 export default function ActiveTrip() {
   const [trip, setTrip] = useState(null);
@@ -77,6 +58,17 @@ export default function ActiveTrip() {
     setTimeout(() => setToast({ show: false, message: '' }), 4000);
   };
 
+  const calcHeading = (lat1, lon1, lat2, lon2) => {
+    if (!lat1 || !lon1 || !lat2 || !lon2) return 0;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const lat1Rad = lat1 * Math.PI / 180;
+    const lat2Rad = lat2 * Math.PI / 180;
+    const y = Math.sin(dLon) * Math.cos(lat2Rad);
+    const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) - Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLon);
+    const brng = Math.atan2(y, x) * 180 / Math.PI;
+    return (brng + 360) % 360;
+  };
+
   const simulateEnRouteProgress = async () => {
     if (!trip) return;
     const destLat = trip.pickup_coords_lat || -26.0697;
@@ -95,10 +87,18 @@ export default function ActiveTrip() {
       const currentLng = startLng + ((destLng - startLng) * step) / steps;
       const distance = calcDistance(currentLat, currentLng, destLat, destLng);
       
-      setDriverLoc({ lat: currentLat, lng: currentLng });
+      const speed = 65; // simulated 65 km/h
+      const heading = calcHeading(
+        step > 1 && driverLoc ? driverLoc.lat : startLat,
+        step > 1 && driverLoc ? driverLoc.lng : startLng,
+        currentLat,
+        currentLng
+      );
+
+      setDriverLoc({ lat: currentLat, lng: currentLng, speed, heading });
 
       try {
-        await driverService.updateTelemetry(trip.id, currentLat, currentLng);
+        await driverService.updateTelemetry(trip.id, currentLat, currentLng, speed, heading);
         showToast(`Navigating: ${Math.round((step / steps) * 100)}%. Distance: ${distance.toFixed(1)} km`);
       } catch (err) {
         console.error(err);
@@ -135,10 +135,18 @@ export default function ActiveTrip() {
       const currentLng = startLng + ((destLng - startLng) * step) / steps;
       const distance = calcDistance(currentLat, currentLng, destLat, destLng);
       
-      setDriverLoc({ lat: currentLat, lng: currentLng });
+      const speed = 75; // simulated 75 km/h
+      const heading = calcHeading(
+        step > 1 && driverLoc ? driverLoc.lat : startLat,
+        step > 1 && driverLoc ? driverLoc.lng : startLng,
+        currentLat,
+        currentLng
+      );
+
+      setDriverLoc({ lat: currentLat, lng: currentLng, speed, heading });
 
       try {
-        await driverService.updateTelemetry(trip.id, currentLat, currentLng);
+        await driverService.updateTelemetry(trip.id, currentLat, currentLng, speed, heading);
         showToast(`Transit Progress: ${Math.round((step / steps) * 100)}%. Distance: ${distance.toFixed(1)} km`);
       } catch (err) {
         console.error(err);
@@ -436,9 +444,15 @@ export default function ActiveTrip() {
               )}
             </div>
 
-            <RouteMap 
-              pickup={{ lat: trip.pickup_coords_lat, lng: trip.pickup_coords_lng, label: trip.pickup_address }} 
-              delivery={{ lat: trip.delivery_coords_lat, lng: trip.delivery_coords_lng, label: trip.delivery_address }} 
+            <LoadAfricaMap 
+              pickupCoords={{ lat: trip.pickup_coords_lat, lng: trip.pickup_coords_lng }} 
+              deliveryCoords={{ lat: trip.delivery_coords_lat, lng: trip.delivery_coords_lng }} 
+              currentCoords={driverLoc ? { lat: driverLoc.lat, lng: driverLoc.lng } : null}
+              routePolyline={trip.route_polyline}
+              heading={driverLoc?.heading || 0}
+              speed={driverLoc?.speed || 0}
+              status={trip.status}
+              height="380px"
             />
 
             {/* Simulators */}

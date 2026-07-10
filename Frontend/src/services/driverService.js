@@ -66,8 +66,8 @@ export const driverService = {
     return response.data;
   },
 
-  updateTelemetry: async (bookingId, latitude, longitude) => {
-    const response = await api.post(`/driver/trips/${bookingId}/telemetry`, { latitude, longitude });
+  updateTelemetry: async (bookingId, latitude, longitude, speed = 0, heading = 0) => {
+    const response = await api.post(`/driver/trips/${bookingId}/telemetry`, { latitude, longitude, speed, heading });
     return response.data;
   },
 

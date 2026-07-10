@@ -449,6 +449,10 @@ model Booking {
   // Step 4: Vehicle requested
   requested_vehicle  String?
   estimated_distance Float?
+  estimated_duration Float?
+  current_latitude   Float?
+  current_longitude  Float?
+  route_polyline     String?  @db.Text
 
   status BookingStatus @default(DRAFT)
 
