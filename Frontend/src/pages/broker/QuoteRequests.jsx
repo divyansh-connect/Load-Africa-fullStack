@@ -76,7 +76,12 @@ export default function QuoteRequests() {
 
   const filteredRequests = requests.filter(req => 
     req.id.toLowerCase().includes(search.toLowerCase()) || 
-    (req.customer?.company_name && req.customer.company_name.toLowerCase().includes(search.toLowerCase()))
+    (req.customer?.company_name && req.customer.company_name.toLowerCase().includes(search.toLowerCase())) ||
+    (req.customer?.user?.first_name && req.customer.user.first_name.toLowerCase().includes(search.toLowerCase())) ||
+    (req.customer?.user?.email && req.customer.user.email.toLowerCase().includes(search.toLowerCase())) ||
+    (req.guest_email && req.guest_email.toLowerCase().includes(search.toLowerCase())) ||
+    (req.guest_company && req.guest_company.toLowerCase().includes(search.toLowerCase())) ||
+    (req.pickup_contact && req.pickup_contact.toLowerCase().includes(search.toLowerCase()))
   );
 
   return (
@@ -110,70 +115,108 @@ export default function QuoteRequests() {
           </button>
         </div>
 
-        {/* Data Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-white text-slate-500 border-b border-slate-100">
-              <tr>
-                <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider">Booking ID</th>
-                <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider">Customer</th>
-                <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider">Route</th>
-                <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider">Cargo & Vehicle</th>
-                <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider">Date Created</th>
-                <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {loading ? (
-                <tr>
-                  <td colSpan="6" className="px-6 py-12 text-center text-slate-500 font-medium">
-                    <RefreshCcw className="h-6 w-6 animate-spin mx-auto mb-2 text-slate-400" />
-                    Loading quote requests...
-                  </td>
-                </tr>
-              ) : filteredRequests.length === 0 ? (
-                <tr>
-                  <td colSpan="6" className="px-6 py-12 text-center text-slate-500 font-medium">
-                    No pending quote requests found.
-                  </td>
-                </tr>
-              ) : filteredRequests.map((req) => (
-                <tr key={req.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-6 py-4 font-semibold text-slate-900">{req.id.split('-')[0]}...</td>
-                  <td className="px-6 py-4 font-semibold text-slate-900">
-                    {req.customer?.company_name || req.customer?.user?.first_name || 'Guest'}
-                  </td>
-                  <td className="px-6 py-4 text-slate-600">
-                    <span className="block text-xs font-semibold truncate max-w-[150px]">{req.pickup_address}</span>
-                    <span className="block text-[10px] text-slate-400 truncate max-w-[150px]">to {req.delivery_address}</span>
-                  </td>
-                  <td className="px-6 py-4 text-slate-600">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-xs font-bold">{req.cargo_name} ({req.weight}kg)</span>
-                      <span className="flex items-center gap-1 text-[10px] text-slate-500">
-                        <Truck className="h-3 w-3" /> {req.requested_vehicle || 'Any'}
+        {/* Modern Card Grid Layout instead of Table */}
+        <div className="p-4 sm:p-6 bg-slate-50/30">
+          {loading ? (
+            <div className="py-12 flex flex-col items-center justify-center text-slate-500 font-medium">
+              <RefreshCcw className="h-6 w-6 animate-spin mb-2 text-slate-400" />
+              Loading quote requests...
+            </div>
+          ) : filteredRequests.length === 0 ? (
+            <div className="py-12 flex flex-col items-center justify-center text-slate-500 font-medium bg-white rounded-xl border border-slate-200 border-dashed">
+              No pending quote requests found.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredRequests.map((req) => (
+                <div key={req.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:border-amber-400 transition-all flex flex-col">
+                  {/* Card Header: Route */}
+                  <div className="p-4 border-b border-slate-100 bg-slate-50/50 rounded-t-2xl space-y-3">
+                    <div className="flex justify-between items-start mb-1">
+                      <span className="text-[10px] font-black px-2 py-1 bg-amber-100 text-amber-800 rounded-md uppercase tracking-wider">
+                        ID: {req.id.split('-')[0]}
                       </span>
+                      <span className="text-[10px] text-slate-400 font-semibold bg-white border border-slate-200 px-2 py-1 rounded-md">{new Date(req.created_at).toLocaleDateString()}</span>
                     </div>
-                  </td>
-                  <td className="px-6 py-4 text-slate-500 text-xs font-medium">{new Date(req.created_at).toLocaleDateString()}</td>
-                  <td className="px-6 py-4 text-right">
+                    <div className="flex items-start gap-2.5">
+                      <div className="mt-1 h-3 w-3 rounded-full bg-emerald-100 border-2 border-emerald-500 shrink-0" />
+                      <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Pickup Point</p>
+                        <p className="text-xs font-black text-slate-900 leading-tight">{req.pickup_address?.split(',')[0]}</p>
+                        <p className="text-[10px] text-slate-500 truncate max-w-[200px]">{req.pickup_address}</p>
+                      </div>
+                    </div>
+                    <div className="pl-1.5 border-l-2 border-dashed border-slate-300 ml-1.5 py-1" />
+                    <div className="flex items-start gap-2.5">
+                      <div className="mt-1 h-3 w-3 rounded-full bg-amber-100 border-2 border-amber-500 shrink-0" />
+                      <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Delivery Point</p>
+                        <p className="text-xs font-black text-slate-900 leading-tight">{req.delivery_address?.split(',')[0]}</p>
+                        <p className="text-[10px] text-slate-500 truncate max-w-[200px]">{req.delivery_address}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card Body: Customer & Cargo */}
+                  <div className="p-5 space-y-4 flex-1">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center border border-indigo-100 shrink-0">
+                        <User className="h-5 w-5" />
+                      </div>
+                      <div className="overflow-hidden">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Customer Details</p>
+                        <p className="text-sm font-bold text-slate-800 truncate">
+                          {req.customer?.company_name 
+                            ? req.customer.company_name 
+                            : req.customer?.user?.first_name 
+                              ? `${req.customer.user.first_name} ${req.customer.user.last_name || ''}` 
+                              : req.customer?.user?.email
+                                ? req.customer.user.email.split('@')[0]
+                                : req.guest_company
+                                  ? req.guest_company
+                                  : req.guest_email
+                                    ? req.guest_email.split('@')[0]
+                                    : req.pickup_contact || 'Guest User'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <div>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Cargo & Weight</p>
+                        <p className="text-xs font-bold text-slate-800 truncate" title={req.cargo_name}>{req.cargo_name}</p>
+                        <p className="text-[10px] font-semibold text-slate-500">{req.weight} kg</p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Requested Vehicle</p>
+                        <p className="text-xs font-bold text-slate-800 flex items-center gap-1 truncate">
+                          <Truck className="h-3 w-3 text-slate-400 shrink-0" />
+                          <span className="truncate" title={req.requested_vehicle || 'Any Vehicle'}>{req.requested_vehicle || 'Any Vehicle'}</span>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card Footer: Action */}
+                  <div className="p-4 border-t border-slate-100 bg-white rounded-b-2xl">
                     {req.quotes && req.quotes.length > 0 ? (
-                      <span className="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
+                      <div className="w-full py-2.5 bg-slate-50 border border-slate-200 text-slate-500 text-xs font-black uppercase tracking-wider text-center rounded-xl flex justify-center items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                         Quote Issued
-                      </span>
+                      </div>
                     ) : (
                       <button 
                         onClick={() => handleCreateQuoteClick(req)}
-                        className="text-xs font-bold bg-amber-500 text-slate-950 px-4 py-2 rounded-lg hover:bg-amber-400 transition-colors shadow-sm"
+                        className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-black uppercase tracking-wider rounded-xl transition-all shadow-md shadow-amber-500/20 cursor-pointer"
                       >
                         Create Quote
                       </button>
                     )}
-                  </td>
-                </tr>
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+          )}
         </div>
       </div>
 
@@ -216,13 +259,15 @@ export default function QuoteRequests() {
                   <div>
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Customer / Company</p>
                     <p className="text-slate-800 font-bold">
-                      {selectedBooking.customer?.company_name || 'Individual Customer'}
+                      {selectedBooking.customer?.company_name || selectedBooking.guest_company || 'Individual Customer'}
                     </p>
                   </div>
                   <div>
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Contact Person</p>
-                    <p className="text-slate-800 font-bold">
-                      {selectedBooking.customer?.user?.first_name ? `${selectedBooking.customer.user.first_name} ${selectedBooking.customer.user.last_name || ''}` : 'Guest'}
+                    <p className="text-slate-800 font-bold truncate">
+                      {selectedBooking.customer?.user?.first_name 
+                        ? `${selectedBooking.customer.user.first_name} ${selectedBooking.customer.user.last_name || ''}` 
+                        : selectedBooking.pickup_contact || selectedBooking.customer?.user?.email?.split('@')[0] || selectedBooking.guest_email?.split('@')[0] || 'Guest User'}
                     </p>
                   </div>
                 </div>
@@ -230,12 +275,12 @@ export default function QuoteRequests() {
                 <div className="grid grid-cols-2 gap-4 pt-1">
                   <div>
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Phone Number</p>
-                    <p className="text-slate-800 font-bold">{selectedBooking.customer?.user?.phone || 'N/A'}</p>
+                    <p className="text-slate-800 font-bold">{selectedBooking.customer?.user?.phone || selectedBooking.guest_phone || 'N/A'}</p>
                   </div>
                   <div>
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Email Address</p>
-                    <p className="text-slate-800 font-bold truncate max-w-[200px]" title={selectedBooking.customer?.user?.email}>
-                      {selectedBooking.customer?.user?.email || 'N/A'}
+                    <p className="text-slate-800 font-bold truncate max-w-[200px]" title={selectedBooking.customer?.user?.email || selectedBooking.guest_email}>
+                      {selectedBooking.customer?.user?.email || selectedBooking.guest_email || 'N/A'}
                     </p>
                   </div>
                 </div>

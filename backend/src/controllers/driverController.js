@@ -24,6 +24,9 @@ const getAvailableLoads = async (req, res) => {
           none: { driver_id: driverId }
         }
       },
+      include: {
+        customer: { include: { user: { select: { first_name: true, last_name: true, email: true, phone: true } } } }
+      },
       orderBy: { created_at: 'desc' }
     });
 
@@ -94,7 +97,10 @@ const getActiveTrip = async (req, res) => {
       },
       include: {
         booking: {
-          include: { customer: true, quotes: true }
+          include: {
+            customer: { include: { user: { select: { first_name: true, last_name: true, email: true, phone: true } } } },
+            quotes: true
+          }
         }
       }
     });
@@ -157,7 +163,7 @@ const getDriverHistory = async (req, res) => {
           }
         }
       },
-      include: { booking: true },
+      include: { booking: { include: { customer: { include: { user: { select: { first_name: true, last_name: true, email: true } } } } } } },
       orderBy: { created_at: 'desc' }
     });
     res.status(200).json({ success: true, data: history.map(h => h.booking) });

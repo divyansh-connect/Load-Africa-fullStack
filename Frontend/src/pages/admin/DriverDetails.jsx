@@ -8,15 +8,15 @@ import {
 import { adminService } from '../../services/adminService';
 
 const DOCUMENT_LABELS = {
-  govtId: 'Government ID / Passport',
-  licenseFront: 'Driver License Front',
-  licenseBack: 'Driver License Back',
-  policeClearance: 'Police Clearance Certificate',
-  medicalCertificate: 'Medical Fitness Certificate',
-  proofOfAddress: 'Proof of Address',
-  vehicleRegistration: 'Vehicle Registration Disc/Paper',
-  insuranceDoc: 'Vehicle Insurance Policy',
-  roadworthyDoc: 'Roadworthy Certificate (COF)'
+  govt_id: 'Government ID / Passport',
+  license_front: 'Driver License Front',
+  license_back: 'Driver License Back',
+  police_clearance: 'Police Clearance Certificate',
+  medical_certificate: 'Medical Fitness Certificate',
+  proof_of_address: 'Proof of Address',
+  vehicle_registration: 'Vehicle Registration Disc/Paper',
+  insurance: 'Vehicle Insurance Policy',
+  roadworthy_certificate: 'Roadworthy Certificate (COF)'
 };
 
 export default function DriverDetails() {
@@ -37,19 +37,19 @@ export default function DriverDetails() {
 
   const [revisionModalOpen, setRevisionModalOpen] = useState(false);
   const [revisionChecklist, setRevisionChecklist] = useState({
-    govtId: false,
-    licenseFront: false,
-    licenseBack: false,
-    policeClearance: false,
-    medicalCertificate: false,
-    proofOfAddress: false,
-    vehicleRegistration: false,
-    insuranceDoc: false,
-    roadworthyDoc: false
+    govt_id: false,
+    license_front: false,
+    license_back: false,
+    police_clearance: false,
+    medical_certificate: false,
+    proof_of_address: false,
+    vehicle_registration: false,
+    insurance: false,
+    roadworthy_certificate: false
   });
 
   // Document Viewer settings
-  const [activeDocKey, setActiveDocKey] = useState('govtId');
+  const [activeDocKey, setActiveDocKey] = useState('govt_id');
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
 
@@ -119,7 +119,8 @@ export default function DriverDetails() {
   const handleDownloadActiveDoc = () => {
     const fileUrl = docs[activeDocKey];
     if (fileUrl) {
-      const absoluteUrl = `${import.meta.env.VITE_API_URL}${fileUrl}`;
+      const baseServerUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1').replace('/api/v1', '');
+      const absoluteUrl = `${baseServerUrl}${fileUrl}`;
       window.open(absoluteUrl, '_blank');
     }
   };
@@ -259,7 +260,7 @@ export default function DriverDetails() {
 
             <div className="mx-auto h-24 w-24 rounded-full border-2 border-slate-200 overflow-hidden bg-slate-100 shadow-inner relative group">
               {photos.profile_photo ? (
-                <img src={`${import.meta.env.VITE_API_URL}${photos.profile_photo}`} alt="Profile" className="h-full w-full object-cover" />
+                <img src={`${(import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1').replace('/api/v1', '')}${photos.profile_photo}`} alt="Profile" className="h-full w-full object-cover" />
               ) : (
                 <div className="h-full w-full flex items-center justify-center text-slate-400 font-bold text-xs uppercase">No Photo</div>
               )}
@@ -448,7 +449,7 @@ export default function DriverDetails() {
                       </div>
                     ) : (
                       <img
-                        src={`${import.meta.env.VITE_API_URL}${docs[activeDocKey]}`}
+                        src={`${(import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1').replace('/api/v1', '')}${docs[activeDocKey]}`}
                         alt="Doc preview"
                         className="max-w-full max-h-full object-contain transition-all shadow-xl rounded-md"
                         style={{
@@ -477,28 +478,38 @@ export default function DriverDetails() {
             <User className="h-4 w-4 text-slate-450" /> Personal Profile Details
           </h3>
 
-          <div className="grid grid-cols-2 gap-4 text-xs font-semibold text-slate-600">
+          <div className="grid grid-cols-2 gap-4 text-xs font-semibold text-slate-655 text-left">
             <div>
-              <span className="block text-[10px] font-black text-slate-400 uppercase">Emergency Contact Name</span>
-              <span className="text-slate-800">{profile.emergency_contact?.name || 'N/A'}</span>
+              <span className="block text-[10px] font-black text-slate-400 uppercase tracking-wide">Full Name</span>
+              <span className="text-slate-850 font-bold">{user.first_name} {user.last_name || ''}</span>
             </div>
             <div>
-              <span className="block text-[10px] font-black text-slate-400 uppercase">Emergency Contact Mobile</span>
-              <span className="text-slate-800">{profile.emergency_contact?.phone || 'N/A'}</span>
+              <span className="block text-[10px] font-black text-slate-400 uppercase tracking-wide">Email Address</span>
+              <span className="text-slate-850 font-bold">{user.email}</span>
             </div>
             <div>
-              <span className="block text-[10px] font-black text-slate-400 uppercase">Gender</span>
-              <span className="text-slate-800">{profile.gender || 'N/A'}</span>
+              <span className="block text-[10px] font-black text-slate-400 uppercase tracking-wide">Phone Number</span>
+              <span className="text-slate-850 font-bold">{user.phone || 'N/A'}</span>
             </div>
             <div>
-              <span className="block text-[10px] font-black text-slate-400 uppercase">Date of Birth</span>
-              <span className="text-slate-800">{profile.date_of_birth ? new Date(profile.date_of_birth).toLocaleDateString() : 'N/A'}</span>
+              <span className="block text-[10px] font-black text-slate-400 uppercase tracking-wide">ID / Passport Number</span>
+              <span className="text-slate-850 font-bold">{driver.id_document || 'N/A'}</span>
+            </div>
+            <div>
+              <span className="block text-[10px] font-black text-slate-400 uppercase tracking-wide">Driving License Number</span>
+              <span className="text-slate-850 font-bold">{driver.license || 'N/A'}</span>
+            </div>
+            <div>
+              <span className="block text-[10px] font-black text-slate-400 uppercase tracking-wide">Vehicle Type</span>
+              <span className="text-slate-850 font-bold">{driver.documents?.vehicleType || 'N/A'}</span>
+            </div>
+            <div>
+              <span className="block text-[10px] font-black text-slate-400 uppercase tracking-wide">Vehicle Registration</span>
+              <span className="text-slate-850 font-bold">{driver.documents?.vehicleReg || 'N/A'}</span>
             </div>
             <div className="col-span-2">
-              <span className="block text-[10px] font-black text-slate-400 uppercase">Residential Address</span>
-              <span className="text-slate-800">
-                {profile.address || driver.address || 'N/A'}, {profile.city || ''} {profile.province || ''}
-              </span>
+              <span className="block text-[10px] font-black text-slate-400 uppercase tracking-wide">Base / Residential Address</span>
+              <span className="text-slate-850 font-bold">{driver.address || 'N/A'}</span>
             </div>
           </div>
         </div>

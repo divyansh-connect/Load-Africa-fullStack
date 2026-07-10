@@ -63,7 +63,7 @@ const getCustomerDashboard = async (userId) => {
   };
 };
 
-module.exports = { getCustomerDashboard };
+
 
 /**
  * Returns all bookings where the Broker has prepared an official quotation.

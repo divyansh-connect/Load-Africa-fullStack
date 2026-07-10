@@ -31,44 +31,39 @@ const verifyPODAndReleasePayment = async (req, res) => {
 
     // Use quote grand total for driver payout simulation
     const payoutAmount = booking.quotes[0]?.grand_total || 1500;
+    const platformComm = payoutAmount * 0.10;
+    const driverPayout = payoutAmount * 0.90;
 
     await prisma.$transaction(async (tx) => {
-      // 1. Mark booking as COMPLETED
+      // 1. Mark booking as PAYMENT_PENDING
       await tx.booking.update({
         where: { id: bookingId },
-        data: { status: 'COMPLETED' }
+        data: { status: 'PAYMENT_PENDING' }
       });
 
       // 2. Add to Tracking
       await tx.trackingHistory.create({
-        data: { booking_id: bookingId, status: 'COMPLETED', remarks: 'Broker verified POD. Trip complete.' }
+        data: { booking_id: bookingId, status: 'PAYMENT_PENDING', remarks: 'Broker verified POD. Invoice raised. Awaiting customer payment.' }
       });
 
-      // 3. Update or Create Driver Wallet
-      let wallet = await tx.wallet.findFirst({ where: { user_id: assignment.driver.user_id } });
-      if (!wallet) {
-        wallet = await tx.wallet.create({ data: { user_id: assignment.driver.user_id, balance: 0 } });
-      }
-
-      await tx.wallet.update({
-        where: { id: wallet.id },
-        data: { balance: { increment: payoutAmount } }
-      });
-
-      // 4. Create Wallet Transaction
-      await tx.walletTransaction.create({
+      // 3. Create Invoice in PENDING status
+      await tx.invoice.create({
         data: {
-          wallet_id: wallet.id,
-          type: 'CREDIT',
-          amount: payoutAmount,
-          description: `Payout for booking ${bookingId}`,
-          reference_id: bookingId,
-          status: 'COMPLETED'
+          invoice_no: `INV-${Math.floor(100000 + Math.random() * 900000)}`,
+          booking_id: bookingId,
+          customer_id: booking.customer_id,
+          amount: payoutAmount - platformComm,
+          tax_amount: 0,
+          total_amount: payoutAmount,
+          platform_commission: platformComm,
+          payout_amount: driverPayout,
+          due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Due in 7 days
+          status: 'PENDING'
         }
       });
     });
 
-    res.status(200).json({ success: true, message: 'POD Verified and Payment Released' });
+    res.status(200).json({ success: true, message: 'POD Verified and Invoice Raised. Awaiting customer payment.' });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }
@@ -79,20 +74,23 @@ const withdrawEarnings = async (req, res) => {
     const driverId = await getDriverId(req); // For drivers. Wait, we should make it generic for the logged-in user.
     const userId = req.user.id;
     const { amount } = req.body;
-    
-    await prisma.$transaction(async (tx) => {
-      const wallet = await tx.wallet.findFirst({ where: { user_id: userId } });
-      
-      if (!wallet || wallet.balance < amount) {
-        throw new Error("Insufficient funds");
-      }
 
-      // Move balance to pending_balance
+    if (!amount || amount <= 0) return res.status(400).json({ success: false, message: 'Invalid withdrawal amount' });
+
+    const wallet = await prisma.wallet.findFirst({ where: { user_id: userId } });
+    if (!wallet || wallet.balance < amount) return res.status(400).json({ success: false, message: 'Insufficient funds' });
+
+    await prisma.$transaction(async (tx) => {
       await tx.wallet.update({
         where: { id: wallet.id },
-        data: { 
-          balance: { decrement: amount },
-          pending_balance: { increment: amount }
+        data: { balance: { decrement: amount } }
+      });
+
+      const withdrawal = await tx.withdrawalRequest.create({
+        data: {
+          wallet_id: wallet.id,
+          amount,
+          status: 'PENDING'
         }
       });
 
@@ -100,23 +98,15 @@ const withdrawEarnings = async (req, res) => {
         data: {
           wallet_id: wallet.id,
           type: 'DEBIT',
-          amount: amount,
-          description: `Withdrawal request to bank account`,
+          amount,
+          description: `Withdrawal request submitted`,
+          reference_id: withdrawal.id,
           status: 'PENDING'
-        }
-      });
-
-      // Log
-      await tx.activityLog.create({
-        data: {
-          user_id: userId,
-          action: 'WITHDRAWAL_REQUESTED',
-          description: `Requested withdrawal of ${amount}`
         }
       });
     });
 
-    res.status(200).json({ success: true, message: 'Withdrawal requested successfully' });
+    res.status(200).json({ success: true, message: 'Withdrawal request submitted successfully' });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }
@@ -189,10 +179,15 @@ const processPayment = async (req, res) => {
         data: { status: 'PAID' }
       });
 
-      // 3. Mark Booking as PAYMENT_RECEIVED
+      // 3. Mark Booking as COMPLETED
       await tx.booking.update({
         where: { id: invoice.booking_id },
-        data: { status: 'PAYMENT_RECEIVED' }
+        data: { status: 'COMPLETED' }
+      });
+
+      // Add to tracking
+      await tx.trackingHistory.create({
+        data: { booking_id: invoice.booking_id, status: 'COMPLETED', remarks: 'Customer completed payment. Trip finalized.' }
       });
 
       // 4. Commission Split Logic

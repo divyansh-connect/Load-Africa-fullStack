@@ -124,8 +124,8 @@ export default function FleetDrivers() {
                   <td className="p-4 pl-6">
                     <div className="flex items-center gap-3">
                       <img 
-                        src={driver.user.avatar ? (driver.user.avatar.startsWith('http') ? driver.user.avatar : `${API_BASE}${driver.user.avatar}`) : 'https://via.placeholder.com/40'} 
-                        alt="Profile" 
+                        src={driver.user.avatar ? (driver.user.avatar.startsWith('http') ? driver.user.avatar : `${API_BASE}${driver.user.avatar}`) : `https://api.dicebear.com/7.x/initials/svg?seed=${driver.user.first_name || 'Driver'}`} 
+                        alt="Driver" 
                         className="w-10 h-10 rounded-full object-cover bg-slate-100 border border-slate-200"
                       />
                       <div>

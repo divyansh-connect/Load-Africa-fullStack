@@ -107,6 +107,32 @@ export default function DriverDashboard() {
     fetchDashboardData();
   }, []);
 
+  const handleAcceptAssignment = async () => {
+    try {
+      setLoading(true);
+      const res = await driverService.acceptAssignment(activeTrip.id);
+      if (res.success) {
+        fetchDashboardData();
+      }
+    } catch (err) {
+      alert("Failed to accept assignment: " + (err.response?.data?.message || err.message));
+      setLoading(false);
+    }
+  };
+
+  const handleRejectAssignment = async () => {
+    try {
+      setLoading(true);
+      const res = await driverService.rejectAssignment(activeTrip.id);
+      if (res.success) {
+        fetchDashboardData();
+      }
+    } catch (err) {
+      alert("Failed to reject assignment: " + (err.response?.data?.message || err.message));
+      setLoading(false);
+    }
+  };
+
   const handleVerifyPhone = () => {
     if (phoneOtp === '1234') {
       setOtpVerified(true);
@@ -431,7 +457,26 @@ export default function DriverDashboard() {
                 )}
               </div>
 
-              {activeTrip ? (
+              {activeTrip?.assignmentStatus === 'PENDING' ? (
+                // Pending Assignment View
+                <div className="flex-1 flex flex-col justify-center items-center p-5 relative z-10 text-center space-y-3 bg-slate-900/80 backdrop-blur-sm">
+                  <div className="h-12 w-12 bg-amber-500/20 rounded-full flex items-center justify-center border border-amber-500/50 animate-pulse">
+                    <AlertCircle className="h-6 w-6 text-amber-500" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-white">New Load Assignment</h3>
+                    <p className="text-[10px] text-slate-400 mt-0.5">Please accept to view details and start navigation.</p>
+                  </div>
+                  <div className="bg-slate-800 rounded-xl p-3 w-full border border-slate-700 text-left space-y-1">
+                    <p className="text-sm font-bold text-white">{activeTrip.cargo_name} <span className="text-amber-500 text-[10px]">({activeTrip.weight} kg)</span></p>
+                    <p className="text-[10px] text-slate-400 truncate">{activeTrip.pickup_address?.split(',')[0]} → {activeTrip.delivery_address?.split(',')[0]}</p>
+                  </div>
+                  <div className="flex gap-3 w-full pt-2">
+                    <button onClick={handleRejectAssignment} className="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-[10px] uppercase rounded-xl border border-slate-700">Decline</button>
+                    <button onClick={handleAcceptAssignment} className="flex-1 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-black text-[10px] uppercase rounded-xl shadow-lg shadow-emerald-500/20">Accept Load</button>
+                  </div>
+                </div>
+              ) : activeTrip ? (
                 // Active trip route view
                 <div className="flex-1 flex flex-col justify-between p-5 relative z-10">
                   <div className="space-y-1">
@@ -500,21 +545,33 @@ export default function DriverDashboard() {
                 No matching loads currently. We will notify you when a load is available.
               </div>
             ) : (
-              availableLoads.slice(0, 3).map((load) => (
+              availableLoads.slice(0, 3).map((load) => {
+                const cust = load.customer;
+                const custName = cust?.user?.first_name
+                  ? `${cust.user.first_name} ${cust.user.last_name || ''}`
+                  : cust?.company_name || load.guest_company || load.guest_email?.split('@')[0] || 'Customer';
+                return (
                 <div key={load.id} className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm hover:border-[#f4a236] transition-colors cursor-pointer" onClick={() => navigate('/driver/available-loads')}>
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="flex items-center gap-1.5 text-xs text-slate-700 font-semibold">
-                        <MapPin className="h-3 w-3 text-amber-500 shrink-0" />
-                        {load.pickup_address}
-                        <ArrowRight className="h-3 w-3 text-slate-400 shrink-0" />
-                        {load.delivery_address}
-                      </div>
-                      <p className="text-[10px] text-slate-400 mt-1">{load.cargo_name} · {load.weight} kg · {load.requested_vehicle || 'Any Vehicle'}</p>
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="h-7 w-7 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center border border-indigo-100 shrink-0">
+                      <User className="h-3.5 w-3.5" />
+                    </div>
+                    <span className="text-xs font-bold text-slate-800">{custName}</span>
+                  </div>
+                  <div className="space-y-1 mb-2">
+                    <div className="flex items-center gap-2 text-[11px]">
+                      <div className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
+                      <span className="text-slate-700 font-semibold truncate">{load.pickup_address}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-[11px]">
+                      <div className="h-2 w-2 rounded-full bg-red-500 shrink-0" />
+                      <span className="text-slate-700 font-semibold truncate">{load.delivery_address}</span>
                     </div>
                   </div>
+                  <p className="text-[10px] text-slate-400 font-semibold">{load.cargo_name} · {load.weight} kg · {load.requested_vehicle || 'Any Vehicle'}</p>
                 </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
@@ -525,19 +582,75 @@ export default function DriverDashboard() {
           {/* Active Trip */}
           <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3 cursor-pointer hover:shadow-md transition-shadow" onClick={() => activeTrip && navigate('/driver/active-trip')}>
             <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wide">Current Trip Status</h3>
-            {activeTrip ? (
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 space-y-2">
+            {activeTrip?.assignmentStatus === 'PENDING' ? (() => {
+              const cust = activeTrip.customer;
+              const custName = cust?.user?.first_name
+                ? `${cust.user.first_name} ${cust.user.last_name || ''}`
+                : cust?.company_name || activeTrip.guest_company || activeTrip.guest_email || 'Customer';
+              return (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-800">
+                  <AlertCircle className="h-3.5 w-3.5" />
+                  New Load Assignment — Action Required
+                </div>
+                <div className="flex items-center gap-2 text-xs">
+                  <User className="h-3 w-3 text-amber-600" />
+                  <span className="font-bold text-slate-800">{custName}</span>
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2 text-[11px]">
+                    <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 shrink-0" />
+                    <span className="text-slate-700 font-semibold truncate">{activeTrip.pickup_address}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[11px]">
+                    <div className="h-2.5 w-2.5 rounded-full bg-red-500 shrink-0" />
+                    <span className="text-slate-700 font-semibold truncate">{activeTrip.delivery_address}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 text-[10px] text-amber-700 font-semibold">
+                  <span>{activeTrip.cargo_name}</span>
+                  <span>·</span>
+                  <span>{activeTrip.weight} kg</span>
+                  <span>·</span>
+                  <span>{activeTrip.requested_vehicle || 'Any Vehicle'}</span>
+                </div>
+                <div className="flex gap-2 mt-1">
+                  <button onClick={(e) => { e.stopPropagation(); handleAcceptAssignment(); }} className="flex-1 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-[10px] font-bold uppercase shadow-sm cursor-pointer transition-colors">Accept</button>
+                  <button onClick={(e) => { e.stopPropagation(); handleRejectAssignment(); }} className="flex-1 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg text-[10px] font-bold uppercase cursor-pointer transition-colors">Reject</button>
+                </div>
+              </div>
+              );
+            })() : activeTrip ? (() => {
+              const cust = activeTrip.customer;
+              const custName = cust?.user?.first_name
+                ? `${cust.user.first_name} ${cust.user.last_name || ''}`
+                : cust?.company_name || activeTrip.guest_company || activeTrip.guest_email || 'Customer';
+              return (
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
                 <div className="flex items-center gap-1.5 text-xs font-semibold text-blue-800">
                   <MapPin className="h-3 w-3" />
                   Trip in Progress
                 </div>
-                <p className="text-[10px] text-blue-600 font-bold uppercase tracking-wider">{activeTrip.status.replace(/_/g, ' ')}</p>
-                <div className="flex items-center justify-between text-[10px]">
-                  <span className="text-blue-600 font-bold flex items-center gap-1"><Clock className="h-2.5 w-2.5" /> {activeTrip.cargo_name}</span>
+                <div className="flex items-center gap-2 text-xs">
+                  <User className="h-3 w-3 text-blue-600" />
+                  <span className="font-bold text-slate-800">{custName}</span>
+                  <span className="text-[9px] font-black px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded uppercase">{activeTrip.status.replace(/_/g, ' ')}</span>
                 </div>
-                <button className="w-full mt-2 py-1.5 bg-blue-600 text-white rounded text-[10px] font-bold uppercase shadow-sm">Open Details</button>
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2 text-[11px]">
+                    <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 shrink-0" />
+                    <span className="text-slate-700 font-semibold truncate">{activeTrip.pickup_address}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[11px]">
+                    <div className="h-2.5 w-2.5 rounded-full bg-red-500 shrink-0" />
+                    <span className="text-slate-700 font-semibold truncate">{activeTrip.delivery_address}</span>
+                  </div>
+                </div>
+                <p className="text-[10px] text-blue-600 font-semibold">{activeTrip.cargo_name} · {activeTrip.weight} kg</p>
+                <button className="w-full mt-1 py-2 bg-blue-600 text-white rounded-lg text-[10px] font-bold uppercase shadow-sm">Open Trip Details</button>
               </div>
-            ) : (
+              );
+            })() : (
               <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl text-center space-y-2">
                 <Truck className="h-6 w-6 text-slate-300 mx-auto" />
                 <p className="text-[10px] text-slate-500 font-medium">No active trips currently. Apply for a load to start earning.</p>
@@ -579,10 +692,15 @@ export default function DriverDashboard() {
           {history.length === 0 ? (
             <div className="p-6 text-center text-slate-500 text-xs font-bold">No completed trips yet.</div>
           ) : (
-            history.slice(0, 5).map((t) => (
+            history.slice(0, 5).map((t) => {
+              const cust = t.customer;
+              const custName = cust?.user?.first_name
+                ? `${cust.user.first_name} ${cust.user.last_name || ''}`
+                : cust?.company_name || t.guest_company || 'Customer';
+              return (
               <div key={t.id} className="flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors">
                 <div className="space-y-0.5 max-w-[60%]">
-                  <p className="text-xs font-bold text-slate-800 truncate">{t.pickup_address} → {t.delivery_address}</p>
+                  <p className="text-xs font-bold text-slate-800 truncate">{custName} — {t.pickup_address} → {t.delivery_address}</p>
                   <p className="text-[10px] text-slate-400 font-semibold">{t.cargo_name} · {new Date(t.created_at).toLocaleDateString()}</p>
                 </div>
                 <div className="text-right">
@@ -591,7 +709,8 @@ export default function DriverDashboard() {
                   </span>
                 </div>
               </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>

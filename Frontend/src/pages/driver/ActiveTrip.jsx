@@ -1,9 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { 
   MapPin, Truck, Box, Navigation, Clock, CheckCircle2, 
-  PhoneCall, Package, Check, ArrowRight
+  PhoneCall, Package, Check, ArrowRight, AlertCircle
 } from 'lucide-react';
 import { driverService } from '../../services/driverService';
+
+function RouteMap({ pickup, delivery }) {
+  const hasCoords = pickup?.lat && pickup?.lng && delivery?.lat && delivery?.lng;
+
+  if (!hasCoords) return null;
+
+  const src = `https://www.openstreetmap.org/export/embed.html?bbox=${Math.min(pickup.lng, delivery.lng) - 0.5},${Math.min(pickup.lat, delivery.lat) - 0.5},${Math.max(pickup.lng, delivery.lng) + 0.5},${Math.max(pickup.lat, delivery.lat) + 0.5}&layer=mapnik&marker=${pickup.lat},${pickup.lng}`;
+
+  return (
+    <div className="rounded-2xl overflow-hidden border border-slate-205 shadow-sm h-64 w-full">
+      <iframe
+        title="Route Map"
+        src={src}
+        width="100%"
+        height="100%"
+        loading="lazy"
+        className="w-full h-full border-0"
+      />
+    </div>
+  );
+}
 
 export default function ActiveTrip() {
   const [trip, setTrip] = useState(null);
@@ -304,6 +325,17 @@ export default function ActiveTrip() {
                 <p className="font-bold text-slate-800 text-sm">{trip.requested_vehicle || 'Any'}</p>
               </div>
             </div>
+          </div>
+
+          {/* Interactive Route Map */}
+          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+            <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+              <MapPin className="h-4 w-4 text-amber-500" /> Interactive Route Map
+            </h3>
+            <RouteMap 
+              pickup={{ lat: trip.pickup_coords_lat, lng: trip.pickup_coords_lng, label: trip.pickup_address }} 
+              delivery={{ lat: trip.delivery_coords_lat, lng: trip.delivery_coords_lng, label: trip.delivery_address }} 
+            />
           </div>
 
         </div>

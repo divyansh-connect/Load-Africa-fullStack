@@ -28,6 +28,7 @@ import Tracking from './pages/customer/Tracking';
 import BookingHistory from './pages/customer/BookingHistory';
 import BookingDetails from './pages/customer/BookingDetails';
 import CustomerProfile from './pages/customer/CustomerProfile';
+import Payment from './pages/customer/Payment';
 
 // ── Driver Auth + Dashboard ──
 import DriverAuth from './pages/driver/DriverAuth';
@@ -130,6 +131,7 @@ export default function App() {
           <Route path="tracking" element={<Tracking />} />
           <Route path="booking-history" element={<BookingHistory />} />
           <Route path="booking-details/:id" element={<BookingDetails />} />
+          <Route path="payment/:id" element={<Payment />} />
           <Route path="profile" element={<CustomerProfile />} />
           <Route index element={<Navigate to="dashboard" replace />} />
         </Route>

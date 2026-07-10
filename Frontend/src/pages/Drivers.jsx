@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Truck, ShieldCheck, Mail, MessageSquare, Phone, Wallet, Calendar, Shield, User, Wrench, Building, MapPin, ArrowRight, Upload, CheckCircle2, ChevronDown
+  Truck, ShieldCheck, Mail, MessageSquare, Phone, Wallet, Calendar, Shield, User, Wrench, Building, MapPin, ArrowRight, Upload, CheckCircle2, ChevronDown, AlertCircle
 } from 'lucide-react';
 import { Card, Input, Select, GooglePlacesInput } from '../components/ui';
 import Navbar from '../components/Navbar';

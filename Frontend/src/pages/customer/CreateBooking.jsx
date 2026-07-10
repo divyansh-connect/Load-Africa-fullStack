@@ -77,7 +77,6 @@ function useAddressSearch(initialValue = '', storageKey = null) {
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState(() => {
-    if (initialValue) return { label: initialValue, lat: -26.2041, lng: 28.0473 };
     if (storageKey) {
       const stored = localStorage.getItem(`${storageKey}_selected`);
       if (stored) {
@@ -86,7 +85,7 @@ function useAddressSearch(initialValue = '', storageKey = null) {
         } catch (e) {}
       }
     }
-    return initialValue ? { label: initialValue, lat: -26.2041, lng: 28.0473 } : null;
+    return null;
   });
   const debounceRef = useRef(null);
 
@@ -103,9 +102,8 @@ function useAddressSearch(initialValue = '', storageKey = null) {
 
   const onChange = useCallback((text) => {
     setValue(text);
-    if (text.length >= 3) {
-      setSelected({ label: text, lat: -26.2041, lng: 28.0473 });
-    } else {
+    // Don't auto-set coordinates — user must pick from suggestions
+    if (text.length < 3) {
       setSelected(null);
     }
     clearTimeout(debounceRef.current);

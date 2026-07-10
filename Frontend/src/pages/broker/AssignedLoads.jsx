@@ -310,11 +310,14 @@ export default function AssignedLoads() {
                           className="flex-1 px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500/20"
                         >
                           <option value="">Select approved driver...</option>
-                          {drivers.map(d => (
-                            <option key={d.id} value={d.driver?.id}>
-                              {d.first_name} {d.last_name}
-                            </option>
-                          ))}
+                          {drivers.map(d => {
+                            const vehicleType = d.driver?.vehicle_relation?.vehicle_type || d.driver?.assigned_vehicle?.type || 'Vehicle Unspecified';
+                            return (
+                              <option key={d.id} value={d.driver?.id}>
+                                {d.first_name} {d.last_name} — [{vehicleType}]
+                              </option>
+                            );
+                          })}
                         </select>
                         <button
                           disabled={!selectedDriverId || assigning}

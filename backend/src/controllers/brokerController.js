@@ -370,10 +370,11 @@ const getApprovedDrivers = async (req, res) => {
         role: 'DRIVER', 
         status: 'ACTIVE',
         driver: {
-          status: 'AVAILABLE'
+          status: { in: ['AVAILABLE', 'INACTIVE'] },
+          fleet_owner_id: null // Only Independent Drivers
         }
       },
-      include: { driver: { include: { profile: true } } }
+      include: { driver: { include: { profile: true, vehicle_relation: true, assigned_vehicle: true } } }
     });
     res.status(200).json({ success: true, data: drivers });
   } catch (error) {
