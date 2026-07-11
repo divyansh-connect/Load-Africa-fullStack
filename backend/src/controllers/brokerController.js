@@ -125,6 +125,7 @@ const getAssignedLoads = async (req, res) => {
           include: {
             driver: { include: { user: true } },
             fleet_owner: { include: { user: true } },
+            plant_owner: { include: { user: true } },
             vehicle: true
           }
         }
@@ -139,6 +140,7 @@ const getAssignedLoads = async (req, res) => {
         assignment: activeAssignment ? {
           driver: activeAssignment.driver,
           fleet_owner: activeAssignment.fleet_owner,
+          plant_owner: activeAssignment.plant_owner,
           vehicle: activeAssignment.vehicle,
           status: activeAssignment.status
         } : null
@@ -458,6 +460,19 @@ const assignPlant = async (req, res) => {
           plant_owner_id: plantOwnerId,
           broker_id: broker.id,
           assigned_by: req.user.id,
+          status: 'PENDING'
+        }
+      });
+
+      // Clean up any existing hire requests for this booking, then create a new one
+      await tx.hireRequest.deleteMany({
+        where: { booking_id: id }
+      });
+
+      await tx.hireRequest.create({
+        data: {
+          booking_id: id,
+          plant_owner_id: plantOwnerId,
           status: 'PENDING'
         }
       });

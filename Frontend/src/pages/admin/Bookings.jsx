@@ -6,6 +6,7 @@ import { adminService } from '../../services/adminService';
 export default function Bookings() {
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState('All');
+  const [activeCategory, setActiveCategory] = useState('TRANSPORT'); // 'TRANSPORT' or 'PLANT'
   const navigate = useNavigate();
 
   const [bookings, setBookings] = useState([]);
@@ -27,7 +28,7 @@ export default function Bookings() {
       if (activeTab === 'Live') statusParam = 'IN_TRANSIT'; // Example mapping
       if (activeTab === 'Pending') statusParam = 'DRAFT'; // DRAFT or QUOTE_REQUESTED
 
-      const res = await adminService.getAllBookings({ status: activeTab, page, search });
+      const res = await adminService.getAllBookings({ status: activeTab, page, search, category: activeCategory });
       if (res.success) {
         setBookings(res.data);
         setTotalPages(res.meta.totalPages);
@@ -44,7 +45,7 @@ export default function Bookings() {
 
   useEffect(() => {
     fetchBookings();
-  }, [page, search, activeTab]);
+  }, [page, search, activeTab, activeCategory]);
 
   return (
     <div className="space-y-6">
@@ -52,6 +53,28 @@ export default function Bookings() {
         <div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">Bookings</h1>
           <p className="text-sm text-slate-500 font-medium">Monitor all platform bookings. Total: {totalBookings}</p>
+        </div>
+        <div className="flex bg-slate-100 p-1 rounded-xl max-w-xs border border-slate-200 shadow-sm shrink-0">
+          <button
+            onClick={() => { setActiveCategory('TRANSPORT'); setPage(1); }}
+            className={`flex-1 px-4 py-2 text-xs font-black uppercase tracking-wider rounded-lg transition-all ${
+              activeCategory === 'TRANSPORT'
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            Transport
+          </button>
+          <button
+            onClick={() => { setActiveCategory('PLANT'); setPage(1); }}
+            className={`flex-1 px-4 py-2 text-xs font-black uppercase tracking-wider rounded-lg transition-all ${
+              activeCategory === 'PLANT'
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            Plant Hire
+          </button>
         </div>
       </div>
 

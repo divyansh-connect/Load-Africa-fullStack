@@ -340,7 +340,7 @@ const getUsersByRole = async (req, res) => {
 
 const getAllBookings = async (req, res) => {
   try {
-    const { status, search = '', page = 1, limit = 10 } = req.query;
+    const { status, search = '', page = 1, limit = 10, category } = req.query;
     
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
@@ -349,6 +349,14 @@ const getAllBookings = async (req, res) => {
     const whereCondition = {
       is_deleted: false
     };
+
+    if (category) {
+      if (category === 'PLANT') {
+        whereCondition.cargo_category = 'Plant Hire';
+      } else if (category === 'TRANSPORT') {
+        whereCondition.cargo_category = { not: 'Plant Hire' };
+      }
+    }
 
     if (status && status !== 'All') {
       whereCondition.status = status.toUpperCase();

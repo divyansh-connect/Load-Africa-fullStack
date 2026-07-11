@@ -34,5 +34,10 @@ export const plantService = {
   withdrawEarnings: async (amount) => {
     const response = await api.post('/finance/withdraw', { amount });
     return response.data;
+  },
+
+  rejectHireRequest: async (requestId) => {
+    const response = await api.post(`/plant/hire-requests/${requestId}/reject`);
+    return response.data;
   }
 };

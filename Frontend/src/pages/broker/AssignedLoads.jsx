@@ -452,7 +452,7 @@ export default function AssignedLoads() {
                   </button>
                 </div>
               )}              {/* Transporter Dispatch Control Box */}
-              {(!selectedLoad.assignment || (!selectedLoad.assignment.driver && !selectedLoad.assignment.fleet_owner && !selectedLoad.assignment.plant_owner) || selectedLoad.assignment.status === 'PENDING') ? (
+              {(!selectedLoad.assignment || (!selectedLoad.assignment.driver && !selectedLoad.assignment.fleet_owner && !selectedLoad.assignment.plant_owner) || selectedLoad.assignment.status === 'INACTIVE' || selectedLoad.assignment.status === 'REJECTED') ? (
                 <div className="space-y-3 pt-3 border-t border-slate-100">
                   <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Transporter Dispatch Allocation</h4>
                   
@@ -559,8 +559,11 @@ export default function AssignedLoads() {
                           ? selectedLoad.assignment.plant_owner.company_name
                           : selectedLoad.assignment.fleet_owner?.company_name || 'Fleet operator'}
                       </p>
-                      <p className="text-[10px] text-slate-500 font-sans">
-                        Type: {selectedLoad.assignment.plant_owner_id ? 'Plant supplier dispatch' : selectedLoad.assignment.fleet_owner_id ? 'Fleet dispatch' : 'Independent Driver'}
+                      <p className="text-[10px] text-slate-500 font-sans flex items-center gap-1.5 flex-wrap">
+                        <span>Type: {selectedLoad.assignment.plant_owner_id ? 'Plant supplier dispatch' : selectedLoad.assignment.fleet_owner_id ? 'Fleet dispatch' : 'Independent Driver'}</span>
+                        {selectedLoad.assignment.status === 'PENDING' && (
+                          <span className="text-[9px] font-black text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded uppercase tracking-wider">Awaiting Acceptance</span>
+                        )}
                       </p>
                       {selectedLoad.assignment.driver?.user?.phone && (
                         <p className="text-[10px] text-slate-500 flex items-center gap-1 font-sans mt-0.5">

@@ -4,6 +4,7 @@ const {
   submitCompliance,
   addMachine,
   acceptHireRequest,
+  rejectHireRequest,
   getPublicMachines
 } = require('../controllers/plantController');
 
@@ -25,6 +26,7 @@ router.post('/compliance/submit', requireAuth, submitCompliance);
 router.post('/machines', requireAuth, addMachine);
 router.get('/machines/public', getPublicMachines);
 router.post('/hire-requests/:requestId/accept', requireAuth, acceptHireRequest);
+router.post('/hire-requests/:requestId/reject', requireAuth, rejectHireRequest);
 
 // Application registration & approval routes
 router.post('/applications', submitApplication);
