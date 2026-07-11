@@ -49,7 +49,15 @@ export default function Step1ChooseMachine({ selectedMachine, onSelectMachine, o
         const res = await plantService.getPublicMachines();
         if (res.success && res.data && res.data.length > 0) {
           const dbMachines = res.data.map(m => {
-            const doc = m.machine_documents || {};
+            let doc = {};
+            if (m.machine_documents) {
+              try {
+                doc = typeof m.machine_documents === 'string' ? JSON.parse(m.machine_documents) : m.machine_documents;
+              } catch (e) {
+                console.error("Error parsing machine_documents", e);
+                doc = {};
+              }
+            }
             let img = '';
             if (doc.photos && Array.isArray(doc.photos) && doc.photos.length > 0) {
               const primaryPhoto = doc.photos.find(p => p.isPrimary) || doc.photos[0];
@@ -61,7 +69,8 @@ export default function Step1ChooseMachine({ selectedMachine, onSelectMachine, o
             if (!img) {
               img = getCategoryPlaceholder(m.type);
             } else if (!img.startsWith('http')) {
-              img = `http://localhost:5000${img}`;
+              const base = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1').replace('/api/v1', '');
+              img = `${base}${img.startsWith('/') ? '' : '/'}${img}`;
             }
 
             return {

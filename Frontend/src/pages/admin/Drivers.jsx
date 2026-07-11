@@ -215,7 +215,7 @@ export default function Drivers() {
                       <div className="flex items-center gap-3">
                         <div className="h-10 w-10 rounded-full bg-slate-200 border border-slate-300 overflow-hidden shrink-0">
                           {photos.profile_photo ? (
-                            <img src={`${import.meta.env.VITE_API_URL}${photos.profile_photo}`} alt="avatar" className="h-full w-full object-cover" />
+                            <img src={`${(import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1').replace('/api/v1', '')}${photos.profile_photo}`} alt="avatar" className="h-full w-full object-cover" />
                           ) : (
                             <div className="h-full w-full flex items-center justify-center text-slate-500"><Users className="h-5 w-5" /></div>
                           )}

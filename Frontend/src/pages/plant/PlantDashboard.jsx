@@ -5,7 +5,7 @@ import {
   TrendingUp, AlertCircle, Trash2, Edit2, ShieldAlert, Calendar, User, Key, Mail, Building,
   FileText, Star, Wrench, Download, Settings, Loader2, Filter, Search, MoreVertical,
   Activity, BarChart3, ArrowUpRight, Check, X, Lock, Upload, Image as ImageIcon, Sparkles,
-  MoveLeft, AlertTriangle, Layers, CalendarCheck, Truck
+  MoveLeft, AlertTriangle, Layers, CalendarCheck, Truck, HelpCircle, ArrowDownRight, ShieldCheck
 } from 'lucide-react';
 import { getMockData, saveMockData } from '../../data/mockData';
 import { Modal, Button, Input, Card, Table, StatCard } from '../../components/ui';
@@ -85,6 +85,7 @@ export default function PlantDashboard() {
 
   // Local State
   const [selectedMachine, setSelectedMachine] = useState(null);
+  const [showAddMachineView, setShowAddMachineView] = useState(false);
   
   // Assignment Wizard State
   const [wizardModal, setWizardModal] = useState({ open: false, request: null });
@@ -121,6 +122,14 @@ export default function PlantDashboard() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [documentUploading, setDocumentUploading] = useState(false);
 
+  // Wallet and Revenue State
+  const [wallet, setWallet] = useState(null);
+  const [withdrawModalOpen, setWithdrawModalOpen] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [withdrawSuccess, setWithdrawSuccess] = useState(false);
+  const [withdrawError, setWithdrawError] = useState('');
+
   const [profileForm, setProfileForm] = useState({
     companyName: 'Plant Owner',
     cipcNumber: 'N/A',
@@ -154,7 +163,15 @@ export default function PlantDashboard() {
         // Map actual machines from database
         if (res.data.machines && res.data.machines.length > 0) {
           const mappedEquipment = res.data.machines.map(m => {
-            const doc = m.machine_documents || {};
+            let doc = {};
+            if (m.machine_documents) {
+              try {
+                doc = typeof m.machine_documents === 'string' ? JSON.parse(m.machine_documents) : m.machine_documents;
+              } catch (e) {
+                console.error("Error parsing machine_documents", e);
+                doc = {};
+              }
+            }
             let img = '';
             if (doc.photos && Array.isArray(doc.photos) && doc.photos.length > 0) {
               const primaryPhoto = doc.photos.find(p => p.isPrimary) || doc.photos[0];
@@ -166,7 +183,8 @@ export default function PlantDashboard() {
             if (!img) {
               img = getCategoryPlaceholder(m.type);
             } else if (!img.startsWith('http')) {
-              img = `http://localhost:5000${img}`;
+              const base = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1').replace('/api/v1', '');
+              img = `${base}${img.startsWith('/') ? '' : '/'}${img}`;
             }
 
             return {
@@ -220,17 +238,34 @@ export default function PlantDashboard() {
         setMaintenance(getMockData('maintenance') || []);
         setPayments(getMockData('payments') || []);
 
+        // Safely parse company_documents
+        let parsedDocs = {};
+        if (res.data.company_documents) {
+          try {
+            parsedDocs = typeof res.data.company_documents === 'string' ? JSON.parse(res.data.company_documents) : res.data.company_documents;
+          } catch(e) {}
+        }
+
         // Update profile form state values too!
         setProfileForm({
           companyName: res.data.company_name || '',
-          cipcNumber: res.data.cipc_number || 'N/A',
+          cipcNumber: parsedDocs.national_id || res.data.cipc_number || 'N/A',
           vatNumber: res.data.vat_number || 'N/A',
           taxRef: res.data.tax_ref || 'N/A',
           repName: res.data.user ? `${res.data.user.first_name} ${res.data.user.last_name || ''}`.trim() : '',
           email: res.data.user?.email || '',
           phone: res.data.user?.phone || '',
-          address: res.data.company_documents?.base_location || ''
+          address: parsedDocs.base_location || ''
         });
+
+        try {
+          const wRes = await plantService.getWallet();
+          if (wRes.success) {
+            setWallet(wRes.data);
+          }
+        } catch (walletErr) {
+          console.error("Failed to load plant owner wallet", walletErr);
+        }
 
       } else {
         setEquipment(getMockData('equipment') || []);
@@ -463,6 +498,43 @@ export default function PlantDashboard() {
     }
   };
 
+  const handleWithdraw = async (e) => {
+    e.preventDefault();
+    if (!withdrawAmount || parseFloat(withdrawAmount) <= 0) {
+      setWithdrawError('Please enter a valid amount.');
+      return;
+    }
+    if (parseFloat(withdrawAmount) > (wallet?.balance || 0)) {
+      setWithdrawError('Insufficient funds.');
+      return;
+    }
+
+    setWithdrawing(true);
+    setWithdrawError('');
+    setWithdrawSuccess(false);
+
+    try {
+      const res = await plantService.withdrawEarnings(parseFloat(withdrawAmount));
+      if (res.success) {
+        setWithdrawSuccess(true);
+        setWithdrawAmount('');
+        // Re-fetch wallet details
+        const wRes = await plantService.getWallet();
+        if (wRes.success) {
+          setWallet(wRes.data);
+        }
+        setTimeout(() => {
+          setWithdrawModalOpen(false);
+          setWithdrawSuccess(false);
+        }, 2000);
+      }
+    } catch (err) {
+      setWithdrawError(err?.response?.data?.message || 'Withdrawal request failed.');
+    } finally {
+      setWithdrawing(false);
+    }
+  };
+
   const isAddMachineFormValid = () => {
     if (!addMachineForm.type) return false;
     if (!addMachineForm.make) return false;
@@ -472,6 +544,7 @@ export default function PlantDashboard() {
     if (!addMachineForm.city) return false;
     if (!addMachineForm.pickup_address) return false;
     if (!addMachineForm.documentUrl) return false;
+    if (addMachineForm.photos.length === 0) return false;
     return true;
   };
 
@@ -479,7 +552,7 @@ export default function PlantDashboard() {
     e.preventDefault();
     
     if (!isAddMachineFormValid()) {
-      showToast('Please fill out all required fields and upload a compliance document.', 'error');
+      showToast('Please fill out all required fields, upload at least one photo, and upload a compliance document.', 'error');
       return;
     }
 
@@ -517,6 +590,7 @@ export default function PlantDashboard() {
           documentUrl: null
         });
         fetchData();
+        setShowAddMachineView(false);
         navigate('/plant-portal/equipment');
       } else {
         showToast(res.message || 'Failed to register machinery', 'error');
@@ -819,6 +893,10 @@ export default function PlantDashboard() {
   };
 
   const renderEquipment = () => {
+    if (showAddMachineView) {
+      return renderAddMachine();
+    }
+
     if (selectedMachine) {
       return renderEquipmentDetails();
     }
@@ -836,7 +914,7 @@ export default function PlantDashboard() {
             <h1 className="text-xl font-black text-slate-900">Fleet Management</h1>
             <p className="text-xs text-slate-500 font-medium">Manage your heavy machinery and operators.</p>
           </div>
-          <Button onClick={() => navigate('/plant-portal/add-machine')} className="gap-2 bg-amber-500 hover:bg-amber-600 text-white">
+          <Button onClick={() => setShowAddMachineView(true)} className="gap-2 bg-amber-500 hover:bg-amber-600 text-white">
             <Plus className="h-4 w-4" /> Add Machine
           </Button>
         </div>
@@ -1054,6 +1132,11 @@ export default function PlantDashboard() {
             </h1>
             <p className="text-xs text-slate-500 font-bold">Register your equipment to start receiving marketplace rental bookings.</p>
           </div>
+          {path.endsWith('/equipment') && (
+            <Button onClick={() => setShowAddMachineView(false)} variant="outline" className="gap-2 border-slate-200">
+              <MoveLeft className="h-4 w-4" /> Back to Equipment
+            </Button>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start flex-1 overflow-hidden h-full mt-6">
@@ -1066,9 +1149,14 @@ export default function PlantDashboard() {
               <div className="relative h-44 bg-slate-100">
                 <img 
                   src={
-                    addMachineForm.photos.find(p => p.isPrimary)?.url || 
-                    addMachineForm.photos[0]?.url || 
-                    getCategoryPlaceholder(addMachineForm.type)
+                    (() => {
+                      const primaryPhoto = addMachineForm.photos.find(p => p.isPrimary) || addMachineForm.photos[0];
+                      if (primaryPhoto) {
+                        const url = primaryPhoto.url;
+                        return url.startsWith('http') ? url : `${(import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1').replace('/api/v1', '')}${url.startsWith('/') ? '' : '/'}${url}`;
+                      }
+                      return getCategoryPlaceholder(addMachineForm.type);
+                    })()
                   } 
                   alt="Live Preview" 
                   className="w-full h-full object-cover"
@@ -1280,7 +1368,7 @@ export default function PlantDashboard() {
                 <div className="grid grid-cols-3 gap-3">
                   {addMachineForm.photos.map((photo, i) => (
                     <div key={photo.id} className="relative h-24 rounded-xl overflow-hidden border border-slate-200 group">
-                      <img src={photo.url} alt="Upload" className="w-full h-full object-cover" />
+                      <img src={photo.url.startsWith('http') ? photo.url : `${(import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1').replace('/api/v1', '')}${photo.url.startsWith('/') ? '' : '/'}${photo.url}`} alt="Upload" className="w-full h-full object-cover" />
                       <button 
                         type="button" 
                         onClick={() => deletePhoto(photo.id)}
@@ -1504,18 +1592,237 @@ export default function PlantDashboard() {
       )}
     </div>
   );
-}
 
-const renderRevenue = () => {
-  return (
-    <div className="space-y-6 text-left">
-      <div>
-        <h1 className="text-xl font-black text-slate-900">Revenue & Invoicing</h1>
-        <p className="text-xs text-slate-500 font-medium">Enterprise financial logs.</p>
+  function renderRevenue() {
+    const balance = wallet?.balance || 0;
+    const pendingBalance = wallet?.pending_balance || 0;
+    
+    // Sum of all credits = total earned
+    const totalEarned = wallet?.transactions
+      ?.filter(t => t.type === 'CREDIT' && t.status === 'COMPLETED')
+      ?.reduce((sum, t) => sum + parseFloat(t.amount), 0) || 0;
+
+    return (
+      <div className="max-w-5xl mx-auto space-y-6 text-left animate-fadeIn">
+        
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-black text-slate-900 tracking-tight uppercase">Revenue & Splits</h2>
+            <p className="text-xs text-slate-400 font-bold mt-1">Track your wallet balance, payout distributions, and platform cuts.</p>
+          </div>
+          <Button 
+            onClick={() => {
+              setWithdrawError('');
+              setWithdrawSuccess(false);
+              setWithdrawAmount('');
+              setWithdrawModalOpen(true);
+            }}
+            disabled={balance <= 0}
+            className="bg-amber-500 hover:bg-amber-600 text-slate-955 px-6 py-2.5 rounded-xl font-bold shadow-lg shadow-amber-500/20 disabled:opacity-50 animate-pulse-slow"
+          >
+            Request Bank Payout
+          </Button>
+        </div>
+
+        {/* Main cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          
+          {/* Available Wallet Balance */}
+          <div className="bg-slate-900 p-6 rounded-3xl text-white shadow-xl flex flex-col justify-between h-40 border border-slate-800">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Available Balance</p>
+                <h3 className="text-3xl font-black mt-1">R {balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
+              </div>
+              <div className="h-10 w-10 rounded-full bg-slate-800 flex items-center justify-center">
+                <DollarSign className="h-5 w-5 text-amber-500" />
+              </div>
+            </div>
+            <p className="text-[10px] text-slate-400 font-semibold">Cleared funds, ready for direct bank payout</p>
+          </div>
+
+          {/* Pending Payout */}
+          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between h-40">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pending Payouts</p>
+                <h3 className="text-3xl font-black text-slate-800 mt-1">R {pendingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
+              </div>
+              <div className="h-10 w-10 rounded-full bg-slate-50 flex items-center justify-center border border-slate-100">
+                <TrendingUp className="h-5 w-5 text-slate-500" />
+              </div>
+            </div>
+            <p className="text-[10px] text-slate-400 font-semibold">Processing or awaiting bank settlement</p>
+          </div>
+
+          {/* Total Lifetime Net Earnings */}
+          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between h-40">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Lifetime Payouts</p>
+                <h3 className="text-3xl font-black text-slate-800 mt-1">R {totalEarned.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
+              </div>
+              <div className="h-10 w-10 rounded-full bg-emerald-55 flex items-center justify-center border border-emerald-100">
+                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+              </div>
+            </div>
+            <p className="text-[10px] text-emerald-600 font-semibold">Sum of all successfully settled machinery rentals</p>
+          </div>
+
+        </div>
+
+        {/* Pricing / Commissions Cuts Explanation */}
+        <div className="bg-amber-50/50 border border-amber-200 rounded-3xl p-6 space-y-4">
+          <h4 className="text-xs font-black text-amber-900 uppercase tracking-widest flex items-center gap-2">
+            <HelpCircle className="h-4 w-4 text-amber-600" /> How is my net payout calculated?
+          </h4>
+          <p className="text-xs text-amber-800 font-medium leading-relaxed">
+            When the customer makes a payment, LoadAfrica automatically settles the transaction using a split algorithm. For example, on a heavy equipment rental costing **R10,000**:
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+            {[
+              { title: "1. PLATFORM COMMISSION (12%)", value: "R 1,200", desc: "Kept by LoadAfrica for operations, heavy machinery insurance backup, and gateway costs." },
+              { title: "2. BROKER COMMISSION (3%)", value: "R 300", desc: "Earned by the logistics broker who matched, audited compliance, and managed placement." },
+              { title: "3. YOUR NET PAYOUT (85%)", value: "R 8,500", desc: "Transferred directly into your plant owner wallet balance upon successful rental contract completion." }
+            ].map((item, idx) => (
+              <div key={idx} className="bg-white border border-amber-200/60 p-4 rounded-2xl text-left space-y-1 shadow-sm">
+                <p className="text-[9px] font-black text-slate-400 tracking-wider">{item.title}</p>
+                <p className={`text-lg font-black ${idx === 2 ? 'text-emerald-600' : 'text-slate-800'}`}>{item.value}</p>
+                <p className="text-[10px] text-slate-500 font-medium leading-relaxed">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Transaction History list */}
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="p-5 border-b border-slate-100 bg-slate-50/50">
+            <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest">Transaction History</h4>
+          </div>
+
+          {!wallet?.transactions || wallet.transactions.length === 0 ? (
+            <div className="p-8 text-center text-slate-400 text-xs font-medium">
+              No transactions found yet. Complete a rental job or request a payout to populate transactions.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50/50 text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                    <th className="px-6 py-4">Transaction ID</th>
+                    <th className="px-6 py-4">Date</th>
+                    <th className="px-6 py-4">Type</th>
+                    <th className="px-6 py-4">Description</th>
+                    <th className="px-6 py-4">Net Amount</th>
+                    <th className="px-6 py-4 text-right">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-xs font-semibold text-slate-700">
+                  {wallet.transactions.map((tx) => (
+                    <tr key={tx.id} className="hover:bg-slate-50/50">
+                      <td className="px-6 py-4 font-mono text-[10px] text-slate-500 tracking-wider">
+                        {tx.id}
+                      </td>
+                      <td className="px-6 py-4 text-slate-500">
+                        <div className="flex items-center gap-1.5">
+                          <Calendar className="h-3.5 w-3.5" />
+                          {new Date(tx.created_at).toLocaleDateString()}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        {tx.type === 'CREDIT' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 font-bold border border-emerald-100 uppercase text-[9px]">
+                            <ArrowUpRight className="h-3 w-3" /> Rental Income
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-50 text-amber-700 font-bold border border-amber-100 uppercase text-[9px]">
+                            <ArrowDownRight className="h-3 w-3" /> Withdrawal
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-slate-500">
+                        {tx.description}
+                      </td>
+                      <td className={`px-6 py-4 font-bold ${tx.type === 'CREDIT' ? 'text-emerald-600' : 'text-slate-800'}`}>
+                        {tx.type === 'CREDIT' ? '+' : '-'} R {parseFloat(tx.amount).toFixed(2)}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <span className={`inline-flex px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${
+                          tx.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-amber-50 text-amber-600 border border-amber-100'
+                        }`}>
+                          {tx.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Payout Withdrawal Dialog */}
+        {withdrawModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/65 backdrop-blur-sm">
+            <div className="bg-white rounded-3xl max-w-md w-full border border-slate-200 shadow-2xl p-6 space-y-4">
+              <div>
+                <h4 className="text-base font-black text-slate-900 uppercase tracking-tight">Request Payout</h4>
+                <p className="text-xs text-slate-400 font-bold mt-1">Cleared funds will be settled into your verified bank account.</p>
+              </div>
+
+              {withdrawError && (
+                <div className="p-3 bg-red-50 border border-red-150 rounded-xl text-red-700 text-xs font-semibold flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 shrink-0 text-red-500" />
+                  <p>{withdrawError}</p>
+                </div>
+              )}
+
+              {withdrawSuccess && (
+                <div className="p-3 bg-emerald-50 border border-emerald-150 rounded-xl text-emerald-700 text-xs font-semibold flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-500" />
+                  <p>Withdrawal requested successfully!</p>
+                </div>
+              )}
+
+              <form onSubmit={handleWithdraw} className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Amount (ZAR)</label>
+                  <Input 
+                    type="number"
+                    min="1"
+                    step="0.01"
+                    value={withdrawAmount}
+                    onChange={(e) => setWithdrawAmount(e.target.value)}
+                    placeholder="e.g., 500"
+                    required
+                  />
+                  <p className="text-[9px] text-slate-400 font-semibold mt-1">Available balance: R {balance.toFixed(2)}</p>
+                </div>
+
+                <div className="flex gap-3 justify-end pt-3">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setWithdrawModalOpen(false)}
+                    type="button"
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    disabled={withdrawing || withdrawSuccess}
+                    className="bg-slate-900 text-white font-bold hover:bg-slate-800"
+                  >
+                    {withdrawing ? 'Processing...' : 'Confirm Payout'}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
       </div>
-      <div className="p-10 text-center bg-white border border-slate-200 rounded-3xl font-bold text-slate-500">
-        Revenue logs will display dynamically once rental hire contracts complete.
-      </div>
-    </div>
-  );
-};
+    );
+  };
+}

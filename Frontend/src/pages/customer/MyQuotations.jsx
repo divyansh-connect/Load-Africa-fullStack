@@ -298,27 +298,7 @@ export default function MyQuotations() {
           return booking;
         });
 
-        // Seeding mock Plant Hire quotation for demo purposes of QUOTE_SENT state
-        const plantMockQuoted = {
-          id: 'plant-quote-sent-12345',
-          bookingType: 'Plant Hire',
-          status: 'QUOTE_SENT',
-          created_at: new Date().toISOString(),
-          machineCategory: 'Earthmoving',
-          machineType: 'Excavator 20 Ton',
-          siteAddress: 'Johannesburg, Gauteng',
-          durationValue: 8,
-          durationUnit: 'Hours',
-          quotes: [{
-            grand_total: 4800,
-            vehicle_rate: 4000,
-            tax: 600,
-            broker_fee: 200,
-            platform_fee: 0
-          }]
-        };
-
-        setQuotations([plantMockQuoted, ...processedBookings]);
+        setQuotations(processedBookings);
       } else {
         setError(res.message || 'Failed to load quotations');
       }

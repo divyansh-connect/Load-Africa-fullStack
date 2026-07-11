@@ -21,8 +21,9 @@ export default function AdminLayout({ children }) {
     return () => window.removeEventListener('user-updated', handleUpdate);
   }, []);
 
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const handleLogout = () => {
-    navigate('/login');
+    setShowLogoutConfirm(true);
   };
 
   const navItems = [
@@ -208,7 +209,7 @@ export default function AdminLayout({ children }) {
               >
                 <div className="h-8 w-8 rounded-full bg-slate-900 flex items-center justify-center text-amber-500 font-black border border-slate-200 overflow-hidden shrink-0">
                   {adminUser?.avatar ? (
-                    <img src={adminUser.avatar} alt="Profile" className="h-full w-full object-cover" />
+                    <img src={adminUser.avatar.startsWith('http') ? adminUser.avatar : `${(import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1').replace('/api/v1', '')}${adminUser.avatar.startsWith('/') ? '' : '/'}${adminUser.avatar}`} alt="Profile" className="h-full w-full object-cover" />
                   ) : (
                     (adminUser?.first_name?.[0] || adminUser?.email?.[0] || 'A').toUpperCase()
                   )}
@@ -260,6 +261,36 @@ export default function AdminLayout({ children }) {
           </div>
         </main>
       </div>
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-sm w-full border border-slate-200 shadow-2xl p-6 space-y-4 animate-scaleIn text-left">
+            <div>
+              <h4 className="text-base font-black text-slate-900 tracking-tight uppercase flex items-center gap-2">
+                <LogOut className="h-5 w-5 text-amber-500" /> Confirm Logout
+              </h4>
+              <p className="text-xs text-slate-500 font-medium mt-2 leading-relaxed">
+                Are you sure you want to log out of your session? You will need to enter your credentials again to sign in.
+              </p>
+            </div>
+            <div className="flex gap-3 justify-end pt-2">
+              <button 
+                onClick={() => setShowLogoutConfirm(false)}
+                className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => authService.logout()}
+                className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-colors shadow-lg shadow-slate-900/10"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

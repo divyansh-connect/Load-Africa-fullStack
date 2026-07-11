@@ -386,7 +386,7 @@ export default function DriverDashboard() {
         <div className="flex items-center gap-3">
           <div className="h-12 w-12 rounded-full overflow-hidden border border-slate-350 bg-slate-200">
             {dashboardData?.driverPhoto ? (
-              <img src={`${import.meta.env.VITE_API_URL}${dashboardData.driverPhoto}`} alt="Avatar" className="h-full w-full object-cover" />
+              <img src={`${(import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1').replace('/api/v1', '')}${dashboardData.driverPhoto}`} alt="Avatar" className="h-full w-full object-cover" />
             ) : (
               <div className="h-full w-full flex items-center justify-center text-slate-400 font-bold text-xs">U</div>
             )}

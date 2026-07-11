@@ -4,6 +4,7 @@ import {
   LayoutDashboard, Truck, Wallet, ShieldCheck, Bell,
   Menu, X, LogOut, Navigation, User, Settings
 } from 'lucide-react';
+import { authService } from '../services/authService';
 
 export default function DriverLayout({ children }) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -19,10 +20,13 @@ export default function DriverLayout({ children }) {
       const fetchUser = () => {
         const u = authService.getCurrentUser();
         if (u) {
+          const base = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1').replace('/api/v1', '');
+          const rawAvatar = u.avatar || u.profile_photo;
+          const formattedAvatar = rawAvatar ? (rawAvatar.startsWith('http') ? rawAvatar : `${base}${rawAvatar.startsWith('/') ? '' : '/'}${rawAvatar}`) : 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&auto=format&fit=crop&q=80';
           setDriver({
             name: `${u.first_name || ''} ${u.last_name || ''}`.trim() || 'Driver',
             vehicle: u.email || 'Driver Account',
-            avatar: u.avatar || u.profile_photo || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&auto=format&fit=crop&q=80'
+            avatar: formattedAvatar
           });
         }
       };
@@ -44,7 +48,10 @@ export default function DriverLayout({ children }) {
     { name: 'Profile & Settings', path: '/driver/profile', icon: User },
   ];
 
-  const handleLogout = () => navigate('/login');
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const handleLogout = () => {
+    setShowLogoutConfirm(true);
+  };
   const isActive = (path) => location.pathname === path;
 
   const SidebarContent = () => (
@@ -186,6 +193,36 @@ export default function DriverLayout({ children }) {
           {children ?? <Outlet />}
         </main>
       </div>
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-955/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-sm w-full border border-slate-200 shadow-2xl p-6 space-y-4 animate-scaleIn text-left">
+            <div>
+              <h4 className="text-base font-black text-slate-900 tracking-tight uppercase flex items-center gap-2">
+                <LogOut className="h-5 w-5 text-amber-500" /> Confirm Logout
+              </h4>
+              <p className="text-xs text-slate-500 font-medium mt-2 leading-relaxed">
+                Are you sure you want to log out of your session? You will need to enter your credentials again to sign in.
+              </p>
+            </div>
+            <div className="flex gap-3 justify-end pt-2">
+              <button 
+                onClick={() => setShowLogoutConfirm(false)}
+                className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-55 transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => authService.logout()}
+                className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-colors shadow-lg shadow-slate-900/10"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

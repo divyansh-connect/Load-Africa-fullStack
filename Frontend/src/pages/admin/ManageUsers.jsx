@@ -20,6 +20,13 @@ export default function ManageUsers() {
       const res = await adminService.getAllUsers();
       if (res.success) {
         const users = res.data;
+        const base = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1').replace('/api/v1', '');
+        const getAvatar = (path, name) => {
+          if (!path) return `https://ui-avatars.com/api/?name=${name}`;
+          if (path.startsWith('http')) return path;
+          return `${base}${path.startsWith('/') ? '' : '/'}${path}`;
+        };
+
         // Map backend users to frontend format for now
         const mappedCustomers = users.filter(u => u.role === 'CUSTOMER').map(u => ({
           id: u.id,
@@ -28,7 +35,7 @@ export default function ManageUsers() {
           company: u.customer?.company_name || 'N/A',
           joinedDate: new Date(u.created_at).toLocaleDateString(),
           status: u.status.toLowerCase(),
-          avatar: u.avatar || `https://ui-avatars.com/api/?name=${u.first_name || 'User'}`
+          avatar: getAvatar(u.avatar, u.first_name || 'User')
         }));
 
         const mappedDrivers = users.filter(u => u.role === 'DRIVER').map(u => ({
@@ -40,7 +47,7 @@ export default function ManageUsers() {
           trips: 0, // Mock for now, update in Phase 4
           rating: 5.0,
           status: u.status.toLowerCase(),
-          avatar: u.avatar || `https://ui-avatars.com/api/?name=${u.first_name || 'Driver'}`
+          avatar: getAvatar(u.avatar, u.first_name || 'Driver')
         }));
 
         const mappedBrokers = users.filter(u => u.role === 'BROKER').map(u => ({
@@ -50,7 +57,7 @@ export default function ManageUsers() {
           commissionRate: 5, // Mock
           assignedLoadsCount: 0, // Mock
           status: u.status.toLowerCase(),
-          avatar: u.avatar || `https://ui-avatars.com/api/?name=${u.first_name || 'Broker'}`
+          avatar: getAvatar(u.avatar, u.first_name || 'Broker')
         }));
 
         setCustomers(mappedCustomers);

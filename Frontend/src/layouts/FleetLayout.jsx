@@ -22,7 +22,8 @@ export default function FleetLayout({ children }) {
 
   const userDisplayName = user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : 'Fleet Owner';
   const companyName = user?.email || 'Registered Transporter';
-  const userAvatar = user?.avatar || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=150&auto=format&fit=crop&q=80';
+  const base = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1').replace('/api/v1', '');
+  const userAvatar = user?.avatar ? (user.avatar.startsWith('http') ? user.avatar : `${base}${user.avatar.startsWith('/') ? '' : '/'}${user.avatar}`) : 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=150&auto=format&fit=crop&q=80';
 
   const [fleetStatus, setFleetStatus] = useState('REGISTERED');
 
@@ -53,7 +54,10 @@ export default function FleetLayout({ children }) {
     { name: 'Profile', path: '/fleet-portal/profile', icon: User },
   ];
 
-  const handleLogout = () => authService.logout();
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const handleLogout = () => {
+    setShowLogoutConfirm(true);
+  };
   const isActive = (path) => location.pathname === path || location.pathname.startsWith(path + '/');
 
   const SidebarContent = () => (
@@ -185,6 +189,36 @@ export default function FleetLayout({ children }) {
           {children ?? <Outlet />}
         </main>
       </div>
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-sm w-full border border-slate-200 shadow-2xl p-6 space-y-4 animate-scaleIn text-left">
+            <div>
+              <h4 className="text-base font-black text-slate-900 tracking-tight uppercase flex items-center gap-2">
+                <LogOut className="h-5 w-5 text-amber-500" /> Confirm Logout
+              </h4>
+              <p className="text-xs text-slate-500 font-medium mt-2 leading-relaxed">
+                Are you sure you want to log out of your session? You will need to enter your credentials again to sign in.
+              </p>
+            </div>
+            <div className="flex gap-3 justify-end pt-2">
+              <button 
+                onClick={() => setShowLogoutConfirm(false)}
+                className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => authService.logout()}
+                className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-colors shadow-lg shadow-slate-900/10"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

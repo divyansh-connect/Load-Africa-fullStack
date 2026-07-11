@@ -4,6 +4,7 @@ import {
   LayoutDashboard, HardHat, DollarSign, PlusCircle, Bell,
   Menu, X, LogOut, User, FileText, Settings, Wrench, ShieldAlert
 } from 'lucide-react';
+import { authService } from '../services/authService';
 import { plantService } from '../services/plantService';
 
 const plantOwner = {
@@ -48,14 +49,16 @@ export default function PlantLayout({ children }) {
       { name: 'My Equipment', path: '/plant-portal/equipment', icon: HardHat },
       { name: 'Hire Requests', path: '/plant-portal/requests', icon: FileText },
       { name: 'Revenue', path: '/plant-portal/revenue', icon: DollarSign },
-      { name: 'List New Machine', path: '/plant-portal/add-machine', icon: PlusCircle },
     ] : [
       { name: 'Compliance', path: '/plant-portal/compliance', icon: ShieldAlert },
     ]),
     { name: 'Profile & Settings', path: '/plant-portal/profile', icon: User },
   ];
 
-  const handleLogout = () => navigate('/login');
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const handleLogout = () => {
+    setShowLogoutConfirm(true);
+  };
   const isActive = (path) => location.pathname === path;
 
   const SidebarContent = () => (
@@ -181,6 +184,36 @@ export default function PlantLayout({ children }) {
           {children ?? <Outlet />}
         </main>
       </div>
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-sm w-full border border-slate-200 shadow-2xl p-6 space-y-4 animate-scaleIn text-left">
+            <div>
+              <h4 className="text-base font-black text-slate-900 tracking-tight uppercase flex items-center gap-2">
+                <LogOut className="h-5 w-5 text-amber-500" /> Confirm Logout
+              </h4>
+              <p className="text-xs text-slate-500 font-medium mt-2 leading-relaxed">
+                Are you sure you want to log out of your session? You will need to enter your credentials again to sign in.
+              </p>
+            </div>
+            <div className="flex gap-3 justify-end pt-2">
+              <button 
+                onClick={() => setShowLogoutConfirm(false)}
+                className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => authService.logout()}
+                className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-colors shadow-lg shadow-slate-900/10"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

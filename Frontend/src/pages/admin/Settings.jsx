@@ -327,7 +327,7 @@ export default function Settings() {
               <div className="relative group">
                 <div className="h-28 w-28 rounded-full bg-slate-100 border-4 border-white shadow-md overflow-hidden relative">
                   {adminUser.avatar ? (
-                    <img src={adminUser.avatar} alt="Profile" className="h-full w-full object-cover" />
+                    <img src={adminUser.avatar.startsWith('http') ? adminUser.avatar : `${(import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1').replace('/api/v1', '')}${adminUser.avatar.startsWith('/') ? '' : '/'}${adminUser.avatar}`} alt="Profile" className="h-full w-full object-cover" />
                   ) : (
                     <div className="h-full w-full flex items-center justify-center text-4xl font-black text-slate-300">
                       {(adminUser.first_name || 'A')[0].toUpperCase()}
