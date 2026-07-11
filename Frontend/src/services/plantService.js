@@ -24,5 +24,10 @@ export const plantService = {
   acceptHireRequest: async (requestId, data) => {
     const response = await api.post(`/plant/hire-requests/${requestId}/accept`, data);
     return response.data;
+  },
+
+  rejectHireRequest: async (requestId) => {
+    const response = await api.post(`/plant/hire-requests/${requestId}/reject`);
+    return response.data;
   }
 };

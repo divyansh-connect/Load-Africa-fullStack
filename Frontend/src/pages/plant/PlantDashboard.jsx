@@ -202,19 +202,30 @@ export default function PlantDashboard() {
 
         // Map actual hire requests from database
         if (res.data.hire_requests && res.data.hire_requests.length > 0) {
-          const mappedRequests = res.data.hire_requests.map(h => ({
-            id: h.id,
-            machine: h.booking?.equipment_type || 'Machinery',
-            client: h.booking?.company_name || 'Client',
-            site: h.booking?.delivery_address || 'Site Address',
-            duration: h.booking?.duration || '1 day',
-            startDate: h.booking?.start_date ? new Date(h.booking.start_date).toLocaleDateString() : 'N/A',
-            totalValue: Number(h.booking?.total_cost) || 0,
-            status: h.status?.toLowerCase() || 'pending'
-          }));
+          const mappedRequests = res.data.hire_requests
+            .filter(h => h.status === 'PENDING')
+            .map(h => {
+              const quote = h.booking?.quotes?.[0];
+              const total = Number(quote?.grand_total) || Number(h.booking?.total_cost) || 0;
+              const payout = quote 
+                ? (Number(quote.grand_total) - Number(quote.broker_fee) - Number(quote.platform_fee))
+                : (total * 0.85);
+
+              return {
+                id: h.id,
+                machine: h.booking?.equipment_type || 'Machinery',
+                client: h.booking?.company_name || 'Client',
+                site: h.booking?.delivery_address || 'Site Address',
+                duration: h.booking?.duration || '1 day',
+                startDate: h.booking?.start_date ? new Date(h.booking.start_date).toLocaleDateString() : 'N/A',
+                totalValue: total,
+                payoutValue: payout,
+                status: h.status?.toLowerCase() || 'pending'
+              };
+            });
           setHireRequests(mappedRequests);
         } else {
-          setHireRequests(getMockData('hireRequests') || []);
+          setHireRequests([]);
         }
 
         setMaintenance(getMockData('maintenance') || []);
@@ -235,7 +246,7 @@ export default function PlantDashboard() {
       } else {
         setEquipment(getMockData('equipment') || []);
         setOperators(getMockData('operators') || []);
-        setHireRequests(getMockData('hireRequests') || []);
+        setHireRequests([]);
         setMaintenance(getMockData('maintenance') || []);
         setPayments(getMockData('payments') || []);
       }
@@ -243,7 +254,7 @@ export default function PlantDashboard() {
       console.error(err);
       setEquipment(getMockData('equipment') || []);
       setOperators(getMockData('operators') || []);
-      setHireRequests(getMockData('hireRequests') || []);
+      setHireRequests([]);
       setMaintenance(getMockData('maintenance') || []);
       setPayments(getMockData('payments') || []);
     } finally {
@@ -266,7 +277,7 @@ export default function PlantDashboard() {
 
   // --- ACTIONS ---
 
-  const handleConfirmAssignment = () => {
+  const handleConfirmAssignment = async () => {
     if (!assignModal.equipmentId) {
       showToast('Equipment must be selected.', 'error');
       return;
@@ -274,65 +285,54 @@ export default function PlantDashboard() {
 
     const request = wizardModal.request;
 
-    // 1. Update Hire Requests (remove pending)
-    const updatedRequests = hireRequests.filter(h => h.id !== request.id);
-    saveMockData('hireRequests', updatedRequests);
-    setHireRequests(updatedRequests);
+    try {
+      setLoading(true);
+      const res = await plantService.acceptHireRequest(request.id, {
+        machine_id: assignModal.equipmentId,
+        operator_id: assignModal.operatorId
+      });
 
-    // 2. Reserve Equipment
-    const updatedEquipment = equipment.map(eq => 
-      eq.id === assignModal.equipmentId 
-        ? { ...eq, status: 'on_hire', operatorId: assignModal.operatorId || eq.operatorId, site: request.site } 
-        : eq
-    );
-    saveMockData('equipment', updatedEquipment);
-    setEquipment(updatedEquipment);
-
-    // 3. Assign Operator
-    if (assignModal.operatorId) {
-      const updatedOperators = operators.map(op => 
-        op.id === assignModal.operatorId 
-          ? { ...op, equipmentId: assignModal.equipmentId, status: 'on_hire' } 
-          : op
-      );
-      saveMockData('operators', updatedOperators);
-      setOperators(updatedOperators);
+      if (res.success) {
+        showToast('Assignment Confirmed! Equipment dispatched and tracking initiated.');
+        setWizardModal({ open: false, request: null });
+        setWizardStep(1);
+        setAssignModal({ equipmentId: '', operatorId: '' });
+        fetchData(); // Refresh actual data from server
+        navigate('/plant-portal/dashboard');
+      } else {
+        showToast(res.message || 'Failed to confirm assignment', 'error');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast(err.response?.data?.message || err.message || 'Failed to confirm assignment', 'error');
+    } finally {
+      setLoading(false);
     }
-
-    // 4. Generate Revenue Entry
-    const newPayment = {
-      id: `tx-${Math.floor(2000 + Math.random() * 8000)}`,
-      bookingId: request.id,
-      amount: request.totalValue,
-      status: 'pending',
-      method: 'EFT Bank Transfer',
-      date: new Date().toISOString().split('T')[0],
-      customerName: request.client,
-      driverName: 'Yellow Plant ERP'
-    };
-    const updatedPayments = [newPayment, ...payments];
-    saveMockData('payments', updatedPayments);
-    setPayments(updatedPayments);
-
-    setWizardModal({ open: false, request: null });
-    setWizardStep(1);
-    setAssignModal({ equipmentId: '', operatorId: '' });
-    showToast('Assignment Confirmed! Equipment dispatched and tracking initiated.');
-    navigate('/plant-portal/dashboard');
   };
 
-  const handleRejectRequest = () => {
+  const handleRejectRequest = async () => {
     if (!rejectReason) {
       showToast('Reason is required to reject.', 'error');
       return;
     }
-    const updatedRequests = hireRequests.filter(h => h.id !== rejectModal.request.id);
-    saveMockData('hireRequests', updatedRequests);
-    setHireRequests(updatedRequests);
 
-    setRejectModal({ open: false, request: null });
-    setRejectReason('');
-    showToast('Hire request rejected. Customer notified.', 'error');
+    try {
+      setLoading(true);
+      const res = await plantService.rejectHireRequest(rejectModal.request.id);
+      if (res.success) {
+        showToast('Hire request rejected successfully', 'success');
+        setRejectModal({ open: false, request: null });
+        setRejectReason('');
+        fetchData(); // Refresh actual data from server
+      } else {
+        showToast(res.message || 'Failed to reject request', 'error');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast(err.response?.data?.message || err.message || 'Failed to reject request', 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleLogMaintenance = (e) => {
@@ -642,10 +642,16 @@ export default function PlantDashboard() {
                       <div><span className="text-[10px] font-bold text-slate-400 uppercase block mb-0.5">Start Date</span>{req.startDate}</div>
                     </div>
                   </div>
-                  <div className="flex flex-col sm:items-end gap-3 min-w-0 sm:min-w-[120px] mt-4 md:mt-0 pt-4 md:pt-0 border-t md:border-0 border-slate-100">
-                    <div className="text-left sm:text-right">
-                      <span className="block text-[10px] font-bold text-slate-400 uppercase">Est. Revenue</span>
-                      <span className="text-xl font-black text-emerald-600">R {req.totalValue.toLocaleString()}</span>
+                  <div className="flex flex-col sm:items-end gap-3 min-w-0 sm:min-w-[150px] mt-4 md:mt-0 pt-4 md:pt-0 border-t md:border-0 border-slate-100">
+                    <div className="text-left sm:text-right space-y-1">
+                      <div>
+                        <span className="block text-[9px] font-bold text-slate-400 uppercase leading-none">Customer Quote</span>
+                        <span className="text-xs font-bold text-slate-500">R {req.totalValue.toLocaleString()}</span>
+                      </div>
+                      <div>
+                        <span className="block text-[9px] font-black text-slate-400 uppercase leading-none">Your Payout</span>
+                        <span className="text-lg font-black text-emerald-600">R {req.payoutValue.toLocaleString()}</span>
+                      </div>
                     </div>
                     <div className="flex gap-2 w-full sm:w-auto">
                       <Button variant="outline" size="sm" className="flex-1 sm:flex-none font-bold" onClick={() => setRejectModal({ open: true, request: req })}>Reject</Button>
@@ -671,7 +677,7 @@ export default function PlantDashboard() {
               <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
                 <div>
                   <h2 className="text-lg font-black text-slate-900">Assignment Wizard</h2>
-                  <p className="text-xs text-slate-500">Step {wizardStep} of 4</p>
+                  <p className="text-xs text-slate-500">Step {wizardStep} of 3</p>
                 </div>
                 <button onClick={() => setWizardModal({open: false, request: null})} className="text-slate-400 hover:text-slate-700">
                   <X className="h-5 w-5" />
@@ -721,43 +727,11 @@ export default function PlantDashboard() {
 
                 {wizardStep === 3 && (
                   <div className="space-y-4 animate-fadeIn text-left">
-                    <h3 className="font-bold text-slate-800 flex items-center gap-2"><User className="h-4 w-4 text-amber-500"/> Assign Operator</h3>
-                    <p className="text-xs text-slate-500">Select a certified operator (Optional).</p>
-                    <div className="grid gap-3">
-                      <div 
-                          onClick={() => setAssignModal({...assignModal, operatorId: ''})}
-                          className={`p-3 border rounded-xl cursor-pointer transition-all flex justify-between items-center ${assignModal.operatorId === '' ? 'border-amber-500 bg-amber-50' : 'border-slate-200'}`}
-                        >
-                          <p className="font-bold text-slate-800 text-sm">Assign Later (No Operator)</p>
-                      </div>
-                      {operators.filter(o => o.status === 'available').map(op => (
-                        <div 
-                          key={op.id} 
-                          onClick={() => setAssignModal({...assignModal, operatorId: op.id})}
-                          className={`p-3 border rounded-xl cursor-pointer transition-all flex justify-between items-center ${assignModal.operatorId === op.id ? 'border-amber-500 bg-amber-50 ring-1 ring-amber-500' : 'border-slate-200 hover:border-amber-300'}`}
-                        >
-                          <div>
-                            <p className="font-bold text-slate-800 text-sm">{op.name}</p>
-                            <p className="text-[10px] text-slate-500 mt-0.5 font-semibold">Rating: {op.rating}★ • Certified</p>
-                          </div>
-                          {assignModal.operatorId === op.id && <CheckCircle2 className="h-5 w-5 text-amber-600" />}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {wizardStep === 4 && (
-                  <div className="space-y-4 animate-fadeIn text-left">
                     <h3 className="font-bold text-slate-800 flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-amber-500"/> Review Summary</h3>
                     <div className="p-5 bg-slate-50 border border-slate-200 rounded-xl space-y-4">
                       <div>
                         <p className="text-[10px] font-bold text-slate-400 uppercase">Selected Equipment</p>
                         <p className="text-sm font-bold text-slate-800">{equipment.find(e => e.id === assignModal.equipmentId)?.name || 'None'}</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase">Assigned Operator</p>
-                        <p className="text-sm font-bold text-slate-800">{operators.find(o => o.id === assignModal.operatorId)?.name || 'None'}</p>
                       </div>
                       <div>
                         <p className="text-[10px] font-bold text-slate-400 uppercase">Delivery & Client</p>
@@ -776,7 +750,7 @@ export default function PlantDashboard() {
                   {wizardStep === 1 ? 'Cancel' : 'Back'}
                 </Button>
                 
-                {wizardStep < 4 ? (
+                {wizardStep < 3 ? (
                   <Button 
                     onClick={() => setWizardStep(wizardStep + 1)}
                     disabled={(wizardStep === 2 && !assignModal.equipmentId)}

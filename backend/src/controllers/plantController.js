@@ -33,7 +33,13 @@ const getDashboard = async (req, res) => {
         operators: true,
         hire_requests: {
           include: {
-            booking: true
+            booking: {
+              include: {
+                quotes: {
+                  where: { status: 'ACCEPTED' }
+                }
+              }
+            }
           }
         }
       }
@@ -120,26 +126,99 @@ const acceptHireRequest = async (req, res) => {
     }
 
     const machine = await prisma.machine.findUnique({ where: { id: machine_id } });
-    if (!machine || machine.status !== 'APPROVED') {
-      return res.status(403).json({ success: false, message: 'Machine is not approved or not found.' });
+    if (!machine) {
+      return res.status(404).json({ success: false, message: 'Machine not found.' });
     }
 
-    const request = await prisma.hireRequest.update({
-      where: { id: requestId },
-      data: { status: 'ACCEPTED' }
+    let assignmentResult;
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Update hire request status
+      const request = await tx.hireRequest.update({
+        where: { id: requestId },
+        data: { status: 'ACCEPTED' }
+      });
+
+      // 2. Update booking status
+      await tx.booking.update({
+        where: { id: request.booking_id },
+        data: { status: 'DRIVER_ASSIGNED' }
+      });
+
+      // 3. Update the existing pending BookingAssignment
+      const finalOperatorId = operator_id && operator_id.trim() !== "" ? operator_id : null;
+      await tx.bookingAssignment.updateMany({
+        where: { booking_id: request.booking_id, plant_owner_id: plantOwnerId, status: 'PENDING' },
+        data: {
+          status: 'ACTIVE',
+          machine_id,
+          operator_id: finalOperatorId
+        }
+      });
+
+      // 4. Retrieve updated assignment for response
+      assignmentResult = await tx.bookingAssignment.findFirst({
+        where: { booking_id: request.booking_id, plant_owner_id: plantOwnerId, status: 'ACTIVE' }
+      });
+
+      // 5. Create tracking history log
+      await tx.trackingHistory.create({
+        data: {
+          booking_id: request.booking_id,
+          status: 'DRIVER_ASSIGNED',
+          remarks: 'Plant owner accepted assignment and dispatched machinery',
+          updated_by: req.user.id
+        }
+      });
     });
 
-    // Assign to booking
-    const assignment = await prisma.bookingAssignment.create({
-      data: {
-        booking_id: request.booking_id,
-        plant_owner_id: plantOwnerId,
-        machine_id,
-        operator_id
-      }
+    res.status(200).json({ success: true, data: assignmentResult });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+const rejectHireRequest = async (req, res) => {
+  try {
+    const plantOwnerId = await getPlantOwnerId(req);
+    const { requestId } = req.params;
+
+    const request = await prisma.hireRequest.findUnique({
+      where: { id: requestId }
+    });
+    if (!request) return res.status(404).json({ success: false, message: 'Hire request not found' });
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Update hire request status
+      await tx.hireRequest.update({
+        where: { id: requestId },
+        data: { status: 'REJECTED' }
+      });
+
+      // 2. Set the pending assignment to INACTIVE
+      await tx.bookingAssignment.updateMany({
+        where: { booking_id: request.booking_id, plant_owner_id: plantOwnerId, status: 'PENDING' },
+        data: { status: 'INACTIVE' }
+      });
+
+      // 3. Set booking status back to CUSTOMER_ACCEPTED so it is back in broker queue
+      await tx.booking.update({
+        where: { id: request.booking_id },
+        data: { status: 'CUSTOMER_ACCEPTED' }
+      });
+
+      // 4. Create tracking history log
+      await tx.trackingHistory.create({
+        data: {
+          booking_id: request.booking_id,
+          status: 'CUSTOMER_ACCEPTED',
+          remarks: 'Plant supplier rejected assignment. Reverted to awaiting broker dispatch.',
+          updated_by: req.user.id
+        }
+      });
     });
 
-    res.status(200).json({ success: true, data: assignment });
+    res.status(200).json({ success: true, message: 'Hire request rejected successfully' });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }
@@ -171,5 +250,6 @@ module.exports = {
   submitCompliance,
   addMachine,
   acceptHireRequest,
+  rejectHireRequest,
   getPublicMachines
 };

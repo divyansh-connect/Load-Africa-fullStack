@@ -10,6 +10,7 @@ export default function QuoteRequests() {
   
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('TRANSPORT'); // 'TRANSPORT' or 'PLANT'
 
   // Quote form state
   const [quoteForm, setQuoteForm] = useState({
@@ -67,15 +68,24 @@ export default function QuoteRequests() {
     }
   };
 
-  const filteredRequests = requests.filter(req => 
-    req.id.toLowerCase().includes(search.toLowerCase()) || 
-    (req.customer?.company_name && req.customer.company_name.toLowerCase().includes(search.toLowerCase())) ||
-    (req.customer?.user?.first_name && req.customer.user.first_name.toLowerCase().includes(search.toLowerCase())) ||
-    (req.customer?.user?.email && req.customer.user.email.toLowerCase().includes(search.toLowerCase())) ||
-    (req.guest_email && req.guest_email.toLowerCase().includes(search.toLowerCase())) ||
-    (req.guest_company && req.guest_company.toLowerCase().includes(search.toLowerCase())) ||
-    (req.pickup_contact && req.pickup_contact.toLowerCase().includes(search.toLowerCase()))
-  );
+  const filteredRequests = requests.filter(req => {
+    const matchesSearch = 
+      req.id.toLowerCase().includes(search.toLowerCase()) || 
+      (req.customer?.company_name && req.customer.company_name.toLowerCase().includes(search.toLowerCase())) ||
+      (req.customer?.user?.first_name && req.customer.user.first_name.toLowerCase().includes(search.toLowerCase())) ||
+      (req.customer?.user?.email && req.customer.user.email.toLowerCase().includes(search.toLowerCase())) ||
+      (req.guest_email && req.guest_email.toLowerCase().includes(search.toLowerCase())) ||
+      (req.guest_company && req.guest_company.toLowerCase().includes(search.toLowerCase())) ||
+      (req.pickup_contact && req.pickup_contact.toLowerCase().includes(search.toLowerCase()));
+
+    if (!matchesSearch) return false;
+
+    if (activeTab === 'PLANT') {
+      return req.cargo_category === 'Plant Hire';
+    } else {
+      return req.cargo_category !== 'Plant Hire';
+    }
+  });
 
   return (
     <div className="space-y-6">
@@ -83,6 +93,28 @@ export default function QuoteRequests() {
         <div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">Quote Requests</h1>
           <p className="text-sm text-slate-500 font-medium">Review customer booking requests and submit official quotations</p>
+        </div>
+        <div className="flex bg-slate-100 p-1 rounded-xl max-w-xs border border-slate-200 shadow-sm shrink-0">
+          <button
+            onClick={() => setActiveTab('TRANSPORT')}
+            className={`flex-1 px-4 py-2 text-xs font-black uppercase tracking-wider rounded-lg transition-all ${
+              activeTab === 'TRANSPORT'
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            Transport
+          </button>
+          <button
+            onClick={() => setActiveTab('PLANT')}
+            className={`flex-1 px-4 py-2 text-xs font-black uppercase tracking-wider rounded-lg transition-all ${
+              activeTab === 'PLANT'
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            Plant Hire
+          </button>
         </div>
       </div>
 
