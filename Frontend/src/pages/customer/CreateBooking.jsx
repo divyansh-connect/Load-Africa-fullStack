@@ -65,40 +65,12 @@ const CARGO_CATEGORIES = [
 // ─────────────────────────────────────────────
 // Address autocomplete hook
 // ─────────────────────────────────────────────
-function useAddressSearch(initialValue = '', storageKey = null) {
-  const [value, setValue] = useState(() => {
-    if (initialValue) return initialValue;
-    if (storageKey) {
-      const stored = localStorage.getItem(`${storageKey}_value`);
-      if (stored) return stored;
-    }
-    return initialValue;
-  });
+function useAddressSearch(initialValue = '') {
+  const [value, setValue] = useState(initialValue);
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [selected, setSelected] = useState(() => {
-    if (storageKey) {
-      const stored = localStorage.getItem(`${storageKey}_selected`);
-      if (stored) {
-        try {
-          return JSON.parse(stored);
-        } catch (e) {}
-      }
-    }
-    return null;
-  });
+  const [selected, setSelected] = useState(null);
   const debounceRef = useRef(null);
-
-  useEffect(() => {
-    if (storageKey) {
-      localStorage.setItem(`${storageKey}_value`, value);
-      if (selected) {
-        localStorage.setItem(`${storageKey}_selected`, JSON.stringify(selected));
-      } else {
-        localStorage.removeItem(`${storageKey}_selected`);
-      }
-    }
-  }, [value, selected, storageKey]);
 
   const onChange = useCallback((text) => {
     setValue(text);
@@ -130,10 +102,6 @@ function useAddressSearch(initialValue = '', storageKey = null) {
     setValue('');
     setSelected(null);
     setSuggestions([]);
-    if (storageKey) {
-      localStorage.removeItem(`${storageKey}_value`);
-      localStorage.removeItem(`${storageKey}_selected`);
-    }
   };
 
   return { value, onChange, onSelect, suggestions, loading, selected, clear, closeSuggestions };
@@ -271,37 +239,24 @@ export default function CreateBooking() {
   const [routeLoading, setRouteLoading] = useState(false);
 
   // Address hooks
-  const pickupHook = useAddressSearch(location.state?.pickup || '', 'booking_pickup');
-  const deliveryHook = useAddressSearch(location.state?.dropoff || '', 'booking_delivery');
+  const pickupHook = useAddressSearch(location.state?.pickup || '');
+  const deliveryHook = useAddressSearch(location.state?.dropoff || '');
 
-  // Form data (restored from localStorage if exists)
-  const [form, setForm] = useState(() => {
-    const stored = localStorage.getItem('booking_form_data');
-    if (stored) {
-      try {
-        return JSON.parse(stored);
-      } catch (e) {}
-    }
-    return {
-      vehicleCategory: '',
-      vehicleType: '',
-      cargoCategory: '',
-      cargoName: '',
-      weight: '',
-      volume: '',
-      pickupDate: '',
-      pickupTime: '',
-      specialInstructions: '',
-      urgency: false,
-      loadingAssistance: false,
-      unloadingAssistance: false,
-    };
+  // Form data (not stored in localStorage)
+  const [form, setForm] = useState({
+    vehicleCategory: '',
+    vehicleType: '',
+    cargoCategory: '',
+    cargoName: '',
+    weight: '',
+    volume: '',
+    pickupDate: '',
+    pickupTime: '',
+    specialInstructions: '',
+    urgency: false,
+    loadingAssistance: false,
+    unloadingAssistance: false,
   });
-
-  // Persist form changes
-  useEffect(() => {
-    localStorage.setItem('booking_form_data', JSON.stringify(form));
-  }, [form]);
 
   const handleFormChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -390,13 +345,6 @@ export default function CreateBooking() {
 
       const res = await bookingService.createBooking(payload);
       if (res.success) {
-        // Clear all persisted draft values on successful submission
-        localStorage.removeItem('booking_form_data');
-        localStorage.removeItem('booking_pickup_value');
-        localStorage.removeItem('booking_pickup_selected');
-        localStorage.removeItem('booking_delivery_value');
-        localStorage.removeItem('booking_delivery_selected');
-        
         setSubmittedBookingId(res.data.id);
         // Push notification to broker
         import('../../data/mockData').then(({ getMockData, saveMockData }) => {
