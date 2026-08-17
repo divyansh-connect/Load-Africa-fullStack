@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Truck, ShieldCheck, Mail, MessageSquare, Phone, Wallet, Calendar, Shield, User, Wrench, Building, MapPin, ArrowRight, Upload, CheckCircle2, ChevronDown, AlertCircle, ArrowLeft
+  Truck, ShieldCheck, Mail, MessageSquare, Phone, Wallet, Calendar, Shield, User, Wrench, Building, MapPin, ArrowRight, Upload, CheckCircle2, ChevronDown, AlertCircle, ArrowLeft, X
 } from 'lucide-react';
 import { Card, Input, Select, GooglePlacesInput } from '../components/ui';
 import Navbar from '../components/Navbar';
@@ -32,17 +32,14 @@ export default function Drivers() {
   const [createdAccount, setCreatedAccount] = useState(false);
   const [authMode, setAuthMode] = useState('signup'); // 'signup' or 'signin'
 
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
+
   const [vehicleDropdownOpen, setVehicleDropdownOpen] = useState(false);
   const vehicleDropdownRef = useRef(null);
 
   useEffect(() => {
     if (window.location.hash === '#onboarding-wizard') {
-      setTimeout(() => {
-        const el = document.getElementById('onboarding-wizard');
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth' });
-        }
-      }, 100);
+      setIsWizardOpen(true);
     }
   }, []);
 
@@ -203,12 +200,12 @@ export default function Drivers() {
               Own a bakkie, truck, tipper or tanker? Get on South Africa's logistics load board and start earning across Gauteng, North West (Rustenburg) and Northern Cape.
             </p>
             <div className="pt-4">
-              <a
-                href="#onboarding-wizard"
+              <button
+                onClick={() => setIsWizardOpen(true)}
                 className="inline-block px-6 py-3.5 bg-[#f99c00] hover:bg-[#e08b00] text-slate-950 font-black rounded-lg text-xs uppercase tracking-wider"
               >
                 REGISTER AS DRIVER
-              </a>
+              </button>
             </div>
           </div>
         </main>
@@ -256,8 +253,17 @@ export default function Drivers() {
         </div>
       </main>
 
-      {/* Onboarding Wizard Form Container */}
-      <section id="onboarding-wizard" className="max-w-4xl mx-auto px-6 pt-2 pb-4 text-center space-y-6">
+      {/* Onboarding Wizard Modal */}
+      {isWizardOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+          <div className="relative w-full max-w-4xl bg-white rounded-2xl shadow-2xl my-auto animate-in fade-in zoom-in-95 duration-200 pt-8 pb-4 px-2">
+            <button
+              onClick={() => setIsWizardOpen(false)}
+              className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors z-10"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <section id="onboarding-wizard" className="w-full mx-auto px-4 text-center space-y-6">
         
         {/* Wizard Multi-Step Progress Tracker */}
         <div className="flex items-center justify-center gap-6 text-xs font-bold text-slate-400">
@@ -646,6 +652,9 @@ export default function Drivers() {
           )}
         </div>
       </section>
+      </div>
+    </div>
+  )}
 
       <Footer light />
     </div>
