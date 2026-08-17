@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Truck, ArrowLeft } from 'lucide-react';
+import { Truck, ArrowLeft, X } from 'lucide-react';
 import ProgressStepper from '../components/yellow-plant/ProgressStepper';
 import Step1ChooseMachine from '../components/yellow-plant/Step1ChooseMachine';
 import Step2BookingDetails from '../components/yellow-plant/Step2BookingDetails';
@@ -11,6 +11,7 @@ import Footer from '../components/Footer';
 export default function YellowPlantBooking() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [selectedMachine, setSelectedMachine] = useState(null);
   const [bookingDetails, setBookingDetails] = useState({
     startDate: '',
@@ -31,8 +32,8 @@ export default function YellowPlantBooking() {
 
 
       {/* Hero Header Area */}
-      <div className="relative z-10 w-full overflow-hidden bg-slate-900 text-white pt-12 pb-24 lg:pt-16 lg:pb-32 mt-16">
-        <main className="relative z-10 max-w-7xl mx-auto px-6 text-left space-y-6 mb-8">
+      <div className="relative z-10 w-full overflow-hidden bg-slate-900 text-white border-b border-slate-800 py-12 lg:py-20 mt-16">
+        <main className="relative z-10 max-w-7xl mx-auto px-6 text-left space-y-6">
           <button 
             onClick={() => navigate('/')}
             className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-wider mb-6"
@@ -50,7 +51,13 @@ export default function YellowPlantBooking() {
             <p className="text-sm sm:text-base text-slate-300 font-medium leading-relaxed max-w-3xl">
               Book heavy construction equipment at competitive hourly rates. All machines come with qualified operators.
             </p>
-            <div className="pt-4">
+            <div className="pt-4 flex items-center gap-3">
+              <button 
+                onClick={() => setIsWizardOpen(true)}
+                className="inline-block px-6 py-3.5 bg-[#f99c00] hover:bg-[#e08b00] text-slate-950 font-black rounded-lg text-xs uppercase tracking-wider transition-colors shadow-sm"
+              >
+                BOOK A MACHINE
+              </button>
               <button 
                 onClick={() => navigate('/plant/register')} 
                 className="inline-block px-6 py-3.5 border border-[#f99c00] text-[#f99c00] hover:bg-[#f99c00] hover:text-slate-950 font-black rounded-lg text-xs tracking-wider transition-colors uppercase"
@@ -60,23 +67,25 @@ export default function YellowPlantBooking() {
             </div>
           </div>
         </main>
-        
-        {/* Decorative Wave Divider */}
-        <div className="absolute bottom-0 left-0 right-0 w-full overflow-hidden leading-[0]">
-          <svg className="relative block w-[calc(100%+1.3px)] h-[40px] sm:h-[80px]" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 120" preserveAspectRatio="none">
-            <path d="M321.39,56.44c58-10.79,114.16-30.13,172-41.86,82.39-16.72,168.19-17.73,250.45-.39C823.78,31,906.67,72,985.66,92.83c70.05,18.48,146.53,26.09,214.34,3V120H0V95.8C49.71,114.73,103.1,119.5,155,116.14,213.1,112.35,268.49,84.45,321.39,56.44Z" fill="#ffffff"></path>
-          </svg>
-        </div>
       </div>
 
       {/* Main Container */}
       <main className="max-w-4xl mx-auto px-6 py-12 text-center">
 
-        {/* Booking Card */}
-        <div
-          className="rounded-2xl border border-slate-200 w-full max-w-[600px] mx-auto flex flex-col relative h-[695px]"
-          style={{ backgroundColor: '#ffffff', boxShadow: '0 8px 40px rgba(0,0,0,0.10), 0 2px 12px rgba(0,0,0,0.06)' }}
-        >
+        {/* Onboarding Wizard Modal */}
+        {isWizardOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+          {/* Booking Card */}
+          <div
+            className="rounded-2xl border border-slate-200 w-full max-w-[600px] mx-auto flex flex-col relative h-[695px] animate-in fade-in zoom-in-95 duration-200"
+            style={{ backgroundColor: '#ffffff', boxShadow: '0 8px 40px rgba(0,0,0,0.20), 0 2px 12px rgba(0,0,0,0.12)' }}
+          >
+            <button
+              onClick={() => setIsWizardOpen(false)}
+              className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors z-10"
+            >
+              <X className="w-5 h-5" />
+            </button>
           
           {/* Card Header (Fixed at top of card) */}
           <div className="p-4 pb-2 shrink-0 text-left">
@@ -169,6 +178,8 @@ export default function YellowPlantBooking() {
             )}
           </div>
         </div>
+        </div>
+        )}
 
         {/* Own construction equipment banner */}
         <div className="bg-white rounded-xl shadow-[0_4px_20px_rgb(0,0,0,0.05)] border border-slate-200 p-8 mt-6 mb-6 max-w-[600px] mx-auto space-y-3">
