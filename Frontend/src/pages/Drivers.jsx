@@ -180,8 +180,8 @@ export default function Drivers() {
       <Navbar />
 
       {/* Hero Header Area */}
-      <div className="relative z-10 w-full overflow-hidden bg-slate-900 text-white pt-12 pb-24 lg:pt-16 lg:pb-32 mt-16">
-        <main className="relative z-10 max-w-7xl mx-auto px-6 text-left space-y-6 mb-8">
+      <div className="relative z-10 w-full overflow-hidden bg-slate-900 text-white border-b border-slate-800 py-12 lg:py-20 mt-16">
+        <main className="relative z-10 max-w-7xl mx-auto px-6 text-left space-y-6">
           <button 
             onClick={() => navigate('/')}
             className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-wider mb-6"
@@ -209,13 +209,6 @@ export default function Drivers() {
             </div>
           </div>
         </main>
-        
-        {/* Decorative Wave Divider */}
-        <div className="absolute bottom-0 left-0 right-0 w-full overflow-hidden leading-[0]">
-          <svg className="relative block w-[calc(100%+1.3px)] h-[40px] sm:h-[80px]" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 120" preserveAspectRatio="none">
-            <path d="M321.39,56.44c58-10.79,114.16-30.13,172-41.86,82.39-16.72,168.19-17.73,250.45-.39C823.78,31,906.67,72,985.66,92.83c70.05,18.48,146.53,26.09,214.34,3V120H0V95.8C49.71,114.73,103.1,119.5,155,116.14,213.1,112.35,268.49,84.45,321.39,56.44Z" fill="#ffffff"></path>
-          </svg>
-        </div>
       </div>
 
       {/* Main Content Area */}
@@ -299,6 +292,7 @@ export default function Drivers() {
               <form onSubmit={handlePersonalVehicleSubmit} className="space-y-2">
                 
                 {/* Account credentials block — bg: #FEFAF2 with light orange border */}
+                {!createdAccount && (
                 <div className="space-y-2.5 border border-[#f99c00]/30 pt-3.5 pb-3 px-5 rounded-2xl" style={{ backgroundColor: '#FEFAF2' }}>
                   {authMode === 'signup' ? (
                     <>
@@ -385,9 +379,11 @@ export default function Drivers() {
                     After this, you'll fill in your details and upload documents.
                   </p>
                 </div>
+                )}
 
                 {/* Full registration form details block */}
-                <div className="space-y-4">
+                {createdAccount && (
+                <div className="space-y-4 animate-fadeIn">
                   
                   {/* Account Header */}
                   <div className="flex items-center gap-3 pb-3 border-b border-slate-200/50">
@@ -398,23 +394,6 @@ export default function Drivers() {
                       <h4 className="font-black text-base text-slate-900">Become a Driver</h4>
                       <p className="text-[11px] text-slate-500 font-bold">Fill in your personal and vehicle details</p>
                     </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <Input 
-                      label="Full Name *"
-                      value={fullName}
-                      onChange={e => setFullName(e.target.value)}
-                      required
-                      className="border-slate-200 focus:border-amber-500 bg-white py-2 text-xs font-semibold shadow-sm"
-                    />
-                    <Input 
-                      label="Email *"
-                      value={email}
-                      onChange={e => setEmail(e.target.value)}
-                      required
-                      className="border-slate-200 focus:border-amber-500 bg-white py-2 text-xs font-semibold shadow-sm"
-                    />
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -516,14 +495,15 @@ export default function Drivers() {
                       Pick a suggestion so we can match you with nearby loads on Google Maps.
                     </p>
                   </div>
-
+                  
                   <button 
                     type="submit"
-                    className="w-full py-2 bg-[#f99c00] hover:bg-[#e08b00] text-slate-955 font-black rounded-lg text-xs tracking-wider uppercase mt-4 shadow-sm"
+                    className="w-full py-3 bg-[#f99c00] hover:bg-[#e08b00] text-slate-950 font-black rounded-lg text-xs tracking-wider uppercase transition-colors shadow-sm"
                   >
                     CONTINUE TO DOCUMENTS
                   </button>
                 </div>
+                )}
               </form>
             </div>
           )}
