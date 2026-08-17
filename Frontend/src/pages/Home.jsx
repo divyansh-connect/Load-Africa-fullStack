@@ -218,6 +218,8 @@ export default function Home() {
                <p className="text-slate-200 font-medium text-sm max-w-sm drop-shadow">Click here to get an instant quote and book verified transport across South Africa in minutes.</p>
             </div>
           </div>
+        </section>
+      </div>
 
       {/* Booking Form Modal */}
       {isBookingModalOpen && (
@@ -601,9 +603,6 @@ export default function Home() {
               </div>
             </div>
           )}
-
-        </section>
-      </div>
 
       {/* Why Choose Section */}
       <section className="max-w-7xl mx-auto px-6 py-24 text-center space-y-12 bg-white">
