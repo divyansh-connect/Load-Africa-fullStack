@@ -218,8 +218,6 @@ export default function Home() {
                <p className="text-slate-200 font-medium text-sm max-w-sm drop-shadow">Click here to get an instant quote and book verified transport across South Africa in minutes.</p>
             </div>
           </div>
-        </section>
-      </div>
 
       {/* Booking Form Modal */}
       {isBookingModalOpen && (
