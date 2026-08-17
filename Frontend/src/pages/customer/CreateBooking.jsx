@@ -700,6 +700,7 @@ export default function CreateBooking() {
             </div>
           </div>
 
+        </div>
       </div>
     </div>
   );
