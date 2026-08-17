@@ -40,10 +40,10 @@ const registerUser = async (data) => {
           id_document: idDocument || null,
           status: 'INACTIVE',
           address: address || null,
-          documents: {
+          documents: JSON.stringify({
             vehicleType: vehicleType || '',
             vehicleReg: vehicleReg || ''
-          }
+          })
         }
       });
       // Initialize empty relational models for this driver to prevent null lookup errors

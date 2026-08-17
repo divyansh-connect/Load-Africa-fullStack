@@ -650,6 +650,51 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Every Vehicle Section with light grey background */}
+      <section className="bg-[#F0F2F6] w-full border-t border-b border-slate-200/60 pt-12 pb-20">
+        <div className="max-w-7xl mx-auto px-6 space-y-12">
+          {/* Center Section Heading */}
+          <div className="text-center space-y-2">
+            <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-955 uppercase">
+              EVERY VEHICLE YOU NEED
+            </h2>
+            <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">
+              From bakkies to heavy-duty trucks
+            </p>
+          </div>
+
+          {/* Vehicles Grid Catalog */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            {vehiclesList.map((vh, idx) => {
+              const Icon = vh.icon;
+              return (
+                <div key={idx} className="bg-white border border-slate-200 shadow-md hover:shadow-xl hover:-translate-y-1.5 hover:border-[#f99c00] rounded-2xl overflow-hidden flex flex-col h-full min-h-[260px] text-center transition-all duration-300 ease-out transform">
+                  {/* Top Half: Light Grey Background with Divider Border and Orange Icon */}
+                  <div className="bg-[#F3F3F4] py-10 flex items-center justify-center border-b border-slate-200/50">
+                    <Icon className="h-10 w-10 text-[#f99c00] stroke-[1.8]" />
+                  </div>
+                  
+                  {/* Bottom Half: White Background with Text */}
+                  <div className="p-5 flex-1 flex flex-col justify-between bg-white">
+                    <div className="space-y-1">
+                      <h4 className="font-extrabold text-sm text-slate-900">{vh.name}</h4>
+                      <span className="block text-[10px] text-slate-500 font-bold uppercase tracking-wide">
+                        {vh.capacity.startsWith('Up to') || vh.capacity.includes('tons') || vh.capacity.includes('kL') ? vh.capacity : `Up to ${vh.capacity}`}
+                      </span>
+                    </div>
+                    {vh.use && (
+                      <p className="text-[10px] text-slate-400 leading-relaxed font-normal mt-2">
+                        {vh.use}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
       {/* Dynamic Accordion FAQ */}
       <section className="bg-white py-24 border-t border-slate-200/50">
         <div className="max-w-4xl mx-auto px-6 space-y-8">

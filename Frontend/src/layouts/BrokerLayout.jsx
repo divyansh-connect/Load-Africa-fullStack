@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
-import { Outlet, useNavigate, NavLink, useLocation } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Outlet, useNavigate, NavLink, useLocation, Link } from 'react-router-dom';
 import { 
   Truck, LogOut, LayoutDashboard, FileText, 
-  Settings, User, MapPin, Briefcase, Menu, X, Users, CreditCard
+  Settings, User, MapPin, Briefcase, Menu, X, Users, CreditCard, Bell, CheckCircle2, AlertCircle, Info
 } from 'lucide-react';
-import { getMockData } from '../data/mockData';
+import { getMockData, saveMockData } from '../data/mockData';
 import { authService } from '../services/authService';
 
 export default function BrokerLayout({ children }) {
@@ -12,9 +12,11 @@ export default function BrokerLayout({ children }) {
   const location = useLocation();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
   const [activeBroker, setActiveBroker] = useState(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     import('../services/authService').then(({ authService }) => {
       const fetchUser = () => setActiveBroker(authService.getCurrentUser());
       fetchUser();
@@ -22,6 +24,42 @@ export default function BrokerLayout({ children }) {
       return () => window.removeEventListener('user-updated', fetchUser);
     });
   }, []);
+
+  // Fetch and sync notifications
+  useEffect(() => {
+    const loadNotifs = () => {
+      const allNotifs = getMockData('notifications') || {};
+      setNotifications(allNotifs.broker || []);
+    };
+    loadNotifs();
+
+    const handleUpdate = (e) => {
+      if (e.detail?.key === 'notifications') {
+        setNotifications(e.detail.data?.broker || []);
+      }
+    };
+    window.addEventListener('loadafrica_mockdata_updated', handleUpdate);
+    return () => window.removeEventListener('loadafrica_mockdata_updated', handleUpdate);
+  }, []);
+
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  const handleMarkAllRead = () => {
+    const updated = notifications.map(n => ({ ...n, read: true }));
+    setNotifications(updated);
+    const allNotifs = getMockData('notifications') || {};
+    allNotifs.broker = updated;
+    saveMockData('notifications', allNotifs);
+  };
+
+  const handleMarkAsRead = (id) => {
+    const updated = notifications.map(n => n.id === id ? { ...n, read: true } : n);
+    setNotifications(updated);
+    const allNotifs = getMockData('notifications') || {};
+    allNotifs.broker = updated;
+    saveMockData('notifications', allNotifs);
+  };
+
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const handleLogout = () => {
     setShowLogoutConfirm(true);
@@ -170,9 +208,70 @@ export default function BrokerLayout({ children }) {
           </div>
 
           <div className="flex items-center gap-4">
+            {/* Notification Bell Dropdown */}
             <div className="relative">
               <button 
-                onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                onClick={() => { setIsNotifOpen(!isNotifOpen); setIsUserMenuOpen(false); }}
+                className="p-2 rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-all relative"
+              >
+                <Bell className="h-5 w-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-1.5 right-1.5 h-4 w-4 bg-red-500 text-white rounded-full text-[9px] font-bold flex items-center justify-center ring-2 ring-white scale-95 animate-pulse">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {isNotifOpen && (
+                <>
+                  <div className="fixed inset-0 z-20" onClick={() => setIsNotifOpen(false)} />
+                  <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-slate-150 py-2 z-30 transform origin-top-right transition-all animate-fadeIn">
+                    <div className="px-4 py-2 border-b border-slate-100 flex items-center justify-between">
+                      <span className="font-semibold text-slate-800 text-sm">Notifications</span>
+                      {unreadCount > 0 && (
+                        <button 
+                          onClick={handleMarkAllRead}
+                          className="text-xs text-amber-600 hover:text-amber-700 font-medium"
+                        >
+                          Mark all read
+                        </button>
+                      )}
+                    </div>
+                    <div className="max-h-64 overflow-y-auto">
+                      {notifications.length === 0 ? (
+                        <div className="p-4 text-center text-xs text-slate-400">No new notifications</div>
+                      ) : (
+                        notifications.map((notif) => (
+                          <div 
+                            key={notif.id} 
+                            onClick={() => {
+                              handleMarkAsRead(notif.id);
+                              setIsNotifOpen(false);
+                            }}
+                            className={`px-4 py-3 hover:bg-slate-50 border-b border-slate-50 cursor-pointer flex gap-3 text-left transition-colors duration-150 ${
+                              !notif.read ? 'bg-amber-500/5' : ''
+                            }`}
+                          >
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-xs font-semibold text-slate-800 truncate ${!notif.read ? 'font-bold' : ''}`}>{notif.title}</p>
+                              <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{notif.message}</p>
+                              <span className="text-[10px] text-slate-400 mt-1 block">{notif.time}</span>
+                            </div>
+                            {!notif.read && (
+                              <div className="h-2 w-2 bg-amber-500 rounded-full mt-1.5 shrink-0" />
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="relative">
+              <button 
+                onClick={() => { setIsUserMenuOpen(!isUserMenuOpen); setIsNotifOpen(false); }}
                 className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-slate-100 transition-all duration-200"
               >
                 {(() => {

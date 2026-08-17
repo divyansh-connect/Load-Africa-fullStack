@@ -23,6 +23,11 @@ export const authService = {
   logout: () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    localStorage.removeItem('booking_form_data');
+    localStorage.removeItem('booking_pickup_value');
+    localStorage.removeItem('booking_pickup_selected');
+    localStorage.removeItem('booking_delivery_value');
+    localStorage.removeItem('booking_delivery_selected');
     window.location.href = '/login';
   },
 

@@ -137,6 +137,7 @@ export const getMockData = (key) => {
 
 export const saveMockData = (key, data) => {
   setStored(key, data);
+  window.dispatchEvent(new CustomEvent('loadafrica_mockdata_updated', { detail: { key, data } }));
 };
 
 export const createLoad = (loadData) => {

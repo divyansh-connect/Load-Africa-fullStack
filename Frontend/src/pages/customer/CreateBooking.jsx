@@ -65,40 +65,12 @@ const CARGO_CATEGORIES = [
 // ─────────────────────────────────────────────
 // Address autocomplete hook
 // ─────────────────────────────────────────────
-function useAddressSearch(initialValue = '', storageKey = null) {
-  const [value, setValue] = useState(() => {
-    if (initialValue) return initialValue;
-    if (storageKey) {
-      const stored = localStorage.getItem(`${storageKey}_value`);
-      if (stored) return stored;
-    }
-    return initialValue;
-  });
+function useAddressSearch(initialValue = '') {
+  const [value, setValue] = useState(initialValue);
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [selected, setSelected] = useState(() => {
-    if (storageKey) {
-      const stored = localStorage.getItem(`${storageKey}_selected`);
-      if (stored) {
-        try {
-          return JSON.parse(stored);
-        } catch (e) {}
-      }
-    }
-    return null;
-  });
+  const [selected, setSelected] = useState(null);
   const debounceRef = useRef(null);
-
-  useEffect(() => {
-    if (storageKey) {
-      localStorage.setItem(`${storageKey}_value`, value);
-      if (selected) {
-        localStorage.setItem(`${storageKey}_selected`, JSON.stringify(selected));
-      } else {
-        localStorage.removeItem(`${storageKey}_selected`);
-      }
-    }
-  }, [value, selected, storageKey]);
 
   const onChange = useCallback((text) => {
     setValue(text);
@@ -130,10 +102,6 @@ function useAddressSearch(initialValue = '', storageKey = null) {
     setValue('');
     setSelected(null);
     setSuggestions([]);
-    if (storageKey) {
-      localStorage.removeItem(`${storageKey}_value`);
-      localStorage.removeItem(`${storageKey}_selected`);
-    }
   };
 
   return { value, onChange, onSelect, suggestions, loading, selected, clear, closeSuggestions };
@@ -271,37 +239,24 @@ export default function CreateBooking() {
   const [routeLoading, setRouteLoading] = useState(false);
 
   // Address hooks
-  const pickupHook = useAddressSearch(location.state?.pickup || '', 'booking_pickup');
-  const deliveryHook = useAddressSearch(location.state?.dropoff || '', 'booking_delivery');
+  const pickupHook = useAddressSearch(location.state?.pickup || '');
+  const deliveryHook = useAddressSearch(location.state?.dropoff || '');
 
-  // Form data (restored from localStorage if exists)
-  const [form, setForm] = useState(() => {
-    const stored = localStorage.getItem('booking_form_data');
-    if (stored) {
-      try {
-        return JSON.parse(stored);
-      } catch (e) {}
-    }
-    return {
-      vehicleCategory: '',
-      vehicleType: '',
-      cargoCategory: '',
-      cargoName: '',
-      weight: '',
-      volume: '',
-      pickupDate: '',
-      pickupTime: '',
-      specialInstructions: '',
-      urgency: false,
-      loadingAssistance: false,
-      unloadingAssistance: false,
-    };
+  // Form data (not stored in localStorage)
+  const [form, setForm] = useState({
+    vehicleCategory: '',
+    vehicleType: '',
+    cargoCategory: '',
+    cargoName: '',
+    weight: '',
+    volume: '',
+    pickupDate: '',
+    pickupTime: '',
+    specialInstructions: '',
+    urgency: false,
+    loadingAssistance: false,
+    unloadingAssistance: false,
   });
-
-  // Persist form changes
-  useEffect(() => {
-    localStorage.setItem('booking_form_data', JSON.stringify(form));
-  }, [form]);
 
   const handleFormChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -390,14 +345,21 @@ export default function CreateBooking() {
 
       const res = await bookingService.createBooking(payload);
       if (res.success) {
-        // Clear all persisted draft values on successful submission
-        localStorage.removeItem('booking_form_data');
-        localStorage.removeItem('booking_pickup_value');
-        localStorage.removeItem('booking_pickup_selected');
-        localStorage.removeItem('booking_delivery_value');
-        localStorage.removeItem('booking_delivery_selected');
-        
         setSubmittedBookingId(res.data.id);
+        // Push notification to broker
+        import('../../data/mockData').then(({ getMockData, saveMockData }) => {
+          const allNotifs = getMockData('notifications') || {};
+          allNotifs.broker = allNotifs.broker || [];
+          allNotifs.broker.unshift({
+            id: `nt-b-${Math.random()}`,
+            title: 'New Booking Request',
+            message: `A new booking for "${form.cargoName}" (${form.weight} Tons) is awaiting your quote.`,
+            read: false,
+            time: 'Just now',
+            type: 'info'
+          });
+          saveMockData('notifications', allNotifs);
+        }).catch(() => {});
         setStep(3);
       } else {
         setSubmitError(res.message || 'Failed to submit booking.');
@@ -417,7 +379,7 @@ export default function CreateBooking() {
   ];
 
   const renderStepIndicator = () => (
-    <div className="flex items-center gap-2 mb-8">
+    <div className="flex items-center gap-2 mb-0">
       {STEPS.map((s, idx) => (
         <React.Fragment key={s.num}>
           <div className="flex items-center gap-2">
@@ -442,11 +404,24 @@ export default function CreateBooking() {
 
   // ── STEP 1: Booking Form ──────────────────────
   const renderStep1 = () => (
-    <div className="animate-fadeIn">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <div className="animate-fadeIn h-full">
+      <div className="flex flex-col lg:flex-row gap-8 items-start h-full">
 
-        {/* ── LEFT COLUMN: Form Fields ── */}
-        <div className="space-y-5">
+        {/* ── LEFT COLUMN: Form Fields (70%) ── */}
+        <div className="w-full lg:w-[68%] lg:h-full lg:overflow-y-auto lg:pr-5 lg:pb-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+          
+          {/* Broker info notice */}
+          <div className="flex items-start gap-2 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2.5 shadow-xs mb-3">
+            <Info className="h-3.5 w-3.5 text-blue-500 shrink-0 mt-0.5" />
+            <div className="text-xs text-blue-700">
+              <span className="font-bold mr-1">No price shown — that's intentional.</span>
+              <span className="font-medium opacity-90 leading-relaxed">
+                After you submit, a certified LoadAfrica broker will review your details and prepare an official quotation.
+              </span>
+            </div>
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 pb-10 shadow-sm space-y-5">
 
           {/* Route Section */}
           <div className="space-y-1.5">
@@ -669,54 +644,47 @@ export default function CreateBooking() {
             </p>
           )}
         </div>
+      </div>
 
-        {/* ── RIGHT COLUMN: Live Map + Route Stats ── */}
-        <div className="space-y-4 lg:sticky lg:top-24 self-start w-full">
+        {/* ── RIGHT COLUMN: Live Map + Route Stats (30%) ── */}
+        <div className="w-full lg:w-[32%] lg:h-full lg:block hidden sticky top-0">
+          {/* Sticky wrapper on desktop */}
+          <div className="sticky top-6 flex flex-col w-full h-[calc(100vh-215px)] pb-12 overflow-y-auto pr-1 space-y-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
 
             {/* Map preview */}
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3 flex items-center gap-2">
-                <MapPin className="h-3 w-3" /> Route Preview
+            <div className="bg-white border border-slate-200/85 rounded-xl p-4 shadow-sm space-y-3">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                <MapPin className="h-3 w-3 text-amber-500" /> Route Preview
               </p>
               <RouteMap pickup={pickupHook.selected} delivery={deliveryHook.selected} />
             </div>
 
             {/* Route stats pill */}
             {pickupHook.selected?.lat && deliveryHook.selected?.lat && (
-              <div className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold border ${
+              <div className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold border shadow-sm ${
                 routeLoading ? 'bg-slate-50 border-slate-200 text-slate-400'
-                : routeData ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                : 'bg-amber-50 border-amber-200 text-amber-700'
+                : routeData ? 'bg-emerald-50 border-emerald-250 text-emerald-700'
+                : 'bg-amber-50 border-amber-250 text-amber-700'
               }`}>
                 {routeLoading ? (
                   <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Calculating route...</>
                 ) : routeData ? (
                   <>
                     <Navigation className="h-3.5 w-3.5 shrink-0" />
-                    <span className="font-bold">{routeData.distanceKm} km</span>
+                    <span className="font-bold text-slate-800">{routeData.distanceKm} km</span>
                     <span className="text-slate-400">·</span>
                     <Clock className="h-3.5 w-3.5 shrink-0" />
-                    <span>~{formatDuration(routeData.durationMins)} drive time</span>
+                    <span className="text-slate-700">~{formatDuration(routeData.durationMins)} drive</span>
                   </>
                 ) : (
-                  <><AlertCircle className="h-3.5 w-3.5" /> Could not calculate route. Continue anyway.</>
+                  <><AlertCircle className="h-3.5 w-3.5 text-amber-500" /> Could not calculate route. Continue anyway.</>
                 )}
               </div>
             )}
 
-            {/* Broker info notice */}
-            <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-4">
-              <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
-              <div className="text-xs text-blue-700">
-                <p className="font-bold mb-1">No price shown — that's intentional</p>
-                <p className="font-medium opacity-80 leading-relaxed">
-                  After you submit, a certified LoadAfrica broker will review your route, cargo, and vehicle requirements and prepare an official quotation for you to accept.
-                </p>
-              </div>
-            </div>
 
             {/* What happens next */}
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-2.5">
+            <div className="bg-amber-50 border border-amber-200/80 rounded-xl p-4 space-y-2.5 shadow-sm">
               <h4 className="text-[10px] font-black text-amber-800 uppercase tracking-wider">What happens next?</h4>
               {[
                 { n: '1', t: 'Broker reviews your route & cargo' },
@@ -726,7 +694,7 @@ export default function CreateBooking() {
               ].map(({ n, t }) => (
                 <div key={n} className="flex items-center gap-2.5 text-xs text-amber-800">
                   <div className="h-5 w-5 rounded-full bg-amber-500 text-white flex items-center justify-center font-black text-[9px] shrink-0">{n}</div>
-                  <span className="font-medium">{t}</span>
+                  <span className="font-bold">{t}</span>
                 </div>
               ))}
             </div>
@@ -895,37 +863,41 @@ export default function CreateBooking() {
   );
 
   return (
-    <div className="min-h-[85vh] flex items-start justify-center py-6 px-4 bg-slate-50/50">
-      <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] w-full max-w-5xl text-left border border-slate-200/80">
-
-        {/* Header */}
-        <div className="flex items-center gap-3.5 p-6 pb-4 border-b border-slate-100">
+    <div className="w-full mx-auto px-4 py-1 lg:h-[calc(100vh-6.5rem)] lg:overflow-hidden text-left flex flex-col -mt-6">
+      {/* Page Header & Step Indicator */}
+      <div className="mb-3 flex flex-col md:flex-row md:items-center md:justify-between gap-4 pt-1 pb-1.5 border-b border-slate-100 shrink-0">
+        <div className="flex items-center gap-3.5">
           {step > 1 && step < 3 && (
             <button
               onClick={() => setStep(step - 1)}
-              className="p-2 hover:bg-slate-100 rounded-xl transition-colors border border-slate-100"
+              className="p-2 hover:bg-white rounded-xl transition-colors border border-slate-200 bg-white shadow-sm"
             >
               <ArrowLeft className="h-4 w-4 text-slate-600" />
             </button>
           )}
-          <div className="flex-1">
-            <h2 className="text-lg font-black text-slate-900 tracking-tight uppercase">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight uppercase">
               {step === 1 ? 'Book Transport' : step === 2 ? 'Review & Submit' : 'Request Submitted'}
-            </h2>
-            <p className="text-[11px] text-slate-400 font-bold mt-0.5">
+            </h1>
+            <p className="text-sm text-slate-500 font-medium mt-1">
               {step === 1 ? 'Fill in your cargo & route details'
                 : step === 2 ? 'Confirm your booking details'
                 : 'Awaiting broker quotation'}
             </p>
           </div>
         </div>
-
-        <div className="p-6 pt-5">
+        <div className="flex-shrink-0">
           {renderStepIndicator()}
-          {step === 1 && renderStep1()}
-          {step === 2 && renderStep2()}
-          {step === 3 && renderStep3()}
         </div>
+      </div>
+
+      <div className="flex-1 overflow-hidden mt-2">
+        {step === 1 ? renderStep1() : (
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm h-full overflow-y-auto">
+            {step === 2 && renderStep2()}
+            {step === 3 && renderStep3()}
+          </div>
+        )}
       </div>
     </div>
   );
