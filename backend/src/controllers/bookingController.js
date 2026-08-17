@@ -1,5 +1,6 @@
 const { recommendVehicles } = require('../services/pricingService');
 const { createBooking: createBookingService } = require('../services/bookingService');
+const { searchAndAssignDriver } = require('../services/driverDispatchService');
 
 const { prisma } = require('../config/db');
 
@@ -302,6 +303,12 @@ const updateBookingStatus = async (req, res, next) => {
       return b;
     });
 
+    // Automatically search for a driver after the customer accepts the quote
+    if (status === 'CUSTOMER_ACCEPTED') {
+      // Run asynchronously without blocking the response
+      searchAndAssignDriver(id).catch(err => console.error('Automated dispatch failed:', err));
+    }
+
     res.status(200).json({ success: true, data: updated });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
@@ -351,23 +358,51 @@ const acceptBooking = async (req, res, next) => {
         });
       }
 
-      // If driver accepted, keep the status as DRIVER_ASSIGNED (which is the active trip status)
-      // otherwise fallback to BOOKING_CONFIRMED.
-      const newStatus = booking.status === 'DRIVER_ASSIGNED' ? 'DRIVER_ASSIGNED' : 'BOOKING_CONFIRMED';
+      // The new upfront payment flow:
+      // Driver accepts -> Status becomes PAYMENT_PENDING -> Customer pays upfront -> Status becomes DRIVER_ASSIGNED
+      const newStatus = 'PAYMENT_PENDING';
 
       const b = await tx.booking.update({
         where: { id },
-        data: { status: newStatus }
+        data: { status: newStatus },
+        include: { quotes: { orderBy: { created_at: 'desc' }, take: 1 } }
       });
 
       await tx.trackingHistory.create({
         data: {
           booking_id: id,
           status: newStatus,
-          remarks: req.user?.role === 'DRIVER' ? 'Driver accepted the trip assignment' : 'Fleet Owner accepted the booking assignment',
+          remarks: req.user?.role === 'DRIVER' ? 'Driver accepted. Awaiting upfront customer payment.' : 'Fleet Owner accepted. Awaiting upfront customer payment.',
           updated_by: req.user?.id || 'SYSTEM'
         }
       });
+      
+      // Auto-generate invoice for upfront payment if not exists
+      const existingInvoice = await tx.invoice.findFirst({
+        where: { booking_id: id }
+      });
+      
+      if (!existingInvoice) {
+        const payoutAmount = b.quotes.length > 0 ? Number(b.quotes[0].grand_total) : 1500;
+        const platformComm = payoutAmount * 0.10;
+        const driverPayout = payoutAmount * 0.90;
+
+        await tx.invoice.create({
+          data: {
+            invoice_no: `INV-${Math.floor(100000 + Math.random() * 900000)}`,
+            booking_id: id,
+            customer_id: b.customer_id,
+            amount: payoutAmount - platformComm,
+            tax_amount: 0,
+            total_amount: payoutAmount,
+            platform_commission: platformComm,
+            payout_amount: driverPayout,
+            due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Due in 7 days
+            status: 'PENDING'
+          }
+        });
+      }
+
       return b;
     });
 
@@ -389,15 +424,17 @@ const rejectBooking = async (req, res, next) => {
     const newStatus = 'DRIVER_SEARCHING';
     
     const updated = await prisma.$transaction(async (tx) => {
-      // Find and delete the pending assignment
-      await tx.bookingAssignment.deleteMany({
+      // Find and mark the pending assignment as REJECTED instead of deleting it
+      await tx.bookingAssignment.updateMany({
         where: {
           booking_id: id,
           OR: [
             driverId ? { driver_id: driverId } : undefined,
             fleetOwnerId ? { fleet_owner_id: fleetOwnerId } : undefined
-          ].filter(Boolean)
-        }
+          ].filter(Boolean),
+          status: 'PENDING'
+        },
+        data: { status: 'REJECTED' }
       });
 
       const b = await tx.booking.update({
@@ -415,6 +452,9 @@ const rejectBooking = async (req, res, next) => {
       });
       return b;
     });
+
+    // Automatically search for the next available driver
+    searchAndAssignDriver(id).catch(err => console.error('Automated dispatch failed:', err));
 
     res.status(200).json({ success: true, data: updated, message: 'Booking assignment rejected' });
   } catch (error) {

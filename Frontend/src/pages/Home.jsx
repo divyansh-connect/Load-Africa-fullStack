@@ -162,43 +162,46 @@ export default function Home() {
               LOADAFRICA LOGISTICS — SOUTH AFRICA
             </span>
 
-            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-white leading-tight uppercase">
-              LOADAFRICA LOGISTICS — <br />
-              BOOK BAKKIES, TRUCKS & <br />
-              TRANSPORT ACROSS <br />
-              SOUTH AFRICA
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white leading-tight uppercase max-w-2xl">
+              LOADAFRICA LOGISTICS — BOOK BAKKIES, TRUCKS & TRANSPORT ACROSS SOUTH AFRICA
             </h1>
 
-            <p className="text-sm sm:text-base text-slate-355 font-light leading-relaxed max-w-xl">
+            <p className="text-sm sm:text-base text-slate-300 font-medium leading-relaxed max-w-xl">
               Bakkie hire, truck hire, load board, furniture removal and business deliveries in Gauteng, North West (Rustenburg) and Northern Cape — instant quotes, verified drivers, insured loads.
             </p>
 
             {/* Grid of four actions */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-8 max-w-lg">
-              <a
-                href="#quote-card"
-                className="px-5 py-3 bg-[#EF9A30] hover:bg-[#e08b00] text-slate-955 font-black rounded-lg text-center text-sm tracking-wider transition-colors uppercase"
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  document.getElementById('quote-card')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="px-4 py-3 bg-[#EF9A30] hover:bg-[#e08b00] text-slate-900 font-bold rounded-lg text-center text-xs tracking-wider transition-colors uppercase shadow-sm"
               >
                 Book a Load
-              </a>
+              </button>
               <button
                 onClick={() => navigate('/drivers#onboarding-wizard')}
-                className="px-5 py-3 bg-slate-900/70 hover:bg-slate-800 border border-slate-600 text-white font-black rounded-lg text-center text-sm tracking-wider transition-colors uppercase"
+                className="px-4 py-3 bg-slate-900/70 hover:bg-slate-800 border border-slate-600 text-white font-bold rounded-lg text-center text-xs tracking-wider transition-colors uppercase shadow-sm"
               >
                 Register as Driver
               </button>
               <button
                 onClick={() => navigate('/yellow-plant')}
-                className="px-5 py-3 bg-[#EF9A30] hover:bg-[#e08b00] text-slate-950 font-black rounded-lg text-center text-sm tracking-wider transition-colors uppercase"
+                className="px-4 py-3 bg-[#EF9A30] hover:bg-[#e08b00] text-slate-900 font-bold rounded-lg text-center text-xs tracking-wider transition-colors uppercase shadow-sm"
               >
                 Yellow Plant Hire
               </button>
-              <a
-                href="#services"
-                className="px-5 py-3 bg-slate-900/70 hover:bg-slate-800 border border-slate-600 text-white font-black rounded-lg text-center text-sm tracking-wider transition-colors uppercase"
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  document.getElementById('services')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="px-4 py-3 bg-slate-900/70 hover:bg-slate-800 border border-slate-600 text-white font-bold rounded-lg text-center text-xs tracking-wider transition-colors uppercase shadow-sm"
               >
                 Courier Service
-              </a>
+              </button>
             </div>
           </div>
 

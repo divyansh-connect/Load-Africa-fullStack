@@ -6,6 +6,7 @@ import {
   AlertTriangle, Shield, CheckCircle2, ListFilter, UserPlus, Clock
 } from 'lucide-react';
 import { adminService } from '../../services/adminService';
+import ConfirmModal from '../../components/ui/ConfirmModal';
 
 const DOCUMENT_LABELS = {
   govt_id: 'Government ID / Passport',
@@ -24,6 +25,7 @@ export default function DriverDetails() {
   const [selectedFleetId, setSelectedFleetId] = useState('');
 
   // Modals / Action Prompts
+  const [approveModalOpen, setApproveModalOpen] = useState(false);
   const [rejectionModalOpen, setRejectionModalOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   
@@ -117,14 +119,13 @@ export default function DriverDetails() {
   };
 
   // Driver action triggers
-  const handleApprove = async () => {
-    const confirm = window.confirm("Approve this driver profile? This will activate their credentials and notify them.");
-    if (!confirm) return;
+  const executeApproveSubmit = async () => {
     try {
       setActionLoading(true);
       const res = await adminService.approveDriverProfile(user.id);
       if (res.success) {
         alert("Driver profile approved and welcome notification logged.");
+        setApproveModalOpen(false);
         fetchDriverDetails();
       }
     } catch (err) {
@@ -285,7 +286,7 @@ export default function DriverDetails() {
             {user.status === 'PENDING' && (
               <div className="space-y-2">
                 <button
-                  onClick={handleApprove}
+                  onClick={() => setApproveModalOpen(true)}
                   disabled={actionLoading}
                   className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white font-black text-xs uppercase tracking-wide rounded-xl shadow-sm cursor-pointer transition-colors"
                 >
@@ -320,7 +321,7 @@ export default function DriverDetails() {
 
             {user.status === 'SUSPENDED' && (
               <button
-                onClick={handleApprove}
+                onClick={() => setApproveModalOpen(true)}
                 disabled={actionLoading}
                 className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white font-black text-xs uppercase tracking-wide rounded-xl shadow-sm cursor-pointer transition-colors"
               >
@@ -624,6 +625,15 @@ export default function DriverDetails() {
           </div>
         </div>
       )}
+      <ConfirmModal 
+        isOpen={approveModalOpen}
+        title="Approve Driver Profile"
+        message="Approve this driver profile? This will activate their credentials and notify them."
+        variant="success"
+        confirmText="Approve Driver"
+        onConfirm={executeApproveSubmit}
+        onCancel={() => setApproveModalOpen(false)}
+      />
     </div>
   );
 }

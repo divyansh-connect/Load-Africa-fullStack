@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { adminService } from '../../services/adminService';
 import { socket } from '../../utils/socket';
+import ConfirmModal from '../../components/ui/ConfirmModal';
 
 export default function Drivers() {
   const navigate = useNavigate();
@@ -22,6 +23,8 @@ export default function Drivers() {
   
   // Real-time toast alert state
   const [liveAlert, setLiveAlert] = useState(null);
+  
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, reason: '' });
 
   const fetchDrivers = async () => {
     try {
@@ -82,24 +85,69 @@ export default function Drivers() {
     };
   }, [statusFilter, page, search]);
 
-  const handleAction = async (id, actionType) => {
+  const handleAction = (id, actionType) => {
+    if (actionType === 'APPROVE') {
+      setConfirmModal({
+        isOpen: true,
+        action: 'APPROVE',
+        id,
+        title: "Approve Driver Profile",
+        message: "Are you sure you want to approve this driver? They will gain access to the driver app.",
+        variant: "success",
+        confirmText: "Approve Driver",
+        showInput: false,
+        reason: ''
+      });
+    } else if (actionType === 'REJECT') {
+      setConfirmModal({
+        isOpen: true,
+        action: 'REJECT',
+        id,
+        title: "Reject Driver Profile",
+        message: "Please provide a reason for rejecting this driver profile.",
+        variant: "danger",
+        confirmText: "Reject Profile",
+        showInput: true,
+        inputPlaceholder: "Enter rejection reason...",
+        reason: ''
+      });
+    } else if (actionType === 'SUSPEND') {
+      setConfirmModal({
+        isOpen: true,
+        action: 'SUSPEND',
+        id,
+        title: "Suspend Driver Account",
+        message: "Please provide a reason for suspending this driver.",
+        variant: "danger",
+        confirmText: "Suspend Account",
+        showInput: true,
+        inputPlaceholder: "Enter suspension reason...",
+        reason: ''
+      });
+    }
+  };
+
+  const executeDriverAction = async () => {
+    const { action, id, reason, showInput } = confirmModal;
+    
+    if (showInput && !reason.trim()) {
+      alert("Please enter a reason.");
+      return;
+    }
+    
     try {
-      if (actionType === 'APPROVE') {
-        const confirmApprove = window.confirm("Approve this driver profile?");
-        if (!confirmApprove) return;
+      if (action === 'APPROVE') {
         await adminService.approveDriverProfile(id);
-      } else if (actionType === 'REJECT') {
-        const reason = prompt("Enter rejection reason:");
-        if (reason === null) return;
+      } else if (action === 'REJECT') {
         await adminService.rejectDriverProfile(id, reason);
-      } else if (actionType === 'SUSPEND') {
-        const reason = prompt("Enter suspension reason:");
-        if (reason === null) return;
+      } else if (action === 'SUSPEND') {
         await adminService.suspendDriverProfile(id, reason);
       }
       fetchDrivers();
     } catch (err) {
       alert("Failed to update status: " + (err.response?.data?.message || err.message));
+    } finally {
+      setConfirmModal({ isOpen: false, reason: '' });
     }
   };
 
@@ -353,6 +401,19 @@ export default function Drivers() {
           </div>
         </div>
       </div>
+      <ConfirmModal 
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        variant={confirmModal.variant}
+        confirmText={confirmModal.confirmText}
+        showInput={confirmModal.showInput}
+        inputValue={confirmModal.reason}
+        setInputValue={(val) => setConfirmModal(prev => ({ ...prev, reason: val }))}
+        inputPlaceholder={confirmModal.inputPlaceholder}
+        onConfirm={executeDriverAction}
+        onCancel={() => setConfirmModal({ isOpen: false, reason: '' })}
+      />
     </div>
   );
 }

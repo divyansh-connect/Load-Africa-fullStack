@@ -232,11 +232,16 @@ function QuoteCard({ booking, onAccept, onReject, actionLoading }) {
         </div>
       )}
 
-      {booking.status === 'CUSTOMER_ACCEPTED' || booking.status === 'BOOKING_CONFIRMED' || booking.status === 'QUOTE_ACCEPTED' || booking.status === 'PAYMENT_PENDING' || booking.status === 'PAYMENT_COMPLETED' || booking.status === 'PLANT_ASSIGNED' ? (
+      {booking.status === 'CUSTOMER_ACCEPTED' || booking.status === 'BOOKING_CONFIRMED' || booking.status === 'DRIVER_SEARCHING' || booking.status === 'QUOTE_ACCEPTED' || booking.status === 'PAYMENT_PENDING' || booking.status === 'PAYMENT_COMPLETED' || booking.status === 'PLANT_ASSIGNED' ? (
         <div className="p-4 border-t border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs text-emerald-700 font-bold">
-            <CheckCircle2 className="h-4 w-4" />
-            {booking.bookingType === 'Plant Hire' ? 'Quote accepted — processing booking' : 'Quote accepted — booking confirmed'}
+            {(booking.status === 'CUSTOMER_ACCEPTED' || booking.status === 'DRIVER_SEARCHING') ? (
+              <><Loader2 className="h-4 w-4 animate-spin text-blue-500" /><span className="text-blue-700">Finding closest available driver...</span></>
+            ) : booking.status === 'PAYMENT_PENDING' ? (
+              <><AlertCircle className="h-4 w-4 text-amber-500" /><span className="text-amber-700">Driver found! Awaiting your payment.</span></>
+            ) : (
+              <><CheckCircle2 className="h-4 w-4" />{booking.bookingType === 'Plant Hire' ? 'Quote accepted — processing booking' : 'Quote accepted — booking confirmed'}</>
+            )}
           </div>
           <button
             onClick={() => window.location.href = `/customer/booking-details/${booking.id}`}

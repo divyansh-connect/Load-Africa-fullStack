@@ -2,6 +2,7 @@
  * Enterprise Pricing Engine for Logistics
  * Simulates real-time quotation logic based on distance, weight, and vehicle category.
  */
+const mapService = require('./mapService');
 
 // Simulated vehicle base rates (per km)
 const VEHICLE_RATES = {
@@ -92,7 +93,47 @@ const recommendVehicles = (distanceKm, weightKg, requirements = []) => {
   return options.sort((a, b) => a.breakdown.grand_total - b.breakdown.grand_total);
 };
 
+/**
+ * Generates a quote directly from physical addresses by integrating with the MapService.
+ * This guarantees the frontend and backend utilize the exact same road-distance calculations.
+ */
+const generateQuoteFromAddresses = async (pickupAddress, deliveryAddress, weightKg, vehicleType = null, requirements = []) => {
+  try {
+    // 1. Geocode the textual addresses into Lat/Lng
+    const origin = await mapService.geocode(pickupAddress);
+    const destination = await mapService.geocode(deliveryAddress);
+
+    // 2. Resolve the exact route via OSRM/Google Provider
+    const route = await mapService.getRoute(origin, destination);
+    const distanceKm = route.distance / 1000;
+
+    // 3. Calculate Quotation
+    if (vehicleType) {
+      const quote = calculateDetailedQuote(distanceKm, weightKg, vehicleType, requirements);
+      return { 
+        ...quote, 
+        route_polyline: route.polyline, 
+        origin_coords: origin, 
+        dest_coords: destination,
+        exact_distance_km: distanceKm 
+      };
+    } else {
+      const quotes = recommendVehicles(distanceKm, weightKg, requirements);
+      return { 
+        quotes, 
+        route_polyline: route.polyline, 
+        origin_coords: origin, 
+        dest_coords: destination,
+        exact_distance_km: distanceKm 
+      };
+    }
+  } catch (error) {
+    throw new Error('Pricing Engine Map Error: ' + error.message);
+  }
+};
+
 module.exports = {
   calculateDetailedQuote,
-  recommendVehicles
+  recommendVehicles,
+  generateQuoteFromAddresses
 };

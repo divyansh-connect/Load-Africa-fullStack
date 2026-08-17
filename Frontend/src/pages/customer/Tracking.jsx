@@ -60,10 +60,21 @@ export default function Tracking() {
 
     // Connect socket
     const socket = io(SOCKET_URL);
+    socket.emit('join_booking', load.id);
 
-    socket.on(`telemetry_updated_${load.id}`, (data) => {
+    socket.on('location_update', (data) => {
       console.log('Real-time telemetry update:', data);
-      setTelemetry(data);
+      setTelemetry({
+        latitude: data.lat,
+        longitude: data.lng,
+        speed: data.speed,
+        heading: data.heading,
+        ...data.telemetry
+      });
+      // Optionally update status if it changed
+      if (data.status && data.status !== load.status) {
+        setLoad(prev => ({ ...prev, status: data.status }));
+      }
     });
 
     // Fallback: Poll booking details every 5 seconds

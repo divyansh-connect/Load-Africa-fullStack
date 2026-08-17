@@ -85,7 +85,7 @@ export default function Payment() {
         <div className="space-y-2">
           <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">Payment Successful!</h2>
           <p className="text-xs text-slate-500 font-semibold leading-relaxed">
-            Your payment for booking <strong className="text-slate-800 font-mono">#{id.slice(0, 8)}</strong> has been processed successfully. Your invoice is marked as PAID and the trip is finalized.
+            Your payment for booking <strong className="text-slate-800 font-mono">#{id.slice(0, 8)}</strong> has been processed successfully. Your invoice is marked as PAID and the trip is now ready to begin.
           </p>
         </div>
 

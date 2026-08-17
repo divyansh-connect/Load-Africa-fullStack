@@ -21,7 +21,12 @@ const getAvailableLoads = async (req, res) => {
         OR: [
           {
             status: 'DRIVER_SEARCHING',
+            assignments: { none: { status: 'PENDING' } }, // Open to all if no one is targeted
             applications: { none: { driver_id: driverId } }
+          },
+          {
+            status: 'DRIVER_SEARCHING',
+            assignments: { some: { driver_id: driverId, status: 'PENDING' } } // Targeted to this driver
           },
           {
             status: 'DRIVER_ASSIGNED',
@@ -77,20 +82,52 @@ const applyForLoad = async (req, res) => {
             assigned_by: req.user?.id || driverId
           }
         });
-        
-        await tx.booking.update({
-          where: { id: bookingId },
-          data: { status: 'DRIVER_ASSIGNED' }
-        });
       }
+      
+      // Update status to PAYMENT_PENDING for upfront payment flow
+      await tx.booking.update({
+        where: { id: bookingId },
+        data: { status: 'PAYMENT_PENDING' }
+      });
 
       await tx.trackingHistory.create({
-        data: { booking_id: bookingId, status: 'DRIVER_ASSIGNED', remarks: 'Driver accepted and assigned to load' }
+        data: { booking_id: bookingId, status: 'PAYMENT_PENDING', remarks: 'Driver accepted. Awaiting upfront customer payment.' }
       });
       
       await tx.activityLog.create({
-        data: { action: 'DRIVER_ASSIGNED', description: `Driver accepted booking ${bookingId}` }
+        data: { action: 'DRIVER_ACCEPTED', description: `Driver accepted booking ${bookingId}` }
       });
+
+      const b = await tx.booking.findUnique({
+        where: { id: bookingId },
+        include: { quotes: { orderBy: { created_at: 'desc' }, take: 1 } }
+      });
+
+      // Auto-generate invoice for upfront payment if not exists
+      const existingInvoice = await tx.invoice.findFirst({
+        where: { booking_id: bookingId }
+      });
+      
+      if (!existingInvoice) {
+        const payoutAmount = b.quotes.length > 0 ? Number(b.quotes[0].grand_total) : 1500;
+        const platformComm = payoutAmount * 0.10;
+        const driverPayout = payoutAmount * 0.90;
+
+        await tx.invoice.create({
+          data: {
+            invoice_no: `INV-${Math.floor(100000 + Math.random() * 900000)}`,
+            booking_id: bookingId,
+            customer_id: b.customer_id,
+            amount: payoutAmount - platformComm,
+            tax_amount: 0,
+            total_amount: payoutAmount,
+            platform_commission: platformComm,
+            payout_amount: driverPayout,
+            due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Due in 7 days
+            status: 'PENDING'
+          }
+        });
+      }
 
       await tx.driver.update({
         where: { id: driverId },

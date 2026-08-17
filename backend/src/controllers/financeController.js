@@ -35,35 +35,42 @@ const verifyPODAndReleasePayment = async (req, res) => {
     const driverPayout = payoutAmount * 0.90;
 
     await prisma.$transaction(async (tx) => {
-      // 1. Mark booking as PAYMENT_PENDING
+      // 1. Mark booking as COMPLETED
       await tx.booking.update({
         where: { id: bookingId },
-        data: { status: 'PAYMENT_PENDING' }
+        data: { status: 'COMPLETED' }
       });
 
       // 2. Add to Tracking
       await tx.trackingHistory.create({
-        data: { booking_id: bookingId, status: 'PAYMENT_PENDING', remarks: 'Broker verified POD. Invoice raised. Awaiting customer payment.' }
+        data: { booking_id: bookingId, status: 'COMPLETED', remarks: 'POD verified. Trip completed. Funds released to transporter.' }
       });
 
-      // 3. Create Invoice in PENDING status
-      await tx.invoice.create({
-        data: {
-          invoice_no: `INV-${Math.floor(100000 + Math.random() * 900000)}`,
-          booking_id: bookingId,
-          customer_id: booking.customer_id,
-          amount: payoutAmount - platformComm,
-          tax_amount: 0,
-          total_amount: payoutAmount,
-          platform_commission: platformComm,
-          payout_amount: driverPayout,
-          due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Due in 7 days
-          status: 'PENDING'
+      // 3. Move funds from pending to balance for the provider
+      let providerUserId = null;
+      if (assignment.driver_id && !assignment.fleet_owner_id) {
+        const driver = await tx.driver.findUnique({ where: { id: assignment.driver_id } });
+        providerUserId = driver?.user_id;
+      } else if (assignment.fleet_owner_id) {
+        const fleet = await tx.fleetOwner.findUnique({ where: { id: assignment.fleet_owner_id } });
+        providerUserId = fleet?.user_id;
+      }
+      
+      if (providerUserId) {
+        let pWallet = await tx.wallet.findFirst({ where: { user_id: providerUserId } });
+        if (pWallet && pWallet.pending_balance >= driverPayout) {
+          await tx.wallet.update({
+            where: { id: pWallet.id },
+            data: { 
+              pending_balance: { decrement: driverPayout },
+              balance: { increment: driverPayout }
+            }
+          });
         }
-      });
+      }
     });
 
-    res.status(200).json({ success: true, message: 'POD Verified and Invoice Raised. Awaiting customer payment.' });
+    res.status(200).json({ success: true, message: 'POD Verified and Trip Completed. Funds released to transporter.' });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }
@@ -178,15 +185,15 @@ const processPayment = async (req, res) => {
         data: { status: 'PAID' }
       });
 
-      // 3. Mark Booking as COMPLETED
+      // 3. Mark Booking as DRIVER_ASSIGNED (Trip is ready to start)
       await tx.booking.update({
         where: { id: invoice.booking_id },
-        data: { status: 'COMPLETED' }
+        data: { status: 'DRIVER_ASSIGNED' }
       });
 
       // Add to tracking
       await tx.trackingHistory.create({
-        data: { booking_id: invoice.booking_id, status: 'COMPLETED', remarks: 'Customer completed payment. Trip finalized.' }
+        data: { booking_id: invoice.booking_id, status: 'DRIVER_ASSIGNED', remarks: 'Customer completed upfront payment. Trip is now ready to begin.' }
       });
 
       // 4. Commission Split Logic
@@ -247,7 +254,8 @@ const processPayment = async (req, res) => {
           
           await tx.wallet.update({
             where: { id: pWallet.id },
-            data: { balance: { increment: providerAmount } }
+            data: { pending_balance: { increment: providerAmount } } // Put in pending_balance until POD is verified
+
           });
           await tx.walletTransaction.create({
             data: {

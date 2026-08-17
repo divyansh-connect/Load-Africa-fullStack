@@ -671,9 +671,7 @@ export default function CreateBooking() {
         </div>
 
         {/* ── RIGHT COLUMN: Live Map + Route Stats ── */}
-        <div className="space-y-4">
-          {/* Sticky wrapper on desktop */}
-          <div className="lg:sticky lg:top-6 space-y-4">
+        <div className="space-y-4 lg:sticky lg:top-24 self-start w-full">
 
             {/* Map preview */}
             <div>
@@ -733,7 +731,6 @@ export default function CreateBooking() {
               ))}
             </div>
           </div>
-        </div>
 
       </div>
     </div>

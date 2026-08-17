@@ -61,6 +61,44 @@ export default function LoadAfricaMap({
     }
   }
 
+  // Split polyline into completed and remaining paths
+  let completedPath = [];
+  let remainingPath = parsedPolyline;
+
+  if (currentCoords?.lat && currentCoords?.lng && parsedPolyline.length > 0 && status !== 'DELIVERED') {
+    let closestIdx = 0;
+    let minDistance = Infinity;
+
+    // Calculate Haversine distance
+    const getDist = (lat1, lon1, lat2, lon2) => {
+      const R = 6371e3;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+    };
+
+    parsedPolyline.forEach((coord, idx) => {
+      const dist = getDist(currentCoords.lat, currentCoords.lng, coord[0], coord[1]);
+      if (dist < minDistance) {
+        minDistance = dist;
+        closestIdx = idx;
+      }
+    });
+
+    completedPath = parsedPolyline.slice(0, closestIdx + 1);
+    remainingPath = parsedPolyline.slice(closestIdx);
+    
+    // Lock the join exact at the truck's current coordinate for visual smoothness
+    completedPath.push([currentCoords.lat, currentCoords.lng]);
+    remainingPath.unshift([currentCoords.lat, currentCoords.lng]);
+  } else if (status === 'DELIVERED') {
+    completedPath = parsedPolyline;
+    remainingPath = [];
+  }
+
   // Build bounds array to fit everything
   const bounds = [];
   if (pickupCoords?.lat && pickupCoords?.lng) bounds.push([pickupCoords.lat, pickupCoords.lng]);
@@ -144,10 +182,20 @@ export default function LoadAfricaMap({
           />
         )}
 
-        {/* Route Path Polyline */}
-        {parsedPolyline && parsedPolyline.length > 0 && (
+        {/* Completed Route Path Polyline (Gray) */}
+        {completedPath.length > 0 && (
           <Polyline 
-            positions={parsedPolyline} 
+            positions={completedPath} 
+            color="#94a3b8" 
+            weight={4.5} 
+            opacity={0.8}
+          />
+        )}
+
+        {/* Remaining Route Path Polyline (Amber/Dashed) */}
+        {remainingPath.length > 0 && (
+          <Polyline 
+            positions={remainingPath} 
             color="#f59e0b" 
             weight={4.5} 
             opacity={0.8}

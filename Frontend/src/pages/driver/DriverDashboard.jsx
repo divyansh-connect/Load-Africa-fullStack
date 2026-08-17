@@ -5,6 +5,7 @@ import {
   ChevronRight, AlertCircle, Shield, CheckCircle2, User, Phone, Clipboard, Video, Info, Lock, RefreshCw
 } from 'lucide-react';
 import { driverService } from '../../services/driverService';
+import { socket } from '../../utils/socket';
 
 export default function DriverDashboard() {
   const [loading, setLoading] = useState(true);
@@ -12,47 +13,87 @@ export default function DriverDashboard() {
   const [activeTrip, setActiveTrip] = useState(null);
   const [availableLoads, setAvailableLoads] = useState([]);
   const [history, setHistory] = useState([]);
+  const [availabilityHistory, setAvailabilityHistory] = useState([]);
   const [isOnline, setIsOnline] = useState(false);
   const [gpsCoords, setGpsCoords] = useState(null);
+  const [watchId, setWatchId] = useState(null);
+
+  const handleToggleOnline = () => {
+    if (!isOnline) {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            // Permission granted
+            setIsOnline(true);
+          },
+          (err) => {
+            alert("Location permission is required to go online. Please enable GPS in your browser settings.");
+          }
+        );
+      } else {
+        alert("Geolocation is not supported by your browser.");
+      }
+    } else {
+      setIsOnline(false);
+    }
+  };
 
   useEffect(() => {
-    const syncStatus = async () => {
-      if (isOnline) {
-        if (navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition(
-            async (pos) => {
-              const lat = pos.coords.latitude;
-              const lng = pos.coords.longitude;
-              setGpsCoords({ lat, lng });
-              try {
-                await driverService.toggleOnline(true, lat, lng);
-              } catch (e) {
-                console.error("Failed to update GPS online status", e);
+    let id = null;
+
+    if (isOnline) {
+      if (navigator.geolocation) {
+        id = navigator.geolocation.watchPosition(
+          async (pos) => {
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+            const speed = pos.coords.speed || 0;
+            const heading = pos.coords.heading || 0;
+            
+            setGpsCoords({ lat, lng, heading, speed });
+            
+            try {
+              // Keep driver availability updated
+              await driverService.toggleOnline(true, lat, lng);
+              
+              // If on an active trip, emit telemetry via secure sockets
+              if (activeTrip?.id) {
+                const userObj = JSON.parse(localStorage.getItem('user') || '{}');
+                socket.emit('driver_location_update', {
+                  bookingId: activeTrip.id,
+                  driverId: userObj.id,
+                  lat,
+                  lng,
+                  speed: speed * 3.6, // m/s to km/h
+                  heading
+                });
               }
-            },
-            async () => {
-              const lat = -26.2041;
-              const lng = 28.0473;
-              setGpsCoords({ lat, lng });
-              try {
-                await driverService.toggleOnline(true, lat, lng);
-              } catch (e) {
-                console.error("Failed to update GPS fallback status", e);
-              }
+            } catch (e) {
+              console.error("GPS emit error", e);
             }
-          );
-        }
-      } else {
-        setGpsCoords(null);
-        try {
-          await driverService.toggleOnline(false, null, null);
-        } catch (e) {
-          console.error("Failed to update GPS offline status", e);
-        }
+          },
+          (err) => {
+            console.error("Watch position error:", err);
+          },
+          { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
+        );
+        setWatchId(id);
+      }
+    } else {
+      setGpsCoords(null);
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+        setWatchId(null);
+      }
+      driverService.toggleOnline(false, null, null).catch(e => console.error(e));
+    }
+
+    return () => {
+      if (id !== null) {
+        navigator.geolocation.clearWatch(id);
       }
     };
-    syncStatus();
-  }, [isOnline]);
+  }, [isOnline, activeTrip]);
 
   // Onboarding verification checks (local state for wizard)
   const [onboardingCompleted, setOnboardingCompleted] = useState(true); // default true, loaded from profile
@@ -94,7 +135,12 @@ export default function DriverDashboard() {
 
       if (tripRes.success) setActiveTrip(tripRes.data);
       if (loadsRes.success) setAvailableLoads(loadsRes.data);
-      if (histRes.success) setHistory(histRes.data);
+      if (histRes.success) {
+        setHistory(histRes.data);
+        if (histRes.availabilityHistory) {
+          setAvailabilityHistory(histRes.availabilityHistory);
+        }
+      }
 
     } catch (err) {
       console.error("Failed to load driver dashboard", err);
@@ -405,7 +451,7 @@ export default function DriverDashboard() {
         </div>
         
         <button
-          onClick={() => setIsOnline(!isOnline)}
+          onClick={handleToggleOnline}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all border ${
             isOnline
               ? 'bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-500/20 cursor-pointer'
@@ -433,6 +479,55 @@ export default function DriverDashboard() {
             </div>
           );
         })}
+      </div>
+
+      {/* Compliance & Performance Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Uniform Compliance */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 flex items-center justify-between shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-3">
+            <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${dashboardData?.compliance?.uniformAndHygiene ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+              <User className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-sm font-black text-slate-900 leading-none">Uniform & Hygiene</p>
+              <p className="text-[10px] text-slate-500 font-semibold mt-1">Daily Introspection</p>
+            </div>
+          </div>
+          <div className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${dashboardData?.compliance?.uniformAndHygiene !== false ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-red-100 text-red-800 border-red-200'}`}>
+            {dashboardData?.compliance?.uniformAndHygiene !== false ? 'Compliant' : 'Action Req'}
+          </div>
+        </div>
+
+        {/* Documentation Compliance */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 flex items-center justify-between shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-3">
+            <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${dashboardData?.compliance?.documentation ? 'bg-indigo-50 text-indigo-600' : 'bg-red-50 text-red-600'}`}>
+              <Clipboard className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-sm font-black text-slate-900 leading-none">Documentation</p>
+              <p className="text-[10px] text-slate-500 font-semibold mt-1">License & Permits</p>
+            </div>
+          </div>
+          <div className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${dashboardData?.compliance?.documentation !== false ? 'bg-indigo-100 text-indigo-800 border-indigo-200' : 'bg-red-100 text-red-800 border-red-200'}`}>
+            {dashboardData?.compliance?.documentation !== false ? 'Verified' : 'Expired'}
+          </div>
+        </div>
+
+        {/* DOT Score */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 flex items-center justify-between shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
+              <Shield className="h-5 w-5 text-amber-600" />
+            </div>
+            <div>
+              <p className="text-sm font-black text-slate-900 leading-none">DOT Performance</p>
+              <p className="text-[10px] text-slate-500 font-semibold mt-1">Safety & Compliance</p>
+            </div>
+          </div>
+          <p className="text-xl font-black text-amber-600">{dashboardData?.performance?.dotScore || '100'}%</p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -646,7 +741,25 @@ export default function DriverDashboard() {
                     <span className="text-slate-700 font-semibold truncate">{activeTrip.delivery_address}</span>
                   </div>
                 </div>
-                <p className="text-[10px] text-blue-600 font-semibold">{activeTrip.cargo_name} · {activeTrip.weight} kg</p>
+                <div className="bg-white/60 p-2 rounded-lg border border-blue-100 space-y-1.5">
+                  <div className="flex justify-between text-[10px]">
+                    <span className="text-slate-500 font-semibold">Arrive:</span>
+                    <span className="text-slate-800 font-bold">{activeTrip.arrive_time ? new Date(activeTrip.arrive_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '--:--'}</span>
+                  </div>
+                  <div className="flex justify-between text-[10px]">
+                    <span className="text-slate-500 font-semibold">Collection:</span>
+                    <span className="text-slate-800 font-bold">{activeTrip.collection_time ? new Date(activeTrip.collection_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '--:--'}</span>
+                  </div>
+                  <div className="flex justify-between text-[10px]">
+                    <span className="text-slate-500 font-semibold">Depart:</span>
+                    <span className="text-slate-800 font-bold">{activeTrip.depart_time ? new Date(activeTrip.depart_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '--:--'}</span>
+                  </div>
+                  <div className="flex justify-between text-[10px]">
+                    <span className="text-slate-500 font-semibold">Dest Arrive:</span>
+                    <span className="text-slate-800 font-bold">{activeTrip.destination_arrive_time ? new Date(activeTrip.destination_arrive_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '--:--'}</span>
+                  </div>
+                </div>
+                <p className="text-[10px] text-blue-600 font-semibold">{activeTrip.cargo_name} · <span className="font-black text-blue-800 bg-blue-100 px-1 rounded">Weight: {activeTrip.weight} kg</span></p>
                 <button className="w-full mt-1 py-2 bg-blue-600 text-white rounded-lg text-[10px] font-bold uppercase shadow-sm">Open Trip Details</button>
               </div>
               );
@@ -711,6 +824,38 @@ export default function DriverDashboard() {
               </div>
               );
             })
+          )}
+        </div>
+      </div>
+
+      {/* Availability History */}
+      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden mt-6">
+        <div className="flex items-center justify-between p-4 border-b border-slate-100">
+          <h2 className="text-sm font-extrabold text-slate-850 uppercase tracking-wide">Availability History</h2>
+          <span className="text-[10px] text-slate-500 font-semibold bg-slate-100 px-2 py-0.5 rounded-full">Triggers to False Status</span>
+        </div>
+        <div className="divide-y divide-slate-50">
+          {availabilityHistory.length === 0 ? (
+            <div className="p-6 text-center text-slate-500 text-xs font-bold">No availability triggers logged.</div>
+          ) : (
+            availabilityHistory.map((log) => (
+              <div key={log.id} className="flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200">
+                    <ToggleLeft className="h-4 w-4 text-slate-400" />
+                  </div>
+                  <div className="space-y-0.5">
+                    <p className="text-xs font-bold text-slate-800">Status Triggered: Offline</p>
+                    <p className="text-[10px] text-slate-500 font-semibold">{new Date(log.timestamp).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })} — <span className="italic">{log.reason}</span></p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider border bg-slate-100 text-slate-600 border-slate-200">
+                    {log.status}
+                  </span>
+                </div>
+              </div>
+            ))
           )}
         </div>
       </div>

@@ -7,6 +7,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { adminService } from '../../services/adminService';
 import { fleetService } from '../../services/fleetService';
+import ConfirmModal from '../../components/ui/ConfirmModal';
 
 export default function PlantOwners() {
   const navigate = useNavigate();
@@ -20,6 +21,7 @@ export default function PlantOwners() {
   const [ownerTotalPages, setOwnerTotalPages] = useState(1);
   const [totalOwners, setTotalOwners] = useState(0);
   const [ownersError, setOwnersError] = useState(null);
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false });
 
   // Tab 2: Applications State
   const [searchApp, setSearchApp] = useState('');
@@ -94,10 +96,21 @@ export default function PlantOwners() {
     }
   };
 
-  const handleOwnerDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this plant owner?")) return;
+  const handleOwnerDelete = (id) => {
+    setConfirmModal({
+      isOpen: true,
+      action: 'DELETE_OWNER',
+      id,
+      title: "Delete Plant Owner",
+      message: "Are you sure you want to delete this plant owner? This action cannot be undone.",
+      variant: "danger",
+      confirmText: "Delete Owner"
+    });
+  };
+
+  const executeOwnerDelete = async () => {
     try {
-      const res = await adminService.deleteUser(id);
+      const res = await adminService.deleteUser(confirmModal.id);
       if (res.success) {
         alert("Owner deleted successfully");
         fetchOwners();
@@ -106,6 +119,8 @@ export default function PlantOwners() {
       }
     } catch (err) {
       alert(err.response?.data?.message || err.message || "Deletion failed");
+    } finally {
+      setConfirmModal({ isOpen: false });
     }
   };
 
@@ -620,6 +635,15 @@ export default function PlantOwners() {
           </form>
         </div>
       )}
+      <ConfirmModal 
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        variant={confirmModal.variant}
+        confirmText={confirmModal.confirmText}
+        onConfirm={executeOwnerDelete}
+        onCancel={() => setConfirmModal({ isOpen: false })}
+      />
     </div>
   );
 }

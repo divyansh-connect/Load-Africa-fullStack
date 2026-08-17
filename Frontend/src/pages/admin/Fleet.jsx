@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, Eye, CheckCircle2, XCircle, Trash2, PauseCircle, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { adminService } from '../../services/adminService';
+import ConfirmModal from '../../components/ui/ConfirmModal';
 
 export default function Fleet() {
   const [search, setSearch] = useState('');
@@ -13,6 +14,7 @@ export default function Fleet() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalFleets, setTotalFleets] = useState(0);
   const [error, setError] = useState(null);
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false });
 
   const fetchFleets = async () => {
     try {
@@ -40,8 +42,16 @@ export default function Fleet() {
   const handleAction = async (id, newStatus) => {
     try {
       if (newStatus === 'DELETE') {
-        if (!window.confirm("Are you sure you want to delete this fleet account?")) return;
-        await adminService.deleteUser(id);
+        setConfirmModal({
+          isOpen: true,
+          action: 'DELETE',
+          id,
+          title: "Delete Fleet Account",
+          message: "Are you sure you want to delete this fleet account? This action cannot be undone.",
+          variant: "danger",
+          confirmText: "Delete Account"
+        });
+        return;
       } else if (newStatus === 'ACTIVE') {
         await adminService.approveUser(id);
       } else if (newStatus === 'REJECTED' || newStatus === 'SUSPENDED') {
@@ -50,6 +60,19 @@ export default function Fleet() {
       fetchFleets();
     } catch (err) {
       alert("Failed to update status");
+    }
+  };
+
+  const executeConfirmAction = async () => {
+    try {
+      if (confirmModal.action === 'DELETE') {
+        await adminService.deleteUser(confirmModal.id);
+        fetchFleets();
+      }
+    } catch (err) {
+      alert("Failed to execute action");
+    } finally {
+      setConfirmModal({ isOpen: false });
     }
   };
 
@@ -189,6 +212,15 @@ export default function Fleet() {
           </div>
         </div>
       </div>
+      <ConfirmModal 
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        variant={confirmModal.variant}
+        confirmText={confirmModal.confirmText}
+        onConfirm={executeConfirmAction}
+        onCancel={() => setConfirmModal({ isOpen: false })}
+      />
     </div>
   );
 }
