@@ -3,7 +3,7 @@ import Footer from '../components/Footer';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Truck, Bike, Car, Sofa, Milestone, Droplet
+  Truck, Bike, Car, Sofa, Milestone, Droplet, ArrowLeft
 } from 'lucide-react';
 import { Card } from '../components/ui';
 
@@ -35,40 +35,49 @@ export default function Fleet() {
       
       <Navbar />
 
-      {/* Main Content Area */}
-      <main className="max-w-7xl mx-auto px-6 pt-20 pb-2 text-left space-y-8">
-        <div className="space-y-3.5">
-          <span className="text-[#f99c00] font-bold text-xs uppercase tracking-wider block">
-            OUR FLEET
-          </span>
-          <h1 className="text-4xl sm:text-5xl font-black text-slate-955 leading-tight uppercase max-w-4xl tracking-tight">
-            EVERY VEHICLE FOR EVERY LOAD
-          </h1>
-          <p className="text-sm text-slate-500 font-bold leading-relaxed max-w-3xl">
-            From small bakkies for parcel courier runs to 34-ton side tippers for mining haulage — LoadAfrica's network covers it all across South Africa.
-          </p>
-          <div className="flex flex-wrap gap-4">
-            <button
-              onClick={() => navigate('/login')}
-              className="px-6 py-3.5 bg-[#f99c00] hover:bg-[#e08b00] text-slate-955 font-black rounded text-xs uppercase tracking-wider"
-            >
-              BOOK A LOAD
-            </button>
-            <button
-              onClick={() => navigate('/')}
-              className="px-6 py-3.5 border border-slate-300 hover:bg-[#f99c00] hover:border-[#f99c00] hover:text-black text-slate-700 font-black rounded text-xs tracking-wider transition-colors"
-            >
-              Request Quote
-            </button>
-            <button
-              onClick={() => navigate('/fleet/register')}
-              className="px-6 py-3.5 border border-[#f99c00] hover:bg-[#f99c00] hover:text-black text-[#f99c00] font-black rounded text-xs tracking-wider transition-colors uppercase"
-            >
-              LIST YOUR FLEET
-            </button>
+      {/* Hero Header Area */}
+      <div className="relative z-10 w-full overflow-hidden bg-slate-900 text-white border-b border-slate-800 py-12 lg:py-20 mt-16">
+        <main className="relative z-10 max-w-7xl mx-auto px-6 text-left space-y-6">
+          <button 
+            onClick={() => navigate('/')}
+            className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-wider mb-6"
+          >
+            <ArrowLeft className="w-4 h-4" /> Back to Home
+          </button>
+          
+          <div className="space-y-4">
+            <span className="text-[#f99c00] font-bold text-xs uppercase tracking-wider block">
+              OUR FLEET
+            </span>
+            <h1 className="text-4xl sm:text-5xl font-black text-white leading-tight uppercase max-w-4xl tracking-tight">
+              EVERY VEHICLE FOR EVERY LOAD
+            </h1>
+            <p className="text-sm sm:text-base text-slate-300 font-medium leading-relaxed max-w-3xl">
+              From small bakkies for parcel courier runs to 34-ton side tippers for mining haulage — LoadAfrica's network covers it all across South Africa.
+            </p>
+            <div className="flex flex-wrap gap-4 pt-4">
+              <button
+                onClick={() => navigate('/login')}
+                className="px-6 py-3.5 bg-[#f99c00] hover:bg-[#e08b00] text-slate-950 font-black rounded-lg text-xs uppercase tracking-wider"
+              >
+                BOOK A LOAD
+              </button>
+              <button
+                onClick={() => navigate('/')}
+                className="px-6 py-3.5 bg-slate-800 hover:bg-slate-700 text-white font-black rounded-lg text-xs tracking-wider uppercase border border-slate-700"
+              >
+                Request Quote
+              </button>
+              <button
+                onClick={() => navigate('/fleet/register')}
+                className="px-6 py-3.5 border border-[#f99c00] hover:bg-[#f99c00] hover:text-slate-950 text-[#f99c00] font-black rounded-lg text-xs tracking-wider transition-colors uppercase"
+              >
+                LIST YOUR FLEET
+              </button>
+            </div>
           </div>
-        </div>
-      </main>
+        </main>
+      </div>
 
       {/* Every Vehicle Section with light grey background */}
       <section className="bg-[#F0F2F6] w-full border-t border-b border-slate-200/60 pt-12 pb-20">

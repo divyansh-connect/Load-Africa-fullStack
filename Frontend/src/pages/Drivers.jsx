@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Truck, ShieldCheck, Mail, MessageSquare, Phone, Wallet, Calendar, Shield, User, Wrench, Building, MapPin, ArrowRight, Upload, CheckCircle2, ChevronDown, AlertCircle
+  Truck, ShieldCheck, Mail, MessageSquare, Phone, Wallet, Calendar, Shield, User, Wrench, Building, MapPin, ArrowRight, Upload, CheckCircle2, ChevronDown, AlertCircle, ArrowLeft
 } from 'lucide-react';
 import { Card, Input, Select, GooglePlacesInput } from '../components/ui';
 import Navbar from '../components/Navbar';
@@ -183,27 +183,41 @@ export default function Drivers() {
       <Navbar />
 
       {/* Hero Header Area */}
-      <main className="max-w-7xl mx-auto px-6 pt-24 pb-4 text-left space-y-6">
-        <div className="space-y-4">
-          <span className="text-[#f99c00] font-bold text-xs uppercase tracking-wider block">
-            FOR DRIVERS
-          </span>
-          <h1 className="text-4xl sm:text-5xl font-black text-slate-955 leading-tight uppercase max-w-4xl tracking-tight">
-            DRIVE WITH LOADAFRICA
-          </h1>
-          <p className="text-sm text-slate-500 font-bold leading-relaxed max-w-3xl">
-            Own a bakkie, truck, tipper or tanker? Get on South Africa's logistics load board and start earning across Gauteng, North West (Rustenburg) and Northern Cape.
-          </p>
-          <a
-            href="#onboarding-wizard"
-            className="inline-block px-6 py-3.5 bg-[#f99c00] hover:bg-[#e08b00] text-slate-955 font-black rounded text-xs uppercase tracking-wider"
+      <div className="relative z-10 w-full overflow-hidden bg-slate-900 text-white border-b border-slate-800 py-12 lg:py-20 mt-16">
+        <main className="relative z-10 max-w-7xl mx-auto px-6 text-left space-y-6">
+          <button 
+            onClick={() => navigate('/')}
+            className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-wider mb-6"
           >
-            REGISTER AS DRIVER
-          </a>
-        </div>
+            <ArrowLeft className="w-4 h-4" /> Back to Home
+          </button>
+          
+          <div className="space-y-4">
+            <span className="text-[#f99c00] font-bold text-xs uppercase tracking-wider block">
+              FOR DRIVERS
+            </span>
+            <h1 className="text-4xl sm:text-5xl font-black text-white leading-tight uppercase max-w-4xl tracking-tight">
+              DRIVE WITH LOADAFRICA
+            </h1>
+            <p className="text-sm sm:text-base text-slate-300 font-medium leading-relaxed max-w-3xl">
+              Own a bakkie, truck, tipper or tanker? Get on South Africa's logistics load board and start earning across Gauteng, North West (Rustenburg) and Northern Cape.
+            </p>
+            <div className="pt-4">
+              <a
+                href="#onboarding-wizard"
+                className="inline-block px-6 py-3.5 bg-[#f99c00] hover:bg-[#e08b00] text-slate-950 font-black rounded-lg text-xs uppercase tracking-wider"
+              >
+                REGISTER AS DRIVER
+              </a>
+            </div>
+          </div>
+        </main>
+      </div>
 
+      {/* Main Content Area */}
+      <main className="max-w-7xl mx-auto px-6 py-16 text-left">
         {/* 3 Benefits Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <Card className="bg-white border border-slate-200/80 p-8 text-left space-y-4 shadow-xs rounded-2xl">
             <div className="h-10 w-10 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
               <Wallet className="h-5 w-5" />

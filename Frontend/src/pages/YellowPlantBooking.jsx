@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Truck } from 'lucide-react';
+import { Truck, ArrowLeft } from 'lucide-react';
 import ProgressStepper from '../components/yellow-plant/ProgressStepper';
 import Step1ChooseMachine from '../components/yellow-plant/Step1ChooseMachine';
 import Step2BookingDetails from '../components/yellow-plant/Step2BookingDetails';
@@ -30,24 +30,40 @@ export default function YellowPlantBooking() {
       <Navbar />
 
 
-      {/* Main Container */}
-      <main className="max-w-4xl mx-auto px-6 pt-24 pb-12 text-center">
-        
-        {/* Title area */}
-        <div className="space-y-4 mb-10">
-          <h1 className="text-3xl sm:text-4xl font-black text-slate-955 uppercase tracking-tight">
-            YELLOW PLANT HIRE
-          </h1>
-          <p className="text-sm font-bold text-slate-500 max-w-lg mx-auto leading-relaxed">
-            Book heavy construction equipment at competitive hourly rates. All machines come with qualified operators.
-          </p>
+      {/* Hero Header Area */}
+      <div className="relative z-10 w-full overflow-hidden bg-slate-900 text-white border-b border-slate-800 py-12 lg:py-20 mt-16">
+        <main className="relative z-10 max-w-7xl mx-auto px-6 text-left space-y-6">
           <button 
-            onClick={() => navigate('/plant/register')} 
-            className="mt-2 inline-block px-6 py-2.5 border border-[#f99c00] text-[#f99c00] hover:bg-[#f99c00] hover:text-slate-950 font-black rounded text-xs tracking-wider transition-colors uppercase"
+            onClick={() => navigate('/')}
+            className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-wider mb-6"
           >
-            LIST YOUR PLANT
+            <ArrowLeft className="w-4 h-4" /> Back to Home
           </button>
-        </div>
+          
+          <div className="space-y-4">
+            <span className="text-[#f99c00] font-bold text-xs uppercase tracking-wider block">
+              YELLOW PLANT HIRE
+            </span>
+            <h1 className="text-4xl sm:text-5xl font-black text-white leading-tight uppercase max-w-4xl tracking-tight">
+              BOOK HEAVY CONSTRUCTION EQUIPMENT
+            </h1>
+            <p className="text-sm sm:text-base text-slate-300 font-medium leading-relaxed max-w-3xl">
+              Book heavy construction equipment at competitive hourly rates. All machines come with qualified operators.
+            </p>
+            <div className="pt-4">
+              <button 
+                onClick={() => navigate('/plant/register')} 
+                className="inline-block px-6 py-3.5 border border-[#f99c00] text-[#f99c00] hover:bg-[#f99c00] hover:text-slate-950 font-black rounded-lg text-xs tracking-wider transition-colors uppercase"
+              >
+                LIST YOUR PLANT
+              </button>
+            </div>
+          </div>
+        </main>
+      </div>
+
+      {/* Main Container */}
+      <main className="max-w-4xl mx-auto px-6 py-12 text-center">
 
         {/* Booking Card */}
         <div
