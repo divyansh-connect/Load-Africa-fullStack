@@ -150,12 +150,12 @@ export default function Home() {
 
       {/* Hero Section */}
       <div 
-        className="relative z-10 text-white w-full overflow-hidden border-b border-slate-900 bg-cover bg-center py-12 lg:py-16 mt-20"
+        className="relative z-10 text-white w-full overflow-hidden bg-cover bg-center pt-12 pb-28 lg:pt-16 lg:pb-36 mt-20"
         style={{ 
           backgroundImage: `linear-gradient(rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.85)), url('https://images.unsplash.com/photo-1501700493788-fa1a4fc9fe62?w=1600&q=80')`
         }}
       >
-        <section className="relative z-10 max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+        <section className="relative z-10 max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center mb-8">
           
           {/* Left info column */}
           <div className="text-left space-y-6 lg:col-span-6">
@@ -219,6 +219,13 @@ export default function Home() {
             </div>
           </div>
         </section>
+        
+        {/* Decorative Wave Divider */}
+        <div className="absolute bottom-0 left-0 right-0 w-full overflow-hidden leading-[0]">
+          <svg className="relative block w-[calc(100%+1.3px)] h-[50px] sm:h-[100px]" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 120" preserveAspectRatio="none">
+            <path d="M321.39,56.44c58-10.79,114.16-30.13,172-41.86,82.39-16.72,168.19-17.73,250.45-.39C823.78,31,906.67,72,985.66,92.83c70.05,18.48,146.53,26.09,214.34,3V120H0V95.8C49.71,114.73,103.1,119.5,155,116.14,213.1,112.35,268.49,84.45,321.39,56.44Z" fill="#ffffff"></path>
+          </svg>
+        </div>
       </div>
 
       {/* Booking Form Modal */}

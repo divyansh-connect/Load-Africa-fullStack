@@ -53,8 +53,8 @@ export default function Customers() {
       <Navbar />
 
       {/* Hero Header Area */}
-      <div className="relative z-10 w-full overflow-hidden bg-slate-900 text-white border-b border-slate-800 py-12 lg:py-20 mt-16">
-        <main className="relative z-10 max-w-7xl mx-auto px-6 text-left space-y-6">
+      <div className="relative z-10 w-full overflow-hidden bg-slate-900 text-white pt-12 pb-24 lg:pt-16 lg:pb-32 mt-16">
+        <main className="relative z-10 max-w-7xl mx-auto px-6 text-left space-y-6 mb-8">
           <button 
             onClick={() => navigate('/')}
             className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-wider mb-6"
@@ -88,6 +88,13 @@ export default function Customers() {
             </div>
           </div>
         </main>
+        
+        {/* Decorative Wave Divider */}
+        <div className="absolute bottom-0 left-0 right-0 w-full overflow-hidden leading-[0]">
+          <svg className="relative block w-[calc(100%+1.3px)] h-[40px] sm:h-[80px]" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 120" preserveAspectRatio="none">
+            <path d="M321.39,56.44c58-10.79,114.16-30.13,172-41.86,82.39-16.72,168.19-17.73,250.45-.39C823.78,31,906.67,72,985.66,92.83c70.05,18.48,146.53,26.09,214.34,3V120H0V95.8C49.71,114.73,103.1,119.5,155,116.14,213.1,112.35,268.49,84.45,321.39,56.44Z" fill="#ffffff"></path>
+          </svg>
+        </div>
       </div>
 
       {/* Main Content Area */}
