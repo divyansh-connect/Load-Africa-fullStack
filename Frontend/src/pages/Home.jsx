@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Truck, ArrowRight, Star, ChevronDown, CheckCircle2, ShieldCheck,
   MapPin, Scale, MessageSquare, Phone, Mail, Building, Plus, UserCheck, Users,
-  Play, Zap, Shield, FileText, Bike, Car, HardHat, Hammer, Trash, Sofa, Milestone, Droplet, Compass
+  Play, Zap, Shield, FileText, Bike, Car, HardHat, Hammer, Trash, Sofa, Milestone, Droplet, Compass, X
 } from 'lucide-react';
 import { Button, Input, Select, Card, GooglePlacesInput } from '../components/ui';
 import Footer from '../components/Footer';
@@ -25,6 +25,7 @@ export default function Home() {
   // Stepper flow states
   const [currentStep, setCurrentStep] = useState(1); // 1: Book, 2: Quote, 3: Details, 4: Success
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
 
   // Customer/Payment Details state
   const [customerName, setCustomerName] = useState('Patrice Motsepe');
@@ -161,9 +162,8 @@ export default function Home() {
             <span className="text-[#EF9A30] font-bold text-xs uppercase tracking-wider block">
               LOADAFRICA LOGISTICS — SOUTH AFRICA
             </span>
-
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white leading-tight uppercase max-w-2xl">
-              LOADAFRICA LOGISTICS — BOOK BAKKIES, TRUCKS & TRANSPORT ACROSS SOUTH AFRICA
+            <h1 className="text-4xl sm:text-5xl lg:text-5xl font-black text-white leading-tight tracking-tight max-w-2xl">
+              Book Bakkies, Trucks & Transport Across South Africa
             </h1>
 
             <p className="text-sm sm:text-base text-slate-300 font-medium leading-relaxed max-w-xl">
@@ -175,7 +175,7 @@ export default function Home() {
               <button
                 onClick={(e) => {
                   e.preventDefault();
-                  document.getElementById('quote-card')?.scrollIntoView({ behavior: 'smooth' });
+                  setIsBookingModalOpen(true);
                 }}
                 className="px-4 py-3 bg-[#EF9A30] hover:bg-[#e08b00] text-slate-900 font-bold rounded-lg text-center text-xs tracking-wider transition-colors uppercase shadow-sm"
               >
@@ -205,8 +205,35 @@ export default function Home() {
             </div>
           </div>
 
+
+          {/* Right Image column */}
+          <div className="lg:col-span-6 relative hidden lg:block cursor-pointer transition-transform hover:scale-[1.02]" onClick={() => setIsBookingModalOpen(true)}>
+            <img 
+              src="https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=800&q=80" 
+              alt="Logistics Truck" 
+              className="rounded-3xl shadow-2xl border border-white/20 w-full h-[520px] object-cover" 
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/20 to-transparent rounded-3xl flex flex-col justify-end p-10">
+               <h3 className="text-white text-3xl font-black uppercase mb-2 drop-shadow-lg">Ready to move?</h3>
+               <p className="text-slate-200 font-medium text-sm max-w-sm drop-shadow">Click here to get an instant quote and book verified transport across South Africa in minutes.</p>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      {/* Booking Form Modal */}
+      {isBookingModalOpen && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 sm:p-6 bg-slate-900/70 backdrop-blur-sm overflow-y-auto">
+          <div className="relative w-full max-w-xl mx-auto my-auto animate-scaleIn">
+            {/* Close button */}
+            <button 
+              onClick={() => setIsBookingModalOpen(false)}
+              className="absolute top-4 right-4 z-50 p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 rounded-full transition-colors"
+            >
+              <X className="h-5 w-5" />
+            </button>
           {/* Right quotation card column */}
-          <div id="quote-card" className="lg:col-span-6 relative">
+          <div id="quote-card" className="relative">
             <div className="bg-white rounded-2xl shadow-xl p-10 text-left border border-slate-100 text-slate-900 relative z-10">
               <h3 className="text-lg font-black text-slate-955 uppercase tracking-tight">
                 BOOK TRANSPORT
@@ -506,6 +533,11 @@ export default function Home() {
 
             </div>
           </div>
+
+
+          </div>
+        </div>
+      )}
 
           {/* Secure Payment Gateway Modal */}
           {isPaymentModalOpen && (
